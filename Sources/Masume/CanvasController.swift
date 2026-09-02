@@ -390,6 +390,14 @@ final class CanvasController {
         return doc.elements[i].pixelateAmount != nil
     }
 
+    /// True when the size slider edits a font size: the text or callout tool
+    /// is active or a text element is selected. Lets the palette show a
+    /// text-size icon instead of the stroke-weight one.
+    var sliderEditsTextSize: Bool {
+        if tool.strokeWidthGroup == .text { return true }
+        return selectionIsText
+    }
+
     /// True when the opacity control applies: the pen tool is active or a
     /// pen stroke is selected.
     var editsPenOpacity: Bool {

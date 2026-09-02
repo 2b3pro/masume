@@ -302,7 +302,11 @@ struct ToolPalette: View {
 
     private var palette: some View {
         let editsPixelate = controller.sliderEditsPixelateAmount
-        let sliderSymbol = editsPixelate ? Tool.pixelate.symbol : "lineweight"
+        let editsTextSize = controller.sliderEditsTextSize
+        // The one slider drives stroke width, pixel size, or font size; its
+        // icon and label say which.
+        let sliderSymbol = editsPixelate ? Tool.pixelate.symbol : (editsTextSize ? "textformat.size" : "lineweight")
+        let sliderHelp = editsPixelate ? "Pixel size" : (editsTextSize ? "Font size" : "Stroke width")
         return VStack(spacing: 4) {
             ForEach(Tool.allCases) { tool in
                 toolTile(tool)
@@ -331,7 +335,7 @@ struct ToolPalette: View {
                 tileIcon(sliderSymbol, tint: MiroTheme.textSecondary(scheme))
             }
             .buttonStyle(MiroTileButtonStyle())
-            .help(editsPixelate ? "Pixel size" : "Stroke width")
+            .help(sliderHelp)
             .popover(isPresented: $showsStrokeWidth, arrowEdge: .trailing) {
                 HStack(spacing: 8) {
                     Image(systemName: sliderSymbol)

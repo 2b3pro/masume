@@ -137,17 +137,18 @@ One command service inside the app, JSON in and JSON out, is the only way any su
 
 | Surface | For | Reaches the service by |
 |---|---|---|
-| MCP server | agent hosts, interactive collaboration | spawning the `masume` CLI |
+| MCP server (stdio or Streamable HTTP) | agent hosts, interactive collaboration | spawning the `masume` CLI |
 | `masume` CLI | shells, schedulers, CI, scripts, and humans at a terminal | Apple Events while the app runs; the model and renderer libraries offline |
 | AppleScript / JXA | Script Editor, Automator, and later Shortcuts through App Intents | the `execute` verb directly |
 
 ### Transport
 
-Masume is a running GUI application, while agent hosts launch MCP servers as stdio child processes and automation runs from a shell, so a bridge between the app and the outside is required. Version one uses Apple Events for every live call.
+Masume is a running GUI application, while agent hosts launch MCP servers as stdio child processes or connect to them over HTTP, and automation runs from a shell, so a bridge between the app and the outside is required. Version one uses Apple Events for every live call.
 
 - Masume ships a scripting definition (`Masume.sdef`) and sets `NSAppleScriptEnabled` and `OSAScriptingDefinition` in `Info.plist`. Apple Events are handled by the existing `AppDelegate`.
 - The `masume` CLI is a Swift executable target in this package. Its live subcommands send one Apple Event each to the running app and print the JSON envelope; its offline subcommands open a `.masume` package or an image with the model and renderer libraries and never touch the app. It holds no document state.
 - The MCP server is a separate TypeScript process that maps each tool call onto one `masume` invocation, parses the envelope, and returns it as the tool result. It holds no document state and implements no document logic. Spawning the CLI rather than `osascript` keeps the JXA layer out of the agent path and gives the Automation grant a stable binary to attach to (see the operational notes).
+- The MCP server speaks both transports the MCP specification defines, over one set of tool handlers. stdio is the default and what a host that spawns the server gets. Streamable HTTP is opt-in (`--http <port>`) for hosts that connect to a running server, such as a long-lived session, a remote agent reaching the Mac over a tunnel, or several clients sharing one server. The HTTP listener binds to loopback only, requires a bearer token generated at start (printed once, or supplied with `--token`), and validates the `Origin` header as the MCP specification requires, so the objections to an in-app port (DNS rebinding, any local process, no authentication) do not apply to it. The app itself still opens no port; the only listener on the machine is the MCP server, and it is off unless asked for.
 - AppleScript and JXA clients share the same `execute` surface directly; nothing is available to them that the CLI lacks, and vice versa.
 - The scripting surface is thin. Each document exposes read-only properties: `id`, `revision`, `name`, canvas width and height, grid columns, rows, and version, and `dirty`. The application exposes `active document`. All operations go through one verb, `execute`, which takes a JSON command string and returns a JSON envelope of the form `{ "ok": true, "result": ... }` or `{ "ok": false, "error": { "code": ..., "message": ... } }`. Error codes are `conflict`, `not_found`, `invalid_address`, `invalid_argument`, `unsupported`, and `io`. Malformed JSON is the only condition reported as an Apple Event error.
 - Every MCP tool and every live CLI subcommand maps one-to-one onto a command name handled by the command service extracted in Phase 3. The UI, the `execute` verb, and any future transport call that same service; no transport may implement a command on its own. The CLI in particular adds no defaults, fallbacks, or retries of its own: a behavior available in a shell must be available to MCP and AppleScript by the same name.
@@ -326,6 +327,7 @@ Version one is complete when all of the following are demonstrably true:
 - Tier selection and count derivation for representative sizes: a 200 by 200 icon, 1440 by 900, 2880 by 1800, 1170 by 2532 portrait, 3840 by 2160, and each tier boundary; stored counts survive a change to the tier table.
 - Apple Event round trip: `osascript` reads document properties and calls `execute` for a create, a conflict, and a base-image crop, checking the JSON envelope and error codes. This is an integration test against the built app and may be excluded from the unit suite.
 - CLI mirror: every live subcommand produces the same command JSON the MCP server produces for the same input, checked against a table in the unit suite without a running app. CLI exit codes map one-to-one onto envelope error codes, and "not running" is distinguishable from every error the app can return.
+- MCP transports: the same tool-call fixture passes over stdio and over Streamable HTTP; the HTTP listener rejects a missing or wrong bearer token and a foreign `Origin`, and refuses to bind to anything but loopback.
 - CLI offline: `info`, `export`, `resolve --file`, and `new` against fixture packages; `export` matches the renderer's output byte for byte; an offline write to a package the app has open is refused with `conflict`.
 - Project round-trip, schema migration, corruption, checksum mismatch, duplicate IDs, atomic-save failure, and newer-version rejection.
 - Redaction safety: flattened exports contain only rendered pixels; editable projects trigger disclosure and retain the original by design.

@@ -8,7 +8,7 @@ Design brief, composed 2026-09-02 from the founding discussion. Companion to the
 
 ## Executive Overview
 
-Masume is a native macOS annotation workspace that a person and an AI agent share. The person marks up a screenshot through a Skitch-like canvas. The agent marks up the same document through MCP. Both of them point at the image using the same language, a spreadsheet grid laid over the pixels: `D5` is a cell, `D5:F14` is a region, and either participant can say "put an arrow from B3 to D6" and mean exactly the same thing.
+Masume is a native macOS annotation workspace that a person and an AI agent share. The person marks up a screenshot through a Skitch-like canvas. The agent marks up the same document through MCP when it is collaborating live, or through the `masume` command line when a script or scheduler is driving. Both of them point at the image using the same language, a spreadsheet grid laid over the pixels: `D5` is a cell, `D5:F14` is a region, and either participant can say "put an arrow from B3 to D6" and mean exactly the same thing.
 
 The editable project is the source of truth. Flattened PNG, JPEG, WebP, and PDF are exports, never the document. Every committed edit, from either participant, lands in one attributed history with one shared undo stack, autosaves immediately, and survives a crash.
 
@@ -47,7 +47,9 @@ Three layers already exist and are kept:
 One new hub joins them: a **command service** extracted from the controller, with JSON-codable commands and results. Every way of driving the document is a thin client of that service.
 
 - The canvas UI calls it directly.
-- An Apple Event verb, `execute`, takes a JSON command and returns a JSON envelope. The app ships a scripting definition; the MCP server is a separate TypeScript process that forwards each tool call over `osascript` and keeps no state. Apple Events were chosen over a localhost port because they serialize on the main run loop, are gated by macOS Automation permission, and keep the MCP protocol in the maintained TypeScript SDK rather than hand-rolled Swift. 🧩 [Assumed Specification] The MCP server lives in this repository under its own directory and is published as an npm-style package for the agent host to spawn.
+- An Apple Event verb, `execute`, takes a JSON command and returns a JSON envelope. The app ships a scripting definition, so Script Editor, Automator, and JXA reach the service with nothing in between. Apple Events were chosen over a localhost port because they serialize on the main run loop, are gated by macOS Automation permission, and keep the protocol work out of Swift.
+- A `masume` command-line tool, a Swift target in the same package, is the second client. Live, each subcommand is one Apple Event to the running app and prints the envelope, with exit codes that mirror the error codes so shell scripts can branch. Offline, it opens a project or an image with the model and renderer libraries and can inspect, resolve grid addresses, and export with the app closed. It adds no logic of its own: whatever a shell can do, MCP and AppleScript can do by the same name.
+- The MCP server is a separate TypeScript process that spawns the CLI for every tool call and keeps no state. Riding on the CLI keeps the MCP protocol in the maintained TypeScript SDK and gives macOS a stable, signed binary to attach the Automation grant to. 🧩 [Assumed Specification] The MCP server lives in this repository under its own directory and is published as an npm-style package for the agent host to spawn.
 - App Intents expose a small subset to Shortcuts, Siri, and Spotlight, carrying a `shortcuts` actor.
 - An optional on-device command bar, built on Foundation Models, turns a typed phrase into a schema-valid command struct and routes it through the same validation.
 
@@ -98,8 +100,8 @@ The voice throughout is the voice of the discussion that produced it: direct, a 
 - **Redaction.** Pixelation hides content only in exports. The project package must never be mistaken for a redacted deliverable; Finder metadata, Quick Look, and save-time copy all say so.
 - **Privacy of the image.** Base-image observation goes to whatever model the agent host uses; that is the agent's choice, not Masume's. The on-device features (Vision text mapping, Foundation Models command bar) never send pixels off the machine, and Private Cloud Compute is not used for document content.
 - **Provenance.** Upstream Kakico has no license file. The model, renderer, and canvas remain Hiroki Takatsuka's all-rights-reserved code until a license is added upstream. Masume's own contributions are MIT. Binaries are not redistributed until that is resolved, and attribution stays in the README and LICENSE regardless of how far the code drifts.
-- **Automation permission.** macOS keys Automation grants to the calling binary's path; version-pathed runtimes lose the grant on upgrade. The MCP server should call through a stably signed helper bundle.
-- **Latency.** Each Apple Event spawns `osascript`, roughly a few hundred milliseconds. Batch commands exist for that reason, and a Unix-socket transport over the same service is the designated relief valve.
+- **Automation permission.** macOS keys Automation grants to the calling binary's path; version-pathed runtimes lose the grant on upgrade. The signed `masume` CLI at a stable install path is the binary that holds the grant, and the MCP server spawns it rather than `osascript`.
+- **Latency.** Each live call is one Apple Event plus a process start, roughly a few hundred milliseconds. Batch commands exist for that reason, and a Unix-socket transport over the same service is the designated relief valve; the CLI and the MCP server would move to it together.
 - **Deployment target.** The codebase targets macOS 15. Vision text mapping works there. The Foundation Models command bar and Apple Intelligence assistant surfaces need macOS 26 and a deliberate target decision.
 - **Constraint kept from the original.** No third-party packages beyond libwebp. This is part of why the MCP protocol lives in TypeScript, not Swift.
 
@@ -107,7 +109,7 @@ The voice throughout is the voice of the discussion that produced it: direct, a 
 
 1. **Durable document.** Versioned `.masume` package codec, dirty tracking, Save and Save As, atomic writes, recovery autosave, redaction disclosure, share-safe export.
 2. **Shared spatial language.** Stored grid definition, pure address parser and resolver, non-exporting overlay with labels, density presets, tests across aspect ratios and tier boundaries.
-3. **Agent surface.** Extract the command service; add the scripting definition and `execute` verb with revision assertions; add the TypeScript MCP server; prove the round trip end to end and across a restart.
+3. **Agent surfaces.** Extract the command service; add the scripting definition and `execute` verb with revision assertions; add the `masume` CLI, offline commands first and then the live mirror; add the TypeScript MCP server on top of the CLI; prove the round trip end to end from MCP and from a shell, and across a restart.
 4. **Remaining vocabulary.** Rounded rectangles, translucent highlights, freehand paths, numbered callouts, shadows with per-object override, session style memory.
 5. **On-device intelligence, optional.** Vision text mapping first; the Foundation Models command bar and App Intents after the target decision.
 
@@ -117,7 +119,7 @@ Version one is complete when all ten acceptance criteria in the spec are demonst
 
 - Bump the deployment target to macOS 26 for v1, or ship the command bar behind availability guards?
 - Sub-cell addressing such as `D5.3` is a known relief for coarse cells on 4K captures. Wait for it to bite, or design it into the resolver now?
-- Should the signed helper bundle for Automation permission be shared with the rest of PAI's tooling rather than built per app?
+- The Automation-grant helper question is settled by the CLI: `masume` is the signed, stably installed binary. Whether PAI's other tools should adopt the same pattern (a per-app CLI that MCP spawns) is a PAI question, not a Masume one.
 - A full scriptable object model (native `annotation` classes, `whose` filters) is deferred. What signal would justify building it?
 - A terminal database client on GitHub already uses the name masume in an unrelated domain. Revisit if Masume ever ships publicly.
 - Upstream licensing remains the gate on distributing binaries. Is it worth a direct ask beyond the open issue?
@@ -126,4 +128,4 @@ Version one is complete when all ten acceptance criteria in the spec are demonst
 
 **Quick-Start Context String**
 
-We're building Masume: a native macOS annotation workspace where a person and an agent mark up the same immutable image through one editable project, speaking a deterministic spreadsheet grid as their shared spatial language, with every edit attributed, undoable by either, and autosaved, so that collaboration with an agent on a screenshot feels as ordinary and as trustworthy as editing a document together.
+We're building Masume: a native macOS annotation workspace where a person and an agent mark up the same immutable image through one editable project, speaking a deterministic spreadsheet grid as their shared spatial language, with every edit attributed, undoable by either, and autosaved, and with one in-app command service behind three thin clients (MCP for live collaboration, a `masume` CLI for automation, AppleScript for everything on the Mac), so that collaboration with an agent on a screenshot feels as ordinary and as trustworthy as editing a document together.

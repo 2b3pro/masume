@@ -6,7 +6,7 @@
 
 ## 1. Product definition
 
-Masume v1 is a native, single-image, non-destructive annotation workspace shared by one human and one agent. The human can work directly in the existing Skitch-like interface. The agent operates on the same document through MCP. Both use a visible spreadsheet-style grid as a compact, deterministic spatial language.
+Masume v1 is a native, single-image, non-destructive annotation workspace shared by one human and one agent. The human can work directly in the existing Skitch-like interface. The agent operates on the same document through MCP when working interactively and through the `masume` command-line tool when automating; both are thin clients of one in-app command service, which AppleScript and JXA reach directly. Both participants use a visible spreadsheet-style grid as a compact, deterministic spatial language.
 
 The editable Masume project is the source of truth. PNG, JPEG, WebP, and single-page PDF are flattened exports.
 
@@ -29,18 +29,18 @@ The implementation should extend these seams rather than introduce a second canv
 
 - One human and one agent working on the active document.
 - One base image per document.
-- Input from file open, drag-and-drop, or clipboard. Existing macOS screenshot workflows feed the clipboard or a file.
+- Input from file open, drag-and-drop, or clipboard, including a single PDF page rasterized at 2× (a multi-page PDF asks which page). Existing macOS screenshot workflows feed the clipboard or a file.
 - Editable annotations until export.
 - Shared chronological undo/redo and visible action history with actor attribution.
 - Immediate autosave after each committed action; drag previews remain transient until pointer-up.
 - Crash recovery restoring the last committed canvas state.
-- Grid addressing, MCP inspection/mutation, and on-demand base-image viewing.
+- Grid addressing, inspection and mutation through MCP, the `masume` CLI, and AppleScript, and on-demand base-image viewing.
 - Current-session memory for the last-used tool, color, width, fill, font, and shadow setting.
 - Flattened PNG, JPEG, WebP, and single-page PDF export.
 
 ### Excluded
 
-- Multi-page documents or PDF import.
+- Multi-page documents. A PDF contributes one rasterized page as the base image; the PDF itself is not kept in the project.
 - Multiple humans or multiple agents.
 - Generative image editing, inpainting, or replacement patches.
 - Automatic image analysis on load.
@@ -131,19 +131,27 @@ Observation and annotation state must remain separate.
 - The MCP response identifies the document ID, document revision, requested grid range, exact source pixel bounds, and whether a context margin was added.
 - Any semantic map produced by a model is ephemeral and keyed to the base-image checksum plus grid-definition version. It becomes stale when either changes.
 
-## 6. MCP contract
+## 6. Agent surfaces: MCP, CLI, and AppleScript
 
-The MCP server is an adapter over the same application services used by the UI. It must not synthesize mouse events or maintain a second copy of document state.
+One command service inside the app, JSON in and JSON out, is the only way any surface changes or reads a document. Three clients sit on it, and none may synthesize mouse events, keep a second copy of document state, or implement a command of its own:
+
+| Surface | For | Reaches the service by |
+|---|---|---|
+| MCP server | agent hosts, interactive collaboration | spawning the `masume` CLI |
+| `masume` CLI | shells, schedulers, CI, scripts, and humans at a terminal | Apple Events while the app runs; the model and renderer libraries offline |
+| AppleScript / JXA | Script Editor, Automator, and later Shortcuts through App Intents | the `execute` verb directly |
 
 ### Transport
 
-Masume is a running GUI application, while the agent host launches MCP servers as stdio child processes, so a bridge between the two is required. Version one uses Apple Events.
+Masume is a running GUI application, while agent hosts launch MCP servers as stdio child processes and automation runs from a shell, so a bridge between the app and the outside is required. Version one uses Apple Events for every live call.
 
 - Masume ships a scripting definition (`Masume.sdef`) and sets `NSAppleScriptEnabled` and `OSAScriptingDefinition` in `Info.plist`. Apple Events are handled by the existing `AppDelegate`.
-- The MCP server is a separate TypeScript process. It forwards each tool call to the app with `osascript -l JavaScript`, holds no document state, and implements no document logic. AppleScript and JXA clients share the same surface; JXA is only the client language the MCP server happens to use.
+- The `masume` CLI is a Swift executable target in this package. Its live subcommands send one Apple Event each to the running app and print the JSON envelope; its offline subcommands open a `.masume` package or an image with the model and renderer libraries and never touch the app. It holds no document state.
+- The MCP server is a separate TypeScript process that maps each tool call onto one `masume` invocation, parses the envelope, and returns it as the tool result. It holds no document state and implements no document logic. Spawning the CLI rather than `osascript` keeps the JXA layer out of the agent path and gives the Automation grant a stable binary to attach to (see the operational notes).
+- AppleScript and JXA clients share the same `execute` surface directly; nothing is available to them that the CLI lacks, and vice versa.
 - The scripting surface is thin. Each document exposes read-only properties: `id`, `revision`, `name`, canvas width and height, grid columns, rows, and version, and `dirty`. The application exposes `active document`. All operations go through one verb, `execute`, which takes a JSON command string and returns a JSON envelope of the form `{ "ok": true, "result": ... }` or `{ "ok": false, "error": { "code": ..., "message": ... } }`. Error codes are `conflict`, `not_found`, `invalid_address`, `invalid_argument`, `unsupported`, and `io`. Malformed JSON is the only condition reported as an Apple Event error.
-- Every MCP tool maps one-to-one onto a command name handled by the command service extracted in Phase 3. The UI, the `execute` verb, and any future transport call that same service; no transport may implement a command on its own.
-- Binary results do not travel inside Apple Events. `masume_view_base_image` writes the crop as a PNG to a temporary file under the app's caches directory and returns the path plus the metadata in section 5. The MCP server reads the file, embeds it as image content, and deletes it. Crops are never written inside the project package.
+- Every MCP tool and every live CLI subcommand maps one-to-one onto a command name handled by the command service extracted in Phase 3. The UI, the `execute` verb, and any future transport call that same service; no transport may implement a command on its own. The CLI in particular adds no defaults, fallbacks, or retries of its own: a behavior available in a shell must be available to MCP and AppleScript by the same name.
+- Binary results do not travel inside Apple Events. `masume_view_base_image` writes the crop as a PNG to a temporary file under the app's caches directory and returns the path plus the metadata in section 5. The CLI prints the path or copies the file to a caller-supplied `--out`; the MCP server reads the file, embeds it as image content, and deletes it. Crops are never written inside the project package.
 - A full scriptable object model (native `annotation` classes, `whose` filters, per-property verbs) is deferred. It can be added later over the same service if Shortcuts or Script Editor users need it.
 
 Why Apple Events rather than an in-app HTTP endpoint or a socket:
@@ -153,11 +161,18 @@ Why Apple Events rather than an in-app HTTP endpoint or a socket:
 - macOS Automation permission gates which processes may drive the app. A localhost port has no such gate, is reachable by any local process and by web pages through DNS rebinding, and would need its own authentication.
 - No listening port and no server entitlement if the app is ever sandboxed.
 
+### The `masume` command-line tool
+
+- Live subcommands mirror the command service one-to-one and take the same arguments the MCP tools take: `masume doc`, `masume elements`, `masume element <id>`, `masume resolve D5:F14`, `masume view D5:F14 --out crop.png`, `masume history`, `masume add arrow B3 D6 --reason "..."`, `masume update <id> ...`, `masume delete <id>...`, `masume crop ...`, `masume undo`, `masume redo`, `masume save`, `masume export out.png`, and the escape hatch `masume exec '<json>'` for any command by name. Mutations take `--doc <id>` and `--revision <n>` (or read both from `masume doc` when omitted, printing the values used) and carry `--actor` and `--reason`.
+- Output is the JSON envelope on stdout, one object per invocation; `--pretty` indents it. The exit status is 0 on `ok: true` and a distinct non-zero code per error code (`conflict`, `not_found`, `invalid_address`, `invalid_argument`, `unsupported`, `io`), plus a code for "Masume is not running", so shell scripts can branch without parsing.
+- Offline subcommands need no running app: `masume info <file.masume>`, `masume export <file.masume> <out.png>`, `masume resolve --file <file.masume> D5`, and `masume new <image-or-pdf> <file.masume> [--page N]`. They read and write packages through the same codec as the app. Offline mutation of a package is out of scope for v1; if the app has the same file open, an offline write would race the app's autosave, so the CLI refuses with `conflict` rather than guessing.
+- The CLI is signed and installed at a stable path (`/usr/local/bin/masume` or a Homebrew prefix) and is the binary the Automation grant attaches to.
+
 Operational notes:
 
-- Automation grants are keyed to the calling binary path. Version-pathed runtimes such as `bun` or `node` lose the grant on every upgrade. The MCP server should invoke `osascript` through a stably signed helper bundle, or document that the grant must be renewed after runtime upgrades.
-- Each call spawns `osascript`, budget roughly 100 to 300 ms per call. Batch commands exist partly for this reason.
-- A Unix-domain socket transport over the same command service is the designated future seam if latency or crop payloads become a problem. It must not introduce a second service.
+- Automation grants are keyed to the calling binary path. Version-pathed runtimes such as `bun` or `node` lose the grant on every upgrade, which is why the MCP server spawns the signed `masume` binary rather than `osascript` itself. If the CLI is ever run from a build directory, the grant must be renewed when that path changes.
+- Each live call is one Apple Event plus process start, budget roughly 100 to 300 ms. Batch commands exist partly for this reason.
+- A Unix-domain socket transport over the same command service is the designated future seam if latency or crop payloads become a problem. It must not introduce a second service, and the CLI and MCP server would move to it together.
 
 ### Revision assertions
 
@@ -272,12 +287,13 @@ Current-session style memory resets when the application quits. It applies to ne
 2. Render the non-exporting grid overlay and labels in the existing canvas.
 3. Add grid controls and tests across zoom, pan, portrait, landscape, and non-divisible image sizes.
 
-### Phase 3: Agent surface
+### Phase 3: Agent surfaces
 
 1. Extract document commands from `CanvasController` into a reusable command service with JSON-codable commands and results.
 2. Add the scripting definition, the read-only document properties, and the `execute` verb over that service, with document/revision assertions inside the handler.
-3. Add the TypeScript MCP server that forwards tool calls over Apple Events. Implement read tools first, then mutations, batch commits, history, save, and export.
-4. Prove a round trip: agent reads revision, resolves cells, adds an arrow, human moves it, agent reads the updated object, either participant undoes it, and the state survives restart.
+3. Add the `masume` CLI: offline `info` and `export` first (they exercise the package codec from Phase 1), then the live subcommands as a strict mirror of the service, with exit codes and the JSON envelope.
+4. Add the TypeScript MCP server that spawns the CLI. Implement read tools first, then mutations, batch commits, history, save, and export.
+5. Prove the round trip twice: from MCP, and from a shell with the CLI. Agent reads revision, resolves cells, adds an arrow, human moves it, agent reads the updated object, either participant undoes it, and the state survives restart.
 
 ### Phase 4: Remaining annotation vocabulary
 
@@ -297,17 +313,20 @@ Version one is complete when all of the following are demonstrably true:
 4. `D5` resolves to its cell center and `D5:F14` resolves to the inclusive outer rectangle, independent of window size and zoom.
 4a. The default grid for a given image is identical regardless of window size, display, or whether the import was headless.
 5. The agent can view only the untouched base image, either whole or by grid range, without annotations leaking into the crop.
-6. An MCP mutation with the wrong document ID or stale revision makes no change and returns an actionable conflict.
+6. A mutation with the wrong document ID or stale revision, from MCP, the CLI, or AppleScript, makes no change and returns an actionable conflict.
 7. Human and agent edits appear in one attributed history and participate in shared undo/redo.
 8. Every committed edit autosaves; killing and reopening the app restores the last confirmed commit.
 9. Export produces a flattened artifact without grid lines, edit metadata, history, or recoverable base pixels outside the exported result.
 10. The complete agent-human round trip passes both automated tests and a manual UI smoke test.
+11. The same round trip driven from a shell with the `masume` CLI passes, and `masume export` of a saved project from a shell with the app closed is pixel-identical to the app's export.
 
 ## 13. Required tests
 
 - Grid parsing and resolution, including `Z` to `AA`, invalid addresses, ranges, aspect ratios, and fractional cell edges.
 - Tier selection and count derivation for representative sizes: a 200 by 200 icon, 1440 by 900, 2880 by 1800, 1170 by 2532 portrait, 3840 by 2160, and each tier boundary; stored counts survive a change to the tier table.
 - Apple Event round trip: `osascript` reads document properties and calls `execute` for a create, a conflict, and a base-image crop, checking the JSON envelope and error codes. This is an integration test against the built app and may be excluded from the unit suite.
+- CLI mirror: every live subcommand produces the same command JSON the MCP server produces for the same input, checked against a table in the unit suite without a running app. CLI exit codes map one-to-one onto envelope error codes, and "not running" is distinguishable from every error the app can return.
+- CLI offline: `info`, `export`, `resolve --file`, and `new` against fixture packages; `export` matches the renderer's output byte for byte; an offline write to a package the app has open is refused with `conflict`.
 - Project round-trip, schema migration, corruption, checksum mismatch, duplicate IDs, atomic-save failure, and newer-version rejection.
 - Redaction safety: flattened exports contain only rendered pixels; editable projects trigger disclosure and retain the original by design.
 - Revision conflicts and wrong-document mutation refusal.

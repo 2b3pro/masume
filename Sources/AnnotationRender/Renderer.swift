@@ -244,6 +244,7 @@ public enum Renderer {
         var attrs: [NSAttributedString.Key: Any] = [
             NSAttributedString.Key(kCTFontAttributeName as String): font,
             NSAttributedString.Key(kCTForegroundColorAttributeName as String): color,
+            NSAttributedString.Key(kCTParagraphStyleAttributeName as String): paragraphStyle(for: e.alignment),
         ]
         if let stroke {
             // A positive stroke width means stroke only (no fill).
@@ -254,26 +255,67 @@ public enum Renderer {
         return NSAttributedString(string: e.string, attributes: attrs)
     }
 
+    private static func paragraphStyle(for alignment: TextAlignment) -> CTParagraphStyle {
+        var ctAlignment: CTTextAlignment
+        switch alignment {
+        case .left: ctAlignment = .left
+        case .center: ctAlignment = .center
+        case .right: ctAlignment = .right
+        }
+        return withUnsafeMutablePointer(to: &ctAlignment) { pointer in
+            let setting = CTParagraphStyleSetting(spec: .alignment,
+                                                  valueSize: MemoryLayout<CTTextAlignment>.size,
+                                                  value: pointer)
+            return CTParagraphStyleCreate([setting], 1)
+        }
+    }
+
     /// Size needed to render the full string wrapped at the element's current
     /// width. CoreText drops lines that don't fit the frame rect, so callers
     /// must grow `size` to this value or overflowing text silently disappears.
     /// An empty string yields the one-line minimum height, so editors shrink
-    /// back when all text is deleted.
+    /// back when all text is deleted. A callout's size includes its padding
+    /// on every side; the text wraps at the inner width.
     public static func suggestedSize(for e: TextElement) -> CGSize {
+        let pad = e.padding
+        let oneLine = e.font.pointSize + 8
         guard !e.string.isEmpty else {
-            return CGSize(width: e.size.width, height: e.font.pointSize + 8)
+            return CGSize(width: e.size.width, height: oneLine + 2 * pad)
         }
         let framesetter = CTFramesetterCreateWithAttributedString(attributedString(for: e))
-        let constraint = CGSize(width: e.size.width, height: .greatestFiniteMagnitude)
+        let constraint = CGSize(width: e.textRect.width, height: .greatestFiniteMagnitude)
         let fit = CTFramesetterSuggestFrameSizeWithConstraints(
             framesetter, CFRange(location: 0, length: 0), nil, constraint, nil)
         // +2 guards against fractional-height rounding clipping the last line.
-        return CGSize(width: e.size.width, height: max(ceil(fit.height) + 2, e.font.pointSize + 8))
+        return CGSize(width: e.size.width, height: max(ceil(fit.height) + 2, oneLine) + 2 * pad)
+    }
+
+    /// The bubble under a callout's text: body filled with the element color,
+    /// edged in the ink (outline) color, with the Skitch drop shadow. A
+    /// thought cloud's trailing circles share the shadow layer.
+    private static func drawCalloutBody(_ e: TextElement, in ctx: CGContext) {
+        let body = CalloutPaths.bodyPath(for: e)
+        let circles = CalloutPaths.thoughtTailCircles(for: e)
+        withShadow(forStrokeWidth: e.font.pointSize * 0.25, in: ctx) {
+            setFill(ctx, e.color)
+            ctx.addPath(body)
+            ctx.fillPath()
+            setStroke(ctx, e.outlineColor, e.borderWidth)
+            ctx.addPath(body)
+            ctx.strokePath()
+            for circle in circles {
+                let box = CGRect(x: circle.center.x - circle.radius, y: circle.center.y - circle.radius,
+                                 width: circle.radius * 2, height: circle.radius * 2)
+                ctx.fillEllipse(in: box)
+                ctx.strokeEllipse(in: box)
+            }
+        }
     }
 
     private static func drawText(_ e: TextElement, in ctx: CGContext) {
+        if e.isCallout { drawCalloutBody(e, in: ctx) }
         guard !e.string.isEmpty else { return }
-        let box = e.boundingBox()
+        let box = e.textRect
         let path = CGPath(rect: box, transform: nil)
         func drawPass(_ attributed: NSAttributedString) {
             let framesetter = CTFramesetterCreateWithAttributedString(attributed)
@@ -286,6 +328,14 @@ public enum Renderer {
             // Glyph outlines are stroked with the context's join; round keeps
             // the outline from spiking at sharp corners.
             ctx.setLineJoin(.round)
+            // Callout text is plain ink over the body; the bubble supplies
+            // the contrast a halo would.
+            if e.isCallout {
+                var ink = e
+                ink.color = e.outlineColor
+                drawPass(attributedString(for: ink))
+                return
+            }
             switch e.style {
             case .plain:
                 drawPass(fill)

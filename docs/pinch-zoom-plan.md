@@ -9,7 +9,7 @@
 
 ## 変更ファイル
 
-### 1. `Sources/Kakico/ZoomMath.swift` — アンカー保持パン関数を追加
+### 1. `Sources/Masume/ZoomMath.swift` — アンカー保持パン関数を追加
 
 ```swift
 /// Keeps the model point under `viewPoint` fixed across a scale change
@@ -27,7 +27,7 @@ static func panPreservingPoint(_ viewPoint: CGPoint, oldPan: CGVector,
 
 検算済み: `viewPoint = ビュー中心` のとき `pan' = pan × (newScale/oldScale)` となり既存 `panPreservingCenter` と一致する(この性質をテストにする)。
 
-### 2. `Sources/Kakico/CanvasView.swift` — `magnify(with:)` override
+### 2. `Sources/Masume/CanvasView.swift` — `magnify(with:)` override
 
 `scrollWheel` の直後(`// MARK: Pan` セクション)に追加:
 
@@ -63,7 +63,7 @@ override func magnify(with event: NSEvent) {
 - ドラッグ中は無視(`scrollWheel` と同じガード)。テキスト編集中はコミット(`reconcileZoom` のスケール変化時と同じ扱い。ここは draw 外なので直接呼んで良い)。
 - スマートマグニファイ(2本指ダブルタップ)は今回対象外。
 
-### 3. `Tests/KakicoTests/ZoomMathTests.swift` — `panPreservingPoint` のテスト追加
+### 3. `Tests/MasumeTests/ZoomMathTests.swift` — `panPreservingPoint` のテスト追加
 
 - アンカー不変性: 任意の viewPoint 直下のモデル点がスケール変更後も同じビュー位置に来る(既存 `testPanPreservingCenterKeepsCenterModelPointFixed` と同じ構成で、`imageRect` を合成して検証)
 - 中心一致: `viewPoint = viewport 中心` のとき `panPreservingCenter` と同値

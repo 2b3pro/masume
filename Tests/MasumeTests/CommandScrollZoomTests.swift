@@ -1,7 +1,7 @@
 import XCTest
 import AppKit
 import AnnotationModel
-@testable import Kakico
+@testable import Masume
 
 /// Cmd+scroll wheel zooms the canvas; a plain scroll still pans.
 @MainActor

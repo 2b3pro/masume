@@ -13,11 +13,11 @@ let blockedMenuActions: Set<Selector> = [
 ]
 
 @main
-struct KakicoApp: App {
+struct MasumeApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
 
     var body: some Scene {
-        Window("Kakico", id: "main") {
+        Window("Masume", id: "main") {
             ContentView(workspace: appDelegate.workspace)
                 .frame(minWidth: 720, minHeight: 520)
         }
@@ -44,7 +44,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             ? "Quitting will discard the image you are editing. Unsaved annotations will be lost."
             : "Quitting will discard the \(openCount) images you are editing. Unsaved annotations will be lost."
         if ExportService.confirmDiscard(
-            message: "Quit Kakico?",
+            message: "Quit Masume?",
             info: info,
             confirmTitle: "Quit"
         ) { return .terminateNow }

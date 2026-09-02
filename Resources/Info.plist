@@ -3,13 +3,13 @@
 <plist version="1.0">
 <dict>
     <key>CFBundleName</key>
-    <string>Kakico</string>
+    <string>Masume</string>
     <key>CFBundleDisplayName</key>
-    <string>Kakico</string>
+    <string>Masume</string>
     <key>CFBundleExecutable</key>
-    <string>Kakico</string>
+    <string>Masume</string>
     <key>CFBundleIdentifier</key>
-    <string>io.github.tk3fftk.kakico</string>
+    <string>com.2b3pro.masume</string>
     <key>CFBundleInfoDictionaryVersion</key>
     <string>6.0</string>
     <key>CFBundlePackageType</key>

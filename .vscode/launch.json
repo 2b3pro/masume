@@ -1,0 +1,24 @@
+{
+    "configurations": [
+        {
+            "type": "swift",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:masume}",
+            "name": "Debug Masume",
+            "target": "Masume",
+            "configuration": "debug",
+            "preLaunchTask": "swift: Build Debug Masume"
+        },
+        {
+            "type": "swift",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:masume}",
+            "name": "Release Masume",
+            "target": "Masume",
+            "configuration": "release",
+            "preLaunchTask": "swift: Build Release Masume"
+        }
+    ]
+}

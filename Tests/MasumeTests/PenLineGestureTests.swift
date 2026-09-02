@@ -1,7 +1,7 @@
 import XCTest
 import AppKit
 import AnnotationModel
-@testable import Kakico
+@testable import Masume
 
 /// Drives `CanvasNSView` with synthetic mouse events to cover the pen's
 /// Shift-click straight-line gesture. The view has no window, so event

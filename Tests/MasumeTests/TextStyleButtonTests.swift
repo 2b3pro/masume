@@ -2,7 +2,7 @@ import XCTest
 import AppKit
 import AnnotationModel
 import AnnotationRender
-@testable import Kakico
+@testable import Masume
 
 /// The style button above a selected text box cycles its style, and the
 /// side handles change its width. 200×200 image in a 200×200 window-less

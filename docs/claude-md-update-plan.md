@@ -3,7 +3,7 @@
 ## 背景
 
 SwiftAgents/AGENTS.md の内容を CLAUDE.md に追記することを検討。
-ただし元のファイルはiOSアプリ向けであり、このプロジェクト（Kakico: macOSアプリ）に
+ただし元のファイルはiOSアプリ向けであり、このプロジェクト（Masume: macOSアプリ）に
 そのまま適用すると誤った前提が含まれる。macOS向けに修正した上で追記する。
 
 **あわせて行う変更:**
@@ -64,7 +64,7 @@ macOS 15へ引き上げることで以下のAPIが全て使用可能になる：
 .macOS(.v15)
 ```
 
-対象: 全ターゲット（AnnotationModel, AnnotationRender, Kakico, テスト群）
+対象: 全ターゲット（AnnotationModel, AnnotationRender, Masume, テスト群）
 
 ### 2. CanvasController.swift: @Observable 移行
 
@@ -88,7 +88,7 @@ class CanvasController {
 }
 ```
 
-### 3. UI.swift / KakicoApp.swift: プロパティラッパー更新
+### 3. UI.swift / MasumeApp.swift: プロパティラッパー更新
 
 | Before | After |
 |--------|-------|
@@ -120,7 +120,7 @@ class CanvasController {
 ```bash
 swift build          # コンパイルエラーなし
 swift test           # 30テスト全パス
-bash scripts/build-app.sh  # Kakico.app生成・検証
+bash scripts/build-app.sh  # Masume.app生成・検証
 ```
 
 実機確認: アプリを起動し、注釈ツール（矢印・テキスト・PixelateなどAll）が正常動作すること。

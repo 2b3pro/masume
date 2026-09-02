@@ -1,7 +1,7 @@
 import XCTest
 import AppKit
 import AnnotationModel
-@testable import Kakico
+@testable import Masume
 
 /// Spacebar hand tool: while space is held, dragging pans the zoomed image
 /// instead of annotating. Observed through the view→model mapping: after a

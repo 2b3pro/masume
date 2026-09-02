@@ -2,10 +2,10 @@
 import PackageDescription
 
 let package = Package(
-    name: "Kakico",
+    name: "Masume",
     platforms: [.macOS(.v15)],
     products: [
-        .executable(name: "Kakico", targets: ["Kakico"]),
+        .executable(name: "Masume", targets: ["Masume"]),
         .library(name: "AnnotationModel", targets: ["AnnotationModel"]),
         .library(name: "AnnotationRender", targets: ["AnnotationRender"]),
     ],
@@ -23,10 +23,10 @@ let package = Package(
             .product(name: "libwebp", package: "libwebp-Xcode"),
         ]),
         .executableTarget(
-            name: "Kakico",
+            name: "Masume",
             dependencies: ["AnnotationModel", "AnnotationRender"]
         ),
-        .testTarget(name: "KakicoTests", dependencies: ["Kakico"]),
+        .testTarget(name: "MasumeTests", dependencies: ["Masume"]),
         .testTarget(name: "AnnotationModelTests", dependencies: ["AnnotationModel"]),
         .testTarget(name: "AnnotationRenderTests", dependencies: ["AnnotationModel", "AnnotationRender"]),
     ]

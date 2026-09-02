@@ -2,7 +2,7 @@ import XCTest
 import AppKit
 import AnnotationModel
 import AnnotationRender
-@testable import Kakico
+@testable import Masume
 
 /// Dragging a text box's right edge narrower must grow its height so wrapped
 /// lines are not clipped. 200×200 image in a 200×200 window-less view at

@@ -1,6 +1,6 @@
 import XCTest
 import UniformTypeIdentifiers
-@testable import Kakico
+@testable import Masume
 
 /// Exercises `DroppedImage` through `NSItemProvider`, the same mechanism
 /// SwiftUI's `dropDestination` uses to hand pasteboard items to a

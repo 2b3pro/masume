@@ -1,15 +1,15 @@
-# Kakico (Skitch-look fork)
+# Masume
 
-Kakico is a native **Apple Silicon (arm64)** screenshot-annotation app for macOS, written in
-Swift (SwiftUI shell + AppKit canvas, Core Graphics / Core Image rendering). It aims to be a
-modern Skitch alternative.
+Masume is a native **Apple Silicon (arm64)** annotation workspace for macOS, written in Swift
+(SwiftUI shell + AppKit canvas, Core Graphics / Core Image rendering). One human and one agent
+mark up the same image: the human through a Skitch-like interface, the agent through MCP, both
+speaking a spreadsheet-style grid (`D5`, `D5:F14`) as a shared spatial language. The editable
+project is the source of truth; PNG, JPEG, WebP, and PDF are flattened exports.
 
-This is [2b3pro](https://github.com/2b3pro)'s fork of
-[tk3fftk/kakico](https://github.com/tk3fftk/kakico). It keeps the original's speed and
-simplicity and brings the annotations closer to Skitch's look and feel: shadowed arrows and
-shapes, haloed or outlined text, icon-pin stamps, a pen that doubles as a highlighter, and a
-few navigation and memory conveniences. The changes have been offered upstream in
-[tk3fftk/kakico#48](https://github.com/tk3fftk/kakico/issues/48).
+Masume grew out of [2b3pro/kakico](https://github.com/2b3pro/kakico), a Skitch-look fork of
+[tk3fftk/kakico](https://github.com/tk3fftk/kakico). That fork continues separately as a plain
+Skitch alternative in line with upstream. Masume is where the agent-collaboration work lives;
+see [docs/agent-collaborative-annotation-spec.md](docs/agent-collaborative-annotation-spec.md).
 
 ## What it does
 
@@ -41,16 +41,14 @@ Open, paste, or drop an image, mark it up, and export (shortcuts in parentheses)
 
 ## Install
 
-This fork is not distributed as a binary; build it from source (below). The original Kakico
-is available from its author as a Homebrew cask (`brew tap tk3fftk/tap` then
-`brew install --cask kakico`).
+Masume is not distributed as a binary; build it from source (below).
 
 ## Build & Run
 
 ```sh
 swift test                       # Run unit tests (model, renderer, and app)
-bash scripts/build-app.sh        # Build & assemble an ad-hoc-signed Kakico.app
-open build/Kakico.app
+bash scripts/build-app.sh        # Build & assemble an ad-hoc-signed Masume.app
+open build/Masume.app
 ```
 
 Requirements: macOS 15+, Xcode/Swift toolchain. The build script produces a native arm64,
@@ -62,15 +60,15 @@ ad-hoc-signed bundle (no Apple Developer account required). The repository's lin
 - `Sources/AnnotationModel/` — pure value-type model (no AppKit or SwiftUI).
 - `Sources/AnnotationRender/` — Core Graphics rendering of a `Document` into a `CGImage`,
   including the Skitch shadow, text styles, stamp pins, and pen strokes.
-- `Sources/Kakico/` — the app: tabs, canvas, palette, export, and tool-state persistence.
+- `Sources/Masume/` — the app: tabs, canvas, palette, export, and tool-state persistence.
 - `Tests/` — unit tests for all three, including synthetic-event tests that drive the canvas
   view directly for gestures such as Shift-click lines, space-drag panning, and `Cmd`+scroll.
 
 ## License
 
-This fork's contributions (everything added on top of
+Masume's own contributions (everything added on top of
 [tk3fftk/kakico](https://github.com/tk3fftk/kakico)) are released under the
-MIT License; see [LICENSE](LICENSE). The original Kakico code is Copyright
+MIT License; see [LICENSE](LICENSE). The original Masume code is Copyright
 Hiroki Takatsuka and has no license file at the time of writing, so it
 remains all rights reserved until one is added upstream. Redistribution of
-builds of this fork should wait for that.
+Masume builds should wait for that.

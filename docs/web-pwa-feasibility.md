@@ -1,12 +1,12 @@
-# Kakico Web/PWA版 実現可能性調査
+# Masume Web/PWA版 実現可能性調査
 
 ## 背景
 
-macOS ネイティブアプリ Kakico を Web アプリ（PWA）化すれば、Windows ユーザーにもリーチできるのでは？という検討。
+macOS ネイティブアプリ Masume を Web アプリ（PWA）化すれば、Windows ユーザーにもリーチできるのでは？という検討。
 
 ## 結論
 
-**技術的に実現可能。** Kakico のモデル/レンダラー/UI は綺麗に分離されており、Web 技術で同等の機能をほぼすべて再現できる。
+**技術的に実現可能。** Masume のモデル/レンダラー/UI は綺麗に分離されており、Web 技術で同等の機能をほぼすべて再現できる。
 
 ## 機能ごとの移植可否
 
@@ -37,11 +37,11 @@ macOS ネイティブアプリ Kakico を Web アプリ（PWA）化すれば、W
 | Markup Hero | チーム向け。クラウド保存・共有リンク付き | No | フリーミアム |
 | ImageAnnotation.org | 12 種以上のツール。クライアント処理 | No | 無料 |
 
-既存ツールは機能は揃っているが、描画のレスポンスや UI のキレで差がつきやすい。Kakico のネイティブで感じる操作の軽さを Web 版でも出せれば差別化になる。
+既存ツールは機能は揃っているが、描画のレスポンスや UI のキレで差がつきやすい。Masume のネイティブで感じる操作の軽さを Web 版でも出せれば差別化になる。
 
 ## Raycast Extension 案
 
-Raycast extension の標準 UI（List/Grid/Detail/Form）にはキャンバス描画やマウスインタラクションの API がない。Swift ヘルパー + WKWebView で別ウィンドウを開く抜け道はあるが（Simple Draw extension が実例）、実質スタンドアロン WebView アプリを Raycast 経由で起動しているだけ。既にネイティブアプリがあるなら Raycast のカスタムコマンドで `open -a Kakico` する方がシンプル。
+Raycast extension の標準 UI（List/Grid/Detail/Form）にはキャンバス描画やマウスインタラクションの API がない。Swift ヘルパー + WKWebView で別ウィンドウを開く抜け道はあるが（Simple Draw extension が実例）、実質スタンドアロン WebView アプリを Raycast 経由で起動しているだけ。既にネイティブアプリがあるなら Raycast のカスタムコマンドで `open -a Masume` する方がシンプル。
 
 ## Skitch がネイティブだった理由
 

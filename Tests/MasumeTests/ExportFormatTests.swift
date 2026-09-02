@@ -1,6 +1,6 @@
 import XCTest
 import UniformTypeIdentifiers
-@testable import Kakico
+@testable import Masume
 
 @MainActor
 final class ExportFormatTests: XCTestCase {

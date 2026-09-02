@@ -1,7 +1,7 @@
 import XCTest
 import CoreGraphics
 import AnnotationModel
-@testable import Kakico
+@testable import Masume
 
 /// Tool selections survive across controllers sharing a store, standing in
 /// for app launches. Sizes are remembered relative to the reference canvas.
@@ -82,7 +82,7 @@ final class ToolPreferencesTests: XCTestCase {
     }
 
     func testUserDefaultsStoreRoundTrips() {
-        let suite = "KakicoTests.\(UUID().uuidString)"
+        let suite = "MasumeTests.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suite)!
         defer { defaults.removePersistentDomain(forName: suite) }
         let store = UserDefaultsToolPreferencesStore(defaults: defaults)
@@ -103,7 +103,7 @@ final class ToolPreferencesTests: XCTestCase {
         XCTAssertEqual(partial.strokeColor, .red, "missing fields take defaults")
         XCTAssertEqual(partial.referenceWidths, ToolPreferences.defaultReferenceWidths)
 
-        let suite = "KakicoTests.\(UUID().uuidString)"
+        let suite = "MasumeTests.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suite)!
         defer { defaults.removePersistentDomain(forName: suite) }
         defaults.set(Data("not json".utf8), forKey: UserDefaultsToolPreferencesStore.key)

@@ -28,7 +28,7 @@ final class EndToEndArtifactTest: XCTestCase {
         doc.add(.line(SegmentElement(start: CGPoint(x: 60, y: 240), end: CGPoint(x: 540, y: 240),
                                   color: .yellow, width: 5)))
         doc.add(.text(TextElement(origin: CGPoint(x: 70, y: 20), size: CGSize(width: 400, height: 40),
-                                  string: "Kakico — native arm64", font: FontSpec(pointSize: 30, bold: true),
+                                  string: "Masume — native arm64", font: FontSpec(pointSize: 30, bold: true),
                                   color: .black)))
         doc.add(.pixelate(RedactionElement(rect: CGRect(x: 100, y: 250, width: 120, height: 80), amount: 14)))
 

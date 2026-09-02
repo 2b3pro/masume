@@ -1,9 +1,9 @@
-# Kakico — Design
+# Masume — Design
 
 > The product is **not** affiliated with or derived from Skitch.
 
 > **Status: ✅ implemented (2026-06-12).** All phases (0–4) plus optional stamps are done;
-> see `Sources/Kakico/` and the *Implementation status* section at the bottom for what shipped
+> see `Sources/Masume/` and the *Implementation status* section at the bottom for what shipped
 > and where it deviates from this design.
 
 ## Context
@@ -50,9 +50,9 @@ The Swift model below is an independent design for a generic annotation editor.
 ## Layout
 
 ```
-Kakico.xcodeproj
-KakicoApp/
-  App/        KakicoApp.swift (@main), AppDelegate, menus/commands
+Masume.xcodeproj
+MasumeApp/
+  App/        MasumeApp.swift (@main), AppDelegate, menus/commands
   Canvas/     CanvasView.swift (AppKit NSView: mouse tracking, handles, selection/crop overlay)
   Toolbar/    tool palette + color/stroke/font inspector (SwiftUI)
   Export/     ExportService.swift (CGImageDestination, NSPasteboard, NSFilePromiseProvider)
@@ -102,7 +102,7 @@ width is set from the toolbar slider, not by dragging.)
   a hand-rolled snapshot stack of `(Document, baseImage)` pairs (not `UndoManager` — applying
   a crop swaps the base image, so the snapshot must carry it).
 - Model in **image pixel space**; canvas applies one zoom/offset transform.
-- Native save format: own `.kakico` JSON package (`document.json` + embedded `base.png`).
+- Native save format: own `.masume` JSON package (`document.json` + embedded `base.png`).
 
 ## Rendering & export (`AnnotationRender`)
 
@@ -132,7 +132,7 @@ One pure renderer used by both screen and export so WYSIWYG holds:
 - ✅ **Phase 1 — MVP (5–8d):** Open image (File → Open, drag-drop, paste) → **Arrow + Text** tools → select/move/resize via handles → undo/redo → flatten → export PNG/JPEG + copy to clipboard. Color + stroke-width inspector, inline `NSTextView` text editing, selection overlay/handles. *First genuinely useful build.*
 - ✅ **Phase 2 — Shapes (3–4d):** Rectangle, ellipse, line (reuse the vector/handle machinery from Phase 1).
 - ✅ **Phase 3 — Redaction (2–3d):** Pixelate + blur via Core Image.
-- ✅ **Phase 4 — Crop + drag-out (4–6d):** Crop widget + marching ants, `NSFilePromiseProvider` drag-out, native `.kakico` save/open.
+- ✅ **Phase 4 — Crop + drag-out (4–6d):** Crop widget + marching ants, `NSFilePromiseProvider` drag-out, native `.masume` save/open.
 - ✅ **Stamps (optional, 2–3d):** done with **original** vector stamp art (`StampPaths.swift` — check / cross / star / exclaim / heart; no PNG reuse).
 
 **Total: ~2.5–3.5 weeks. First demoable, useful build ~1.5–2 weeks (end of Phase 1).**
@@ -144,8 +144,8 @@ One pure renderer used by both screen and export so WYSIWYG holds:
   - Phase 1: build & launch, open a test PNG, drop an arrow + text, move/resize handles, undo/redo, Export PNG and Copy → paste into another app; confirm exported image matches on-screen.
   - Phase 2: each shape draws and re-edits via handles.
   - Phase 3: pixelate/blur visibly redacts a region and survives export.
-  - Phase 4: crop changes export bounds and is re-editable; drag-out drops a PNG into Finder/Slack/Mail; `.kakico` save then reopen restores all elements + crop.
-- **Native check:** `lipo -archs <app>/Contents/MacOS/Kakico` reports `arm64`; running process arch is arm64 (not Rosetta). `codesign --verify` passes for the ad-hoc signature.
+  - Phase 4: crop changes export bounds and is re-editable; drag-out drops a PNG into Finder/Slack/Mail; `.masume` save then reopen restores all elements + crop.
+- **Native check:** `lipo -archs <app>/Contents/MacOS/Masume` reports `arm64`; running process arch is arm64 (not Rosetta). `codesign --verify` passes for the ad-hoc signature.
 
 ## Appendix — recovered behavioral reference (NOT source)
 
@@ -168,7 +168,7 @@ existed. No code/art/format is copied from these.
 
 ## Implementation status (2026-06-12)
 
-Everything above is implemented in `Kakico/`. Verified: `swift test` all green
+Everything above is implemented in `Masume/`. Verified: `swift test` all green
 (20 model + 10 render/E2E tests), `scripts/build-app.sh release` produces an
 ad-hoc-signed bundle (`codesign --verify` passes, `lipo` reports `arm64`), and the app
 was launched natively (proc_translated = 0) and exercised end-to-end.
@@ -176,13 +176,13 @@ was launched natively (proc_translated = 0) and exercised end-to-end.
 ### Deviations from this design (intentional)
 
 - **SwiftPM instead of an Xcode project.** A single `Package.swift` builds the two
-  libraries + the executable; `scripts/build-app.sh` assembles `build/Kakico.app`
+  libraries + the executable; `scripts/build-app.sh` assembles `build/Masume.app`
   (Info.plist, PkgInfo, ad-hoc signing). No asset catalog — all icons are SF Symbols
   and stamps are code-drawn `CGPath`s, so none was needed.
 - **Canvas drawing is plain CG `draw(_:)`** (the "start with" option). No
   CALayer-per-element; marching ants are a timer-driven dash phase rather than an
   animated `CAShapeLayer`. Performance is fine at current scope.
-- **`.kakico` is a single JSON file** (base image embedded as PNG `Data`), not a
+- **`.masume` is a single JSON file** (base image embedded as PNG `Data`), not a
   `document.json` + `base.png` package directory.
 - **Paste Image works on plain ⌘V** via an AppDelegate key monitor that passes the
   event through while an `NSTextView` (field editor or inline text editor) is focused;
@@ -196,7 +196,7 @@ was launched natively (proc_translated = 0) and exercised end-to-end.
 ### Simplification pass (2026-06-15)
 
 A `/simplify` review consolidated duplicated code without changing behavior (the
-on-disk `.kakico` JSON shape is unchanged — a legacy-fixture decode test guards it):
+on-disk `.masume` JSON shape is unchanged — a legacy-fixture decode test guards it):
 
 - **`SegmentElement` replaces `ArrowElement`/`LineElement`** — they were identical, so
   arrow and line now wrap one struct (mirroring how rectangle/ellipse share `ShapeElement`).
@@ -219,7 +219,7 @@ on-disk `.kakico` JSON shape is unchanged — a legacy-fixture decode test guard
 
 - **User-controlled zoom.** `ZoomMath.swift` holds the pure geometry (fitted scale,
   preset stepping, pan clamping, anchor-preserving zoom; unit-tested in
-  `Tests/KakicoTests`). Controls: a percent menu next to the size badge (presets
+  `Tests/MasumeTests`). Controls: a percent menu next to the size badge (presets
   25–400% + Fit), View ▸ Zoom In/Out/Fit (⌘+ / ⌘− / ⌘0), cursor-anchored trackpad
   pinch, and two-finger scroll panning when the zoomed image overflows. Zoom state is
   transient view state on `CanvasController` (outside the undo stack) and resets to
@@ -251,10 +251,10 @@ clamped to the canvas on mouse-up. `Esc` cancels, `Return` (or the toolbar butto
 applies **destructively but undoably** — trims the base image, translates elements,
 shrinks the canvas. A *pending* crop stays non-destructive and export honors it.
 
-### `.kakico` native document support removed (2026-07-11)
+### `.masume` native document support removed (2026-07-11)
 
-The `.kakico` save/open feature described above (Phase 4, "Native save format") was
+The `.masume` save/open feature described above (Phase 4, "Native save format") was
 removed in issue #42: saving embedded the pre-redaction base PNG verbatim, so sharing
-a `.kakico` file exposed pixelated/blurred content, and the format was effectively
+a `.masume` file exposed pixelated/blurred content, and the format was effectively
 unused (menu-only, no Finder integration, no overwrite-save or dirty tracking).
 `ImageRef` and `Document: Codable` remain — they serve the in-memory model and tests.

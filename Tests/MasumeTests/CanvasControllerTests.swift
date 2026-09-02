@@ -1,7 +1,7 @@
 import XCTest
 import CoreGraphics
 import AnnotationModel
-@testable import Kakico
+@testable import Masume
 
 @MainActor
 final class CanvasControllerTests: XCTestCase {

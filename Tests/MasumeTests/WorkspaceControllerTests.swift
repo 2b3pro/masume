@@ -1,6 +1,6 @@
 import XCTest
 import CoreGraphics
-@testable import Kakico
+@testable import Masume
 
 @MainActor
 final class WorkspaceControllerTests: XCTestCase {

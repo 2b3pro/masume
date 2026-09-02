@@ -8,3 +8,6 @@ Skitch.app/
 # SwiftPM / build artifacts
 .build/
 build/
+
+# Written into the cwd by the LiveDoc MCP channel watcher, not part of Masume
+channel.log

@@ -69,6 +69,12 @@ extension CanvasNSView {
             new = .pen(PenElement(points: [p], color: color, width: width, opacity: controller.penOpacity)); role = .end
         case .pixelate:
             new = .pixelate(RedactionElement(rect: zeroRect, amount: controller.pixelateAmount))
+        case .magnifier:
+            // The click is the loupe's center; the drag grows it around that
+            // point (moveHandle(.end)). A plain click gets the default size.
+            new = .magnifier(MagnifierElement(rect: zeroRect, shape: controller.magnifierShape,
+                                              zoom: controller.magnifierZoom, color: color, width: width))
+            role = .end
         case .stamp:
             // Stamps are placed at a default size at the click point; the
             // click-drag swings the tail so it points the way you drag. A
@@ -96,6 +102,30 @@ extension CanvasNSView {
             t.size.height = Renderer.suggestedSize(for: t).height
             element = .text(t)
         }
+    }
+
+    /// Callout tool: the mouse-down point is the tail tip. The bubble starts
+    /// above and to the right of it and follows the pointer while dragging
+    /// (`Drag.placingCallout`); mouse-up opens the inline editor.
+    func createCallout(at tip: CGPoint) {
+        guard let controller else { return }
+        let canvasSize = controller.document?.canvasSize ?? DefaultSizeScale.referenceCanvasSize
+        var element = TextElement(origin: .zero,
+                                  size: CGSize(width: DefaultInitialSize.textWidth(forCanvasSize: canvasSize), height: 0),
+                                  string: "",
+                                  font: FontSpec(pointSize: FontSpec.suggestedPointSize(forStrokeWidth: controller.strokeWidth)),
+                                  color: controller.strokeColor,
+                                  style: .plain,
+                                  outlineColor: controller.textOutlineColor,
+                                  alignment: .center,
+                                  container: TextContainer(shape: controller.calloutShape, tailTip: tip))
+        element.size.width += 2 * element.padding
+        element.size.height = Renderer.suggestedSize(for: element).height
+        let offset = DefaultInitialSize.calloutOffset(forCanvasSize: canvasSize)
+        element.origin = CGPoint(x: tip.x + offset.dx, y: tip.y - offset.dy - element.size.height)
+        controller.document?.add(.text(element))
+        controller.selection = element.id
+        drag = .placingCallout(element.id)
     }
 
     func createText(at p: CGPoint) {

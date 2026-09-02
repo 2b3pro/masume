@@ -189,6 +189,12 @@ private struct CanvasPane: View {
         }
         .animation(.easeOut(duration: 0.12), value: controller.document?.crop != nil)
         .animation(.easeOut(duration: 0.18), value: controller.toastMessage)
+        // Multi-page PDF import: pick the page to rasterize.
+        .sheet(item: Binding(get: { controller.pendingPDF }, set: { controller.pendingPDF = $0 })) { source in
+            PDFPagePicker(source: source,
+                          choose: { controller.choosePDFPage($0, from: source) },
+                          cancel: { controller.cancelPDFImport() })
+        }
     }
 }
 
@@ -263,6 +269,7 @@ struct ToolPalette: View {
     @State private var showsStrokeWidth = false
     @State private var showsColorPresets = false
     @State private var showsTextStyle = false
+    @State private var showsTextLayout = false
     @State private var showsPenOpacity = false
 
     var body: some View {
@@ -277,29 +284,58 @@ struct ToolPalette: View {
         .animation(reduceMotion ? nil : .easeOut(duration: 0.1), value: showsColorPresets)
     }
 
+    /// One tool button. Split out of `palette` so the type checker can cope
+    /// with the accessory chain below it. Picking the active one-shot tool
+    /// again locks it, shown by a "+" badge: it keeps creating instead of
+    /// handing back to Select after each placement.
+    private func toolTile(_ tool: Tool) -> some View {
+        let locked = controller.isLocked(tool)
+        return Button {
+            if reduceMotion {
+                controller.selectTool(tool)
+            } else {
+                withAnimation(.easeOut(duration: 0.12)) { controller.selectTool(tool) }
+            }
+        } label: {
+            tileIcon(tool.symbol,
+                     tint: controller.tool == tool ? Color.miroInk : MiroTheme.textSecondary(scheme))
+                .background(
+                    RoundedRectangle(cornerRadius: 11)
+                        .fill(controller.tool == tool ? Color.miroYellow : .clear)
+                )
+                .overlay(alignment: .bottomTrailing) {
+                    if locked {
+                        Image(systemName: "plus.circle.fill")
+                            .font(.system(size: 12, weight: .bold))
+                            .symbolRenderingMode(.palette)
+                            .foregroundStyle(.white, Color.miroInk)
+                            .offset(x: -4, y: -4)
+                    }
+                }
+        }
+        .buttonStyle(.plain)
+        .help(toolHelp(tool, locked: locked))
+        .keyboardShortcut(.none)
+    }
+
+    private func toolHelp(_ tool: Tool, locked: Bool) -> String {
+        let name = "\(tool.label) (\(String(tool.shortcutKey).uppercased()))"
+        guard tool.isOneShot else { return name }
+        return locked ? "\(name). Locked: keeps creating. Click again to unlock."
+                      : "\(name). Click again to lock it for repeated use."
+    }
+
     private var palette: some View {
         let editsPixelate = controller.sliderEditsPixelateAmount
-        let sliderSymbol = editsPixelate ? Tool.pixelate.symbol : "lineweight"
+        let editsTextSize = controller.sliderEditsTextSize
+        // The one slider drives stroke width, pixel size, or font size; its
+        // icon and label say which.
+        let sliderSymbol = editsPixelate ? Tool.pixelate.symbol : (editsTextSize ? "textformat.size" : "lineweight")
+        let sliderHelp = editsPixelate ? "Pixel size" : (editsTextSize ? "Font size" : "Stroke width")
         return VStack(spacing: 4) {
             ForEach(Tool.allCases) { tool in
-                Button {
-                    if reduceMotion {
-                        controller.tool = tool
-                    } else {
-                        withAnimation(.easeOut(duration: 0.12)) { controller.tool = tool }
-                    }
-                } label: {
-                    tileIcon(tool.symbol,
-                             tint: controller.tool == tool ? Color.miroInk : MiroTheme.textSecondary(scheme))
-                        .background(
-                            RoundedRectangle(cornerRadius: 11)
-                                .fill(controller.tool == tool ? Color.miroYellow : .clear)
-                        )
-                }
-                .buttonStyle(.plain)
-                .help("\(tool.label) (\(String(tool.shortcutKey).uppercased()))")
-                .keyboardShortcut(.none)
-                .anchorPreference(key: StampRowAnchor.self, value: .bounds) { tool == .stamp ? $0 : nil }
+                toolTile(tool)
+                    .anchorPreference(key: ToolRowAnchors.self, value: .bounds) { [tool: $0] }
             }
 
             paletteDivider(width: 28, verticalPadding: 4)
@@ -323,7 +359,7 @@ struct ToolPalette: View {
                 tileIcon(sliderSymbol, tint: MiroTheme.textSecondary(scheme))
             }
             .buttonStyle(MiroTileButtonStyle())
-            .help(editsPixelate ? "Pixel size" : "Stroke width")
+            .help(sliderHelp)
             .popover(isPresented: $showsStrokeWidth, arrowEdge: .trailing) {
                 HStack(spacing: 8) {
                     Image(systemName: sliderSymbol)
@@ -395,16 +431,39 @@ struct ToolPalette: View {
                 }
             }
 
+            if controller.editsTextAlignment {
+                Button {
+                    showsTextLayout.toggle()
+                } label: {
+                    tileIcon(controller.textAlignment.symbol, tint: MiroTheme.textSecondary(scheme))
+                }
+                .buttonStyle(MiroTileButtonStyle())
+                .help("Text alignment")
+                .popover(isPresented: $showsTextLayout, arrowEdge: .trailing) {
+                    VStack(alignment: .leading, spacing: 10) {
+                        TextAlignmentRow(controller: controller)
+                        if controller.editsCalloutShape {
+                            TextOutlineColorRow(controller: controller, label: "Ink")
+                        }
+                        if controller.selectionIsText {
+                            BubbleRow(controller: controller)
+                        }
+                    }
+                    .padding(12)
+                }
+            }
+
         }
         .miroFloatingPanel()
-        // Glyph flyout beside the Stamp tool row whenever a stamp glyph is
-        // editable. The row's bounds arrive as an anchor preference, resolved
-        // in this same layout pass, so the flyout tracks the row exactly.
-        .overlayPreferenceValue(StampRowAnchor.self) { anchor in
+        // Flyout beside the row of whichever tool has one showing (stamp
+        // glyph, bubble shape, loupe shape). The rows' bounds arrive as an
+        // anchor preference, resolved in this same layout pass, so the flyout
+        // tracks its row exactly.
+        .overlayPreferenceValue(ToolRowAnchors.self) { anchors in
             GeometryReader { proxy in
-                if let anchor, controller.editsStampKind {
+                if let tool = controller.flyoutTool, let anchor = anchors[tool] {
                     let row = proxy[anchor]
-                    StampKindPanel(controller: controller)
+                    ToolFlyout(controller: controller, tool: tool)
                         .miroFloatingPanel()
                         // Both panels pad their tiles by 8, so top-aligning
                         // the flyout 8 above the row lines the tiles up.
@@ -413,7 +472,7 @@ struct ToolPalette: View {
                 }
             }
         }
-        .animation(reduceMotion ? nil : .easeOut(duration: 0.1), value: controller.editsStampKind)
+        .animation(reduceMotion ? nil : .easeOut(duration: 0.1), value: controller.flyoutTool)
     }
 }
 

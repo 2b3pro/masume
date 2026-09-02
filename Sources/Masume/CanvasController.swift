@@ -21,10 +21,43 @@ final class CanvasController {
     }
     var tool: Tool = .arrow {
         didSet {
-            selection = nil
+            if !keepsSelectionOnToolChange { selection = nil }
             adoptStrokeWidthForTool()
             persistPreferences()
         }
+    }
+    /// Set around the automatic hand-back to Select after a placement so the
+    /// just-placed element stays selected.
+    @ObservationIgnored private var keepsSelectionOnToolChange = false
+    /// One-shot tools locked to keep creating after each placement. Session
+    /// only: every launch starts unlocked.
+    private(set) var lockedTools: Set<Tool> = []
+
+    func isLocked(_ tool: Tool) -> Bool { lockedTools.contains(tool) }
+
+    /// Palette and shortcut entry point: picks the tool, or toggles its lock
+    /// when it is already active and one-shot (OmniGraffle's double click).
+    func selectTool(_ tool: Tool) {
+        guard tool == self.tool, tool.isOneShot else {
+            self.tool = tool
+            return
+        }
+        if lockedTools.contains(tool) {
+            lockedTools.remove(tool)
+        } else {
+            lockedTools.insert(tool)
+        }
+    }
+
+    /// Called by the canvas once an annotation is placed (a shape on
+    /// mouse-up, text when its editing ends). An unlocked one-shot tool hands
+    /// back to Select so the next canvas click deselects instead of creating;
+    /// the new element stays selected.
+    func didPlaceAnnotation() {
+        guard tool.isOneShot, !lockedTools.contains(tool) else { return }
+        keepsSelectionOnToolChange = true
+        tool = .select
+        keepsSelectionOnToolChange = false
     }
     /// True while the inline text annotation editor is active; disables the
     /// unmodified single-letter tool shortcuts so they don't steal typing.
@@ -67,6 +100,38 @@ final class CanvasController {
             persistPreferences()
         }
     }
+    /// Line alignment for new text and callouts; edits the selected text
+    /// element when one is selected.
+    var textAlignment: LineAlignment = .left {
+        didSet {
+            applyTextAlignmentToSelection()
+            persistPreferences()
+        }
+    }
+    /// Bubble shape for new callouts; edits the selected callout when one is
+    /// selected. Plain text is untouched (wrapping it is `setSelectedBubble`).
+    var calloutShape: CalloutShape = .speech {
+        didSet {
+            applyCalloutShapeToSelection()
+            persistPreferences()
+        }
+    }
+    /// Outline for new loupes; edits the selected loupe when one is selected.
+    var magnifierShape: MagnifierShape = .circle {
+        didSet {
+            applyMagnifierShapeToSelection()
+            persistPreferences()
+        }
+    }
+    /// Zoom for new loupes; edits the selected loupe when one is selected.
+    /// Undo boundaries are the caller's job (the canvas slider wraps drags in
+    /// begin/commitInteraction), like `strokeWidth`.
+    var magnifierZoom: CGFloat = MagnifierElement.defaultZoom {
+        didSet {
+            applyMagnifierZoomToSelection()
+            persistPreferences()
+        }
+    }
     var strokeWidth: CGFloat = DefaultStrokeWidth.segmentReferenceWidth {
         didSet {
             rememberStrokeWidth()
@@ -103,6 +168,10 @@ final class CanvasController {
         textStyle = prefs.textStyle
         textOutlineColor = prefs.textOutlineColor
         stampKind = prefs.stampKind
+        textAlignment = prefs.textAlignment
+        calloutShape = prefs.calloutShape
+        magnifierShape = prefs.magnifierShape
+        magnifierZoom = prefs.magnifierZoom
         pixelateAmount = prefs.referencePixelateAmount
         strokeWidth = groupWidths[prefs.tool.strokeWidthGroup ?? .segment] ?? DefaultStrokeWidth.segmentReferenceWidth
     }
@@ -130,6 +199,10 @@ final class CanvasController {
         prefs.textStyle = textStyle
         prefs.textOutlineColor = textOutlineColor
         prefs.stampKind = stampKind
+        prefs.textAlignment = textAlignment
+        prefs.calloutShape = calloutShape
+        prefs.magnifierShape = magnifierShape
+        prefs.magnifierZoom = magnifierZoom
         return prefs
     }
 
@@ -191,11 +264,51 @@ final class CanvasController {
     // MARK: - Loading
 
     func loadImage(at url: URL) {
+        if PDFPageSource.isPDF(url) {
+            guard let source = PDFPageSource(url: url) else {
+                NSSound.beep()
+                return
+            }
+            loadPDF(source)
+            return
+        }
         guard let image = ImageLoader.cgImage(from: url) else {
             NSSound.beep()
             return
         }
         load(image: image, sourceURL: url)
+    }
+
+    // MARK: PDF import
+
+    /// A multi-page PDF awaiting a page choice; the canvas pane shows the
+    /// page picker while this is set.
+    var pendingPDF: PDFPageSource?
+
+    /// Imports a one-page PDF straight away; a longer one waits for a page.
+    func loadPDF(_ source: PDFPageSource) {
+        if source.pageCount == 1 {
+            choosePDFPage(1, from: source)
+        } else {
+            pendingPDF = source
+        }
+    }
+
+    /// Rasterizes `page` of `source` (or of the pending PDF) at the import
+    /// scale and makes it the base image. Beeps and keeps the current
+    /// document when the page cannot be rendered.
+    func choosePDFPage(_ page: Int, from source: PDFPageSource? = nil) {
+        guard let source = source ?? pendingPDF else { return }
+        pendingPDF = nil
+        guard let image = source.render(page: page) else {
+            NSSound.beep()
+            return
+        }
+        load(image: image, sourceURL: source.sourceURL)
+    }
+
+    func cancelPDFImport() {
+        pendingPDF = nil
     }
 
     func loadImage(_ image: CGImage, sourceURL: URL? = nil) {
@@ -206,6 +319,10 @@ final class CanvasController {
     @discardableResult
     func loadDroppedImage(_ items: [DroppedImage]) -> Bool {
         for item in items {
+            if let pdf = item.pdfSource {
+                loadPDF(pdf)
+                return true
+            }
             guard let image = item.cgImage else { continue }
             load(image: image, sourceURL: item.sourceURL)
             return true
@@ -252,10 +369,15 @@ final class CanvasController {
         effectiveZoomScale = scale
     }
 
-    /// Loads an image from the general pasteboard, if present.
+    /// Loads an image from the pasteboard, if present. PDF data is imported
+    /// through the page path (2×, page picker) rather than as a blurry
+    /// first-page NSImage.
     @discardableResult
-    func pasteImage() -> Bool {
-        let pb = NSPasteboard.general
+    func pasteImage(from pb: NSPasteboard = .general) -> Bool {
+        if let data = pb.data(forType: .pdf), let source = PDFPageSource(data: data) {
+            loadPDF(source)
+            return true
+        }
         if let objs = pb.readObjects(forClasses: [NSImage.self], options: nil) as? [NSImage],
            let nsImage = objs.first,
            let cg = nsImage.cgImage(forProposedRect: nil, context: nil, hints: nil) {
@@ -370,6 +492,14 @@ final class CanvasController {
         return doc.elements[i].pixelateAmount != nil
     }
 
+    /// True when the size slider edits a font size: the text or callout tool
+    /// is active or a text element is selected. Lets the palette show a
+    /// text-size icon instead of the stroke-weight one.
+    var sliderEditsTextSize: Bool {
+        if tool.strokeWidthGroup == .text { return true }
+        return selectionIsText
+    }
+
     /// True when the opacity control applies: the pen tool is active or a
     /// pen stroke is selected.
     var editsPenOpacity: Bool {
@@ -379,11 +509,66 @@ final class CanvasController {
     }
 
     /// True when the text-style control applies: the text tool is active or a
-    /// text element is selected.
+    /// plain text element is selected. Halo and outline do not apply to
+    /// callouts, whose bubble supplies the contrast.
     var editsTextStyle: Bool {
         if tool == .text { return true }
         guard let sel = selection, let doc = document, let i = doc.index(of: sel) else { return false }
-        return doc.elements[i].textStyle != nil
+        return doc.elements[i].textStyle != nil && !doc.elements[i].isCallout
+    }
+
+    /// True when the alignment control applies: the text or callout tool is
+    /// active or a text element (plain or callout) is selected.
+    var editsTextAlignment: Bool {
+        if tool == .text || tool == .callout { return true }
+        return selectionIsText
+    }
+
+    /// True when the bubble-shape control applies: the callout tool is active
+    /// or a callout is selected.
+    var editsCalloutShape: Bool {
+        if tool == .callout { return true }
+        return selectedBubble != nil
+    }
+
+    /// True when the selection is a text element of either kind.
+    var selectionIsText: Bool {
+        guard let sel = selection, let doc = document, let i = doc.index(of: sel) else { return false }
+        return doc.elements[i].textAlignment != nil
+    }
+
+    /// Bubble shape of the selected text element; nil for plain text or when
+    /// nothing text-like is selected.
+    var selectedBubble: CalloutShape? {
+        guard let sel = selection, let doc = document, let i = doc.index(of: sel) else { return nil }
+        return doc.elements[i].calloutShape
+    }
+
+    /// Wraps the selected text in a bubble, or unwraps it for nil, as one
+    /// undo step. The box is re-measured for the changed padding.
+    func setSelectedBubble(_ shape: CalloutShape?) {
+        guard let sel = selection, let doc = document, let i = doc.index(of: sel),
+              case .text(var t) = doc.elements[i], t.container?.shape != shape else { return }
+        if let shape { t.makeCallout(shape) } else { t.removeCallout() }
+        t.size = Renderer.suggestedSize(for: t)
+        perform { $0.elements[i] = .text(t) }
+        if let shape { calloutShape = shape }
+    }
+
+    /// True when the loupe-shape control applies: the magnifier tool is
+    /// active or a loupe is selected.
+    var editsMagnifierShape: Bool {
+        if tool == .magnifier { return true }
+        guard let sel = selection, let doc = document, let i = doc.index(of: sel) else { return false }
+        return doc.elements[i].magnifierShape != nil
+    }
+
+    /// The tool whose flyout (glyph, bubble, or loupe shape) is showing, if any.
+    var flyoutTool: Tool? {
+        if editsStampKind { return .stamp }
+        if editsCalloutShape { return .callout }
+        if editsMagnifierShape { return .magnifier }
+        return nil
     }
 
     /// True when the stamp-kind control applies: the stamp tool is active or
@@ -415,6 +600,10 @@ final class CanvasController {
         if let kind = element.stampKind, kind != stampKind { stampKind = kind }
         if let opacity = element.opacity, opacity != penOpacity { penOpacity = opacity }
         if let outline = element.textOutlineColor, outline != textOutlineColor { textOutlineColor = outline }
+        if let alignment = element.textAlignment, alignment != textAlignment { textAlignment = alignment }
+        if let shape = element.calloutShape, shape != calloutShape { calloutShape = shape }
+        if let shape = element.magnifierShape, shape != magnifierShape { magnifierShape = shape }
+        if let zoom = element.magnifierZoom, zoom != magnifierZoom { magnifierZoom = zoom }
     }
 
     /// Shared `didSet` hook for the tool-state properties (stroke width /
@@ -464,6 +653,41 @@ final class CanvasController {
               let current = doc.elements[i].textStyle, current != textStyle else { return }
         let style = textStyle
         perform { $0.elements[i].textStyle = style }
+    }
+
+    /// Applies the global alignment to the selected text element as one undo
+    /// step.
+    private func applyTextAlignmentToSelection() {
+        guard !isSyncing else { return }
+        guard let sel = selection, let doc = document, let i = doc.index(of: sel),
+              let current = doc.elements[i].textAlignment, current != textAlignment else { return }
+        let alignment = textAlignment
+        perform { $0.elements[i].textAlignment = alignment }
+    }
+
+    /// Applies the global bubble shape to the selected callout as one undo
+    /// step; plain text has no shape and is left alone.
+    private func applyCalloutShapeToSelection() {
+        guard !isSyncing else { return }
+        guard let sel = selection, let doc = document, let i = doc.index(of: sel),
+              let current = doc.elements[i].calloutShape, current != calloutShape else { return }
+        let shape = calloutShape
+        perform { $0.elements[i].calloutShape = shape }
+    }
+
+    /// Applies the global loupe shape to the selected loupe as one undo step.
+    private func applyMagnifierShapeToSelection() {
+        guard !isSyncing else { return }
+        guard let sel = selection, let doc = document, let i = doc.index(of: sel),
+              let current = doc.elements[i].magnifierShape, current != magnifierShape else { return }
+        let shape = magnifierShape
+        perform { $0.elements[i].magnifierShape = shape }
+    }
+
+    /// Applies the global loupe zoom to the selected loupe. Undo boundaries
+    /// are the caller's job (the canvas slider wraps drags).
+    private func applyMagnifierZoomToSelection() {
+        applyToSelection(\.magnifierZoom, magnifierZoom)
     }
 
     /// Applies the global stamp kind to the selected stamp as one undo step.

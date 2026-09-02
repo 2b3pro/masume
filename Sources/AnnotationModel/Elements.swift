@@ -131,11 +131,16 @@ public struct TextElement: Codable, Equatable, Sendable, RectGeometry {
     public var color: RGBAColor
     public var style: TextStyle
     /// Color of the halo (shadow style) or outline (outline style); white
-    /// or black in the UI, ignored by the plain style.
+    /// or black in the UI, ignored by the plain style. On a callout it is
+    /// the ink: the border and the text, over a body filled with `color`.
     public var outlineColor: RGBAColor
+    public var alignment: LineAlignment
+    /// Present when the text is a callout; see `Callout.swift`.
+    public var container: TextContainer?
 
     /// Rect-backed view over the stored origin/size (which stay the encoded
-    /// representation).
+    /// representation). For a callout this is the bubble body; the text
+    /// sits inside it at `textRect`.
     public var rect: CGRect {
         get { CGRect(origin: origin, size: size) }
         set { origin = newValue.origin; size = newValue.size }
@@ -145,22 +150,41 @@ public struct TextElement: Codable, Equatable, Sendable, RectGeometry {
     public static let minimumWidth: CGFloat = 40
     public static let pointSizeRange: ClosedRange<Double> = 8...400
 
+    /// Plain text is exactly its rect. A callout's box spills past the rect
+    /// (border, shadow, scallops) and its tail may reach anywhere.
+    public func boundingBox() -> CGRect {
+        guard let container else { return rect }
+        return rect.union(CGRect(origin: container.tailTip, size: .zero))
+            .insetBy(dx: -outerMargin, dy: -outerMargin)
+    }
+
+    public func hitTest(_ point: CGPoint, tolerance: CGFloat) -> Bool {
+        if rect.insetBy(dx: -tolerance, dy: -tolerance).contains(point) { return true }
+        guard let tail = calloutTail() else { return false }
+        return GeometryMath.distance(from: point, toSegment: tail.base, tail.tip) <= tailBaseHalfWidth + tolerance
+    }
+
     /// Skitch text handles: left and right edges set the width (the box
     /// wraps at its width and re-measures its height), and the bottom-right
-    /// corner scales the font. There are no height handles.
+    /// corner scales the font. There are no height handles. A callout adds
+    /// its tail tip.
     public func handles() -> [Handle] {
-        [Handle(role: .left, position: CGPoint(x: rect.minX, y: rect.midY)),
-         Handle(role: .right, position: CGPoint(x: rect.maxX, y: rect.midY)),
-         Handle(role: .bottomRight, position: CGPoint(x: rect.maxX, y: rect.maxY))]
+        var handles = [Handle(role: .left, position: CGPoint(x: rect.minX, y: rect.midY)),
+                       Handle(role: .right, position: CGPoint(x: rect.maxX, y: rect.midY)),
+                       Handle(role: .bottomRight, position: CGPoint(x: rect.maxX, y: rect.maxY))]
+        if let container {
+            handles.append(Handle(role: .end, position: container.tailTip))
+        }
+        return handles
     }
 
     public mutating func moveHandle(_ role: HandleRole, to point: CGPoint) {
         switch role {
         case .right:
-            size.width = max(Self.minimumWidth, point.x - origin.x)
+            size.width = max(minimumBoxWidth, point.x - origin.x)
         case .left:
             let maxX = rect.maxX
-            let newMinX = min(point.x, maxX - Self.minimumWidth)
+            let newMinX = min(point.x, maxX - minimumBoxWidth)
             origin.x = newMinX
             size.width = maxX - newMinX
         case .bottomRight:
@@ -169,17 +193,43 @@ public struct TextElement: Codable, Equatable, Sendable, RectGeometry {
             guard size.height > 0 else { return }
             let scaled = Double((point.y - origin.y) / size.height) * font.pointSize
             font.pointSize = min(Self.pointSizeRange.upperBound, max(Self.pointSizeRange.lowerBound, scaled))
+        case .end:
+            container?.tailTip = point
         default:
             break
         }
     }
 
+    public mutating func translate(by delta: CGVector) {
+        origin.x += delta.dx; origin.y += delta.dy
+        container?.tailTip.x += delta.dx
+        container?.tailTip.y += delta.dy
+    }
+
     public init(id: ElementID = UUID(), origin: CGPoint, size: CGSize = CGSize(width: 160, height: 40),
                 string: String = "", font: FontSpec = FontSpec(), color: RGBAColor = .red,
-                style: TextStyle = .shadow, outlineColor: RGBAColor = .white) {
+                style: TextStyle = .shadow, outlineColor: RGBAColor = .white,
+                alignment: LineAlignment = .left, container: TextContainer? = nil) {
         self.id = id; self.origin = origin; self.size = size
         self.string = string; self.font = font; self.color = color
         self.style = style; self.outlineColor = outlineColor
+        self.alignment = alignment; self.container = container
+    }
+
+    /// Text encoded before alignment and containers existed decodes as
+    /// left-aligned plain text.
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(ElementID.self, forKey: .id)
+        origin = try c.decode(CGPoint.self, forKey: .origin)
+        size = try c.decode(CGSize.self, forKey: .size)
+        string = try c.decode(String.self, forKey: .string)
+        font = try c.decode(FontSpec.self, forKey: .font)
+        color = try c.decode(RGBAColor.self, forKey: .color)
+        style = try c.decode(TextStyle.self, forKey: .style)
+        outlineColor = try c.decode(RGBAColor.self, forKey: .outlineColor)
+        alignment = try c.decodeIfPresent(LineAlignment.self, forKey: .alignment) ?? .left
+        container = try c.decodeIfPresent(TextContainer.self, forKey: .container)
     }
 }
 

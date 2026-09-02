@@ -9,7 +9,9 @@ enum Tool: String, CaseIterable, Identifiable, Codable {
     case ellipse
     case pen
     case text
+    case callout
     case stamp
+    case magnifier
     case pixelate
     case crop
 
@@ -24,7 +26,9 @@ enum Tool: String, CaseIterable, Identifiable, Codable {
         case .ellipse: return "Ellipse"
         case .pen: return "Pen"
         case .text: return "Text"
+        case .callout: return "Callout"
         case .stamp: return "Stamp"
+        case .magnifier: return "Magnify"
         case .pixelate: return "Pixelate"
         case .crop: return "Crop"
         }
@@ -40,7 +44,9 @@ enum Tool: String, CaseIterable, Identifiable, Codable {
         case .ellipse: return "o"
         case .pen: return "d"
         case .text: return "t"
+        case .callout: return "b"
         case .stamp: return "s"
+        case .magnifier: return "m"
         case .pixelate: return "p"
         case .crop: return "c"
         }
@@ -56,9 +62,21 @@ enum Tool: String, CaseIterable, Identifiable, Codable {
         case .ellipse: return "circle"
         case .pen: return "pencil"
         case .text: return "textformat"
+        case .callout: return "text.bubble"
         case .stamp: return "mappin.circle"
+        case .magnifier: return "magnifyingglass"
         case .pixelate: return "squareshape.split.3x3"
         case .crop: return "crop"
+        }
+    }
+
+    /// True for tools that place one annotation and then hand back to Select
+    /// unless locked. Pen is sticky (strokes come in bursts); Select and Crop
+    /// create nothing.
+    var isOneShot: Bool {
+        switch self {
+        case .arrow, .line, .rectangle, .ellipse, .text, .callout, .stamp, .magnifier, .pixelate: return true
+        case .select, .pen, .crop: return false
         }
     }
 
@@ -67,9 +85,9 @@ enum Tool: String, CaseIterable, Identifiable, Codable {
     var strokeWidthGroup: StrokeWidthGroup? {
         switch self {
         case .arrow, .line: return .segment
-        case .rectangle, .ellipse: return .shape
+        case .rectangle, .ellipse, .magnifier: return .shape
         case .pen: return .pen
-        case .text: return .text
+        case .text, .callout: return .text
         case .select, .stamp, .pixelate, .crop: return nil
         }
     }
@@ -95,6 +113,7 @@ extension Annotation {
         case .rectangle, .ellipse: return .shape
         case .pen: return .pen
         case .text: return .text
+        case .magnifier: return .shape
         case .stamp, .pixelate: return nil
         }
     }

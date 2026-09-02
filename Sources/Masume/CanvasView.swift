@@ -54,6 +54,12 @@ final class CanvasNSView: NSView {
         case movingCrop(last: CGPoint)
         /// Pen straight line: the end point follows the pointer until mouse-up.
         case lining(ElementID, anchor: CGPoint)
+        /// Callout creation: the tail tip is fixed at the mouse-down point and
+        /// the bubble's center follows the pointer; mouse-up opens the editor.
+        case placingCallout(ElementID)
+        /// Dragging the zoom slider under a selected loupe; `track` is the
+        /// slider's rect in view points.
+        case magnifierZoom(track: CGRect)
         /// Spacebar hand tool: drags the zoomed image; `last` is in view points.
         case panning(last: CGPoint)
     }
@@ -199,6 +205,10 @@ final class CanvasNSView: NSView {
         doc.crop = nil
         return doc
     }
+
+    /// The live mapping, exposed for gesture tests that need view-space
+    /// positions of overlay controls.
+    var displayInfoForTesting: DisplayInfo { displayInfo }
 
     private var displayInfo: DisplayInfo {
         let canvas: CGRect
@@ -418,6 +428,18 @@ final class CanvasNSView: NSView {
             refresh()
             return
         }
+        // Zoom slider under a selected loupe: a click or drag on it sets the
+        // zoom, as one undo step per drag.
+        if let sel = controller.selection,
+           let element = controller.document?.elements.first(where: { $0.id == sel }),
+           let track = magnifierSliderTrack(for: element, info: info),
+           track.insetBy(dx: -6, dy: -6).contains(viewPoint) {
+            controller.beginInteraction()
+            controller.magnifierZoom = Self.magnifierZoom(forX: viewPoint.x, in: track)
+            drag = .magnifierZoom(track: track)
+            refresh()
+            return
+        }
         let p = info.viewToModel(viewPoint)
         controller.beginInteraction()
 
@@ -472,7 +494,11 @@ final class CanvasNSView: NSView {
                 drag = .none
                 return
             }
-            if tool == .text { createText(at: p) } else { createElement(tool: tool, at: p) }
+            switch tool {
+            case .text: createText(at: p)
+            case .callout: createCallout(at: p)
+            default: createElement(tool: tool, at: p)
+            }
         }
     }
 
@@ -502,6 +528,15 @@ final class CanvasNSView: NSView {
                 line.points = [anchor, p]
                 $0 = .pen(line)
             }
+        case .placingCallout(let id):
+            controller.document?.mutate(id) {
+                guard case .text(var t) = $0 else { return }
+                t.origin = CGPoint(x: p.x - t.size.width / 2, y: p.y - t.size.height / 2)
+                $0 = .text(t)
+            }
+        case .magnifierZoom(let track):
+            let v = convert(event.locationInWindow, from: nil)
+            controller.magnifierZoom = Self.magnifierZoom(forX: v.x, in: track)
         case .panning(let last):
             let v = convert(event.locationInWindow, from: nil)
             pan(by: CGVector(dx: v.x - last.x, dy: v.y - last.y))
@@ -532,9 +567,21 @@ final class CanvasNSView: NSView {
             NSCursor.pop()
             pushedHandCursors -= 1
         }
+        var placedCallout: ElementID?
+        var placedShape = false
+        switch drag {
+        case .placingCallout(let id): placedCallout = id
+        case .creating, .lining: placedShape = true
+        default: break
+        }
         drag = .none
         controller.commitInteraction()
         refresh()
+        // The bubble is placed; typing starts as a separate undo step, like
+        // text created by a click. Text and callouts count as placed when
+        // their editing ends (see commitTextEditing).
+        if let placedCallout { beginTextEditing(for: placedCallout) }
+        if placedShape { controller.didPlaceAnnotation() }
     }
 
     // MARK: Pan
@@ -683,11 +730,18 @@ extension CanvasNSView: NSTextViewDelegate {
         commitTextEditing()
 
         let info = displayInfo
-        let tv = MinimalTextView(frame: textEditorFrame(forModelRect: element.boundingBox()))
+        let tv = MinimalTextView(frame: textEditorFrame(forModelRect: text.textRect))
         tv.string = text.string
         tv.font = nsFont(for: text.font, scale: info.scale)
-        tv.textColor = nsColor(text.color)
-        tv.backgroundColor = NSColor.textBackgroundColor.withAlphaComponent(0.9)
+        tv.alignment = nsAlignment(text.alignment)
+        if text.isCallout {
+            // Edit in the bubble's own colors: ink on the fill.
+            tv.textColor = nsColor(text.outlineColor)
+            tv.backgroundColor = nsColor(text.color).withAlphaComponent(0.9)
+        } else {
+            tv.textColor = nsColor(text.color)
+            tv.backgroundColor = NSColor.textBackgroundColor.withAlphaComponent(0.9)
+        }
         tv.isRichText = false
         tv.drawsBackground = true
         tv.delegate = self
@@ -706,8 +760,8 @@ extension CanvasNSView: NSTextViewDelegate {
               let element = controller?.document?.elements.first(where: { $0.id == id }),
               case .text(var t) = element else { return }
         t.string = tv.string
-        let size = Renderer.suggestedSize(for: t)
-        let newFrame = textEditorFrame(forModelRect: CGRect(origin: t.origin, size: size))
+        t.size = Renderer.suggestedSize(for: t)
+        let newFrame = textEditorFrame(forModelRect: t.textRect)
         if tv.frame != newFrame { tv.frame = newFrame }
     }
 
@@ -733,6 +787,10 @@ extension CanvasNSView: NSTextViewDelegate {
                 }
             }
         }
+        // Editing over means the text is placed: an unlocked Text or Callout
+        // tool hands back to Select, so the click that ended typing (if that
+        // is what did) proceeds as a Select click rather than a new box.
+        controller.didPlaceAnnotation()
         refresh()
     }
 
@@ -749,6 +807,14 @@ extension CanvasNSView: NSTextViewDelegate {
 
 private func nsColor(_ c: RGBAColor) -> NSColor {
     NSColor(srgbRed: c.r, green: c.g, blue: c.b, alpha: c.a)
+}
+
+private func nsAlignment(_ alignment: LineAlignment) -> NSTextAlignment {
+    switch alignment {
+    case .left: return .left
+    case .center: return .center
+    case .right: return .right
+    }
 }
 
 private func nsFont(for spec: FontSpec, scale: CGFloat) -> NSFont {

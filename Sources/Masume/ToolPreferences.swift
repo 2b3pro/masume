@@ -3,7 +3,8 @@ import CoreGraphics
 import AnnotationModel
 
 /// Tool state remembered across launches: the active tool, color, per-group
-/// stroke widths, pixel size, pen opacity, text style, and stamp glyph.
+/// stroke widths, pixel size, pen opacity, text style, text alignment,
+/// callout shape, and stamp glyph.
 /// Sizes are stored relative to the reference canvas so a remembered
 /// thickness looks the same on the next image whatever its pixel size.
 struct ToolPreferences: Codable, Equatable {
@@ -15,6 +16,10 @@ struct ToolPreferences: Codable, Equatable {
     var textStyle: TextStyle = .shadow
     var textOutlineColor: RGBAColor = .white
     var stampKind: StampKind = .check
+    var textAlignment: LineAlignment = .left
+    var calloutShape: CalloutShape = .speech
+    var magnifierShape: MagnifierShape = .circle
+    var magnifierZoom: CGFloat = MagnifierElement.defaultZoom
 
     static let defaultReferenceWidths: [StrokeWidthGroup: CGFloat] = [
         .segment: DefaultStrokeWidth.segmentReferenceWidth,
@@ -41,6 +46,11 @@ struct ToolPreferences: Codable, Equatable {
         textStyle = try c.decodeIfPresent(TextStyle.self, forKey: .textStyle) ?? defaults.textStyle
         textOutlineColor = try c.decodeIfPresent(RGBAColor.self, forKey: .textOutlineColor) ?? defaults.textOutlineColor
         stampKind = try c.decodeIfPresent(StampKind.self, forKey: .stampKind) ?? defaults.stampKind
+        textAlignment = try c.decodeIfPresent(LineAlignment.self, forKey: .textAlignment) ?? defaults.textAlignment
+        calloutShape = try c.decodeIfPresent(CalloutShape.self, forKey: .calloutShape) ?? defaults.calloutShape
+        magnifierShape = try c.decodeIfPresent(MagnifierShape.self, forKey: .magnifierShape) ?? defaults.magnifierShape
+        magnifierZoom = MagnifierElement.clampedZoom(
+            try c.decodeIfPresent(CGFloat.self, forKey: .magnifierZoom) ?? defaults.magnifierZoom)
     }
 }
 

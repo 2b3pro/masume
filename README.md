@@ -13,7 +13,8 @@ see [docs/agent-collaborative-annotation-spec.md](docs/agent-collaborative-annot
 
 ## What it does
 
-Open, paste, or drop an image, mark it up, and export (shortcuts in parentheses).
+Open, paste, or drop an image or a PDF, mark it up, and export (shortcuts in parentheses).
+A PDF page is rasterized at 2× on import; a multi-page PDF shows a page picker first.
 
 - **Tools:** Select (`V`), Arrow (`A`), Line (`L`), Rectangle (`R`), Ellipse (`O`), Pen (`D`),
   Text (`T`), Callout (`B`), Stamp (`S`), Magnify (`M`), Pixelate (`P`), and Crop (`C`).

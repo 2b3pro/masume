@@ -16,7 +16,16 @@ enum DroppedImage: Transferable, Equatable {
 
     static var transferRepresentation: some TransferRepresentation {
         DataRepresentation(importedContentType: .image) { .data($0) }
+        DataRepresentation(importedContentType: .pdf) { .data($0) }
         ProxyRepresentation { (url: URL) in .file(url) }
+    }
+
+    /// The payload as a PDF, when it is one (a `.pdf` file or PDF bytes).
+    var pdfSource: PDFPageSource? {
+        switch self {
+        case .file(let url): return PDFPageSource(url: url)
+        case .data(let data): return PDFPageSource(data: data)
+        }
     }
 
     /// Decodes the payload; nil when the file or bytes are not a readable image.

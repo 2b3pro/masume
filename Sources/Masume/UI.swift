@@ -189,6 +189,12 @@ private struct CanvasPane: View {
         }
         .animation(.easeOut(duration: 0.12), value: controller.document?.crop != nil)
         .animation(.easeOut(duration: 0.18), value: controller.toastMessage)
+        // Multi-page PDF import: pick the page to rasterize.
+        .sheet(item: Binding(get: { controller.pendingPDF }, set: { controller.pendingPDF = $0 })) { source in
+            PDFPagePicker(source: source,
+                          choose: { controller.choosePDFPage($0, from: source) },
+                          cancel: { controller.cancelPDFImport() })
+        }
     }
 }
 

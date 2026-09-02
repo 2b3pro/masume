@@ -143,7 +143,7 @@ enum ExportService {
 
     static func openPanel(_ controller: CanvasController) {
         let panel = NSOpenPanel()
-        panel.allowedContentTypes = [.image]
+        panel.allowedContentTypes = [.image, .pdf]
         panel.allowsMultipleSelection = false
         panel.begin { response in
             guard response == .OK, let url = panel.url else { return }

@@ -47,9 +47,9 @@ A PDF page is rasterized at 2× on import; a multi-page PDF shows a page picker 
   its key) again to lock it; a "+" badge appears and it keeps creating until you click it
   again. The pen is always sticky. Locks last for the session.
 - **Editing:** select, move, and resize via handles; Undo (`Cmd+Z`), Redo (`Cmd+Shift+Z`),
-  Delete. Stroke color, width, pixel size, opacity, text style, alignment, bubble shape, and
-  stamp glyph are remembered
-  across launches, with sizes scaled to each image so they look the same on any screenshot.
+  Delete. Stroke color, width, pixel size, opacity, text style, alignment, bubble shape, loupe
+  shape and zoom, and stamp glyph are remembered across launches, with sizes scaled to each
+  image so they look the same on any screenshot.
 - **Navigation:** zoom in and out (`Cmd++` / `Cmd+-`), fit to window (`Cmd+0`), pinch to zoom,
   `Cmd`+scroll wheel to zoom about the pointer, and hold `Space` and drag to pan when zoomed
   in.
@@ -61,6 +61,17 @@ A PDF page is rasterized at 2× on import; a multi-page PDF shows a page picker 
 ## Install
 
 Masume is not distributed as a binary; build it from source (below).
+
+## Versioning
+
+The current version lives in [`VERSION`](VERSION) and follows semantic versioning while the
+app is pre-1.0: a minor bump for new tools or formats, a patch bump for fixes. The build
+script stamps it into the bundle, and each release is tagged `vX.Y.Z` on `main`.
+
+| Version | Highlights |
+|---|---|
+| 0.2.0 | Callouts (speech and thought) with text alignment, one-shot tools with a lock, the magnifier loupe with a zoom slider, PDF import at 2× with a page picker. |
+| 0.1.0 | The Skitch-look fork as inherited from kakico: shadows, text styles, stamps, pen and highlighter, remembered tool state. |
 
 ## Build & Run
 
@@ -78,16 +89,19 @@ ad-hoc-signed bundle (no Apple Developer account required). The repository's lin
 
 - `Sources/AnnotationModel/` — pure value-type model (no AppKit or SwiftUI).
 - `Sources/AnnotationRender/` — Core Graphics rendering of a `Document` into a `CGImage`,
-  including the Skitch shadow, text styles, stamp pins, and pen strokes.
-- `Sources/Masume/` — the app: tabs, canvas, palette, export, and tool-state persistence.
-- `Tests/` — unit tests for all three, including synthetic-event tests that drive the canvas
-  view directly for gestures such as Shift-click lines, space-drag panning, and `Cmd`+scroll.
+  including the Skitch shadow, text styles, callout bubbles, stamp pins, loupes, and pen
+  strokes.
+- `Sources/Masume/` — the app: tabs, canvas, palette, PDF import, export, and tool-state
+  persistence.
+- `Tests/` — unit tests for all three, including pixel checks on rendered output and
+  synthetic-event tests that drive the canvas view directly for gestures such as the
+  callout and loupe drags, Shift-click lines, space-drag panning, and `Cmd`+scroll.
 
 ## License
 
 Masume's own contributions (everything added on top of
 [tk3fftk/kakico](https://github.com/tk3fftk/kakico)) are released under the
-MIT License; see [LICENSE](LICENSE). The original Masume code is Copyright
+MIT License; see [LICENSE](LICENSE). The original Kakico code is Copyright
 Hiroki Takatsuka and has no license file at the time of writing, so it
 remains all rights reserved until one is added upstream. Redistribution of
 Masume builds should wait for that.

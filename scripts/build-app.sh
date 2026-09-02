@@ -32,9 +32,13 @@ else
 fi
 
 
-# Optional release version stamp (VERSION env var or 2nd arg, "v" prefix tolerated).
-# Must happen before codesign: editing Info.plist afterwards breaks the seal.
+# Version stamp: the VERSION env var or 2nd arg ("v" prefix tolerated), else
+# the repository's VERSION file. Must happen before codesign: editing
+# Info.plist afterwards breaks the seal.
 VERSION="${VERSION:-${2:-}}"
+if [[ -z "$VERSION" && -f "$ROOT/VERSION" ]]; then
+    VERSION="$(tr -d '[:space:]' < "$ROOT/VERSION")"
+fi
 if [[ -n "$VERSION" ]]; then
     VERSION="${VERSION#v}"
     echo "==> stamping version $VERSION"

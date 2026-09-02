@@ -12,6 +12,7 @@ public enum Annotation: Codable, Equatable, Sendable, Identifiable {
     case text(TextElement)
     case stamp(StampElement)
     case pixelate(RedactionElement)
+    case magnifier(MagnifierElement)
 
     public var id: ElementID { geometry.id }
 
@@ -26,6 +27,7 @@ public enum Annotation: Codable, Equatable, Sendable, Identifiable {
         case .text(let e): return e
         case .stamp(let e): return e
         case .pixelate(let e): return e
+        case .magnifier(let e): return e
         }
     }
 
@@ -41,6 +43,7 @@ public enum Annotation: Codable, Equatable, Sendable, Identifiable {
             case .arrow(let e), .line(let e): return e.width
             case .rectangle(let e), .ellipse(let e): return e.width
             case .pen(let e): return e.width
+            case .magnifier(let e): return e.width
             case .text, .stamp, .pixelate: return nil
             }
         }
@@ -52,6 +55,7 @@ public enum Annotation: Codable, Equatable, Sendable, Identifiable {
             case .rectangle(var e): e.width = width; self = .rectangle(e)
             case .ellipse(var e): e.width = width; self = .ellipse(e)
             case .pen(var e): e.width = width; self = .pen(e)
+            case .magnifier(var e): e.width = width; self = .magnifier(e)
             case .text, .stamp, .pixelate: break
             }
         }
@@ -159,6 +163,34 @@ public enum Annotation: Codable, Equatable, Sendable, Identifiable {
     /// True for a text element with a bubble.
     public var isCallout: Bool { calloutShape != nil }
 
+    /// Zoom factor of a magnifier; nil for other kinds. Setting clamps to
+    /// `MagnifierElement.zoomRange` and is a no-op for other kinds and nil.
+    public var magnifierZoom: CGFloat? {
+        get {
+            guard case .magnifier(let e) = self else { return nil }
+            return e.zoom
+        }
+        set {
+            guard case .magnifier(var e) = self, let zoom = newValue else { return }
+            e.zoom = zoom
+            self = .magnifier(e)
+        }
+    }
+
+    /// Outline shape of a magnifier; nil for other kinds. Setting is a no-op
+    /// for those kinds and for nil.
+    public var magnifierShape: MagnifierShape? {
+        get {
+            guard case .magnifier(let e) = self else { return nil }
+            return e.shape
+        }
+        set {
+            guard case .magnifier(var e) = self, let shape = newValue else { return }
+            e.shape = shape
+            self = .magnifier(e)
+        }
+    }
+
     /// Color of the wrapped element; nil for kinds without one (pixelate).
     /// Setting is a no-op for those kinds and for nil.
     public var color: RGBAColor? {
@@ -169,6 +201,7 @@ public enum Annotation: Codable, Equatable, Sendable, Identifiable {
             case .pen(let e): return e.color
             case .text(let e): return e.color
             case .stamp(let e): return e.color
+            case .magnifier(let e): return e.color
             case .pixelate: return nil
             }
         }
@@ -182,6 +215,7 @@ public enum Annotation: Codable, Equatable, Sendable, Identifiable {
             case .pen(var e): e.color = color; self = .pen(e)
             case .text(var e): e.color = color; self = .text(e)
             case .stamp(var e): e.color = color; self = .stamp(e)
+            case .magnifier(var e): e.color = color; self = .magnifier(e)
             case .pixelate: break
             }
         }
@@ -198,6 +232,7 @@ public enum Annotation: Codable, Equatable, Sendable, Identifiable {
         case .rectangle(let e): return .rectangle(Self.defaultSized(e, canvasSize: canvasSize))
         case .ellipse(let e):   return .ellipse(Self.defaultSized(e, canvasSize: canvasSize))
         case .pixelate(let e):  return .pixelate(Self.defaultSized(e, canvasSize: canvasSize))
+        case .magnifier(let e): return .magnifier(Self.defaultSizedMagnifier(e, canvasSize: canvasSize))
         case .text, .stamp:     return self   // already placed at a default size
         case .pen:              return self   // a plain click is a dot
         }
@@ -211,6 +246,14 @@ public enum Annotation: Codable, Equatable, Sendable, Identifiable {
         let vector = DefaultInitialSize.segment(forCanvasSize: canvasSize)
         e.end = CGPoint(x: e.start.x + vector.dx,
                         y: e.start.y + vector.dy)
+        return e
+    }
+
+    /// A clicked loupe becomes a default-size square centered on the click.
+    private static func defaultSizedMagnifier(_ e: MagnifierElement, canvasSize: CGSize) -> MagnifierElement {
+        guard max(e.rect.width, e.rect.height) < DefaultInitialSize.degenerateThreshold else { return e }
+        var e = e
+        e.rect = DefaultInitialSize.magnifierRect(centeredOn: e.center, canvasSize: canvasSize)
         return e
     }
 
@@ -240,6 +283,7 @@ public enum Annotation: Codable, Equatable, Sendable, Identifiable {
         case .text(var e): var g: AnnotationGeometry = e; body(&g); e = g as! TextElement; self = .text(e)
         case .stamp(var e): var g: AnnotationGeometry = e; body(&g); e = g as! StampElement; self = .stamp(e)
         case .pixelate(var e): var g: AnnotationGeometry = e; body(&g); e = g as! RedactionElement; self = .pixelate(e)
+        case .magnifier(var e): var g: AnnotationGeometry = e; body(&g); e = g as! MagnifierElement; self = .magnifier(e)
         }
     }
 }

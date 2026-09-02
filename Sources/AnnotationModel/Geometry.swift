@@ -113,6 +113,15 @@ public enum DefaultInitialSize {
         max(minimumTextWidth, (textWidth * DefaultSizeScale.factor(forCanvasSize: canvasSize)).rounded())
     }
 
+    /// Side of a click-placed magnifier loupe at the reference canvas size.
+    public static let magnifierSide: CGFloat = 130
+
+    /// The default loupe square centered on the click point, scaled to the canvas.
+    public static func magnifierRect(centeredOn point: CGPoint, canvasSize: CGSize) -> CGRect {
+        let side = magnifierSide * DefaultSizeScale.factor(forCanvasSize: canvasSize)
+        return CGRect(x: point.x - side / 2, y: point.y - side / 2, width: side, height: side)
+    }
+
     /// Where a click-placed callout bubble sits relative to its tail tip: this
     /// far right, and this far up from the tip to the bubble's bottom edge.
     /// More up than right, so the tail leaves the bottom edge.

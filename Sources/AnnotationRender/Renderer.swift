@@ -34,8 +34,14 @@ public enum Renderer {
         if let baseImage {
             drawImage(baseImage, in: canvas, ctx: ctx)
         }
+        // Loupes magnify the base image plus every redaction, whatever the
+        // z-order, so pixelated content can never be read through a loupe.
+        let redactions = doc.elements.compactMap { element -> RedactionElement? in
+            if case .pixelate(let r) = element { return r }
+            return nil
+        }
         for element in doc.elements {
-            draw(element, base: baseImage, canvasSize: doc.canvasSize, in: ctx)
+            draw(element, base: baseImage, redactions: redactions, canvasSize: doc.canvasSize, in: ctx)
         }
     }
 
@@ -90,7 +96,8 @@ public enum Renderer {
 
     // MARK: - Per-element drawing
 
-    private static func draw(_ element: Annotation, base: CGImage?, canvasSize: CGSize, in ctx: CGContext) {
+    private static func draw(_ element: Annotation, base: CGImage?, redactions: [RedactionElement],
+                             canvasSize: CGSize, in ctx: CGContext) {
         switch element {
         case .arrow(let e): drawArrow(e, in: ctx)
         case .line(let e): drawLine(e, in: ctx)
@@ -100,6 +107,48 @@ public enum Renderer {
         case .text(let e): drawText(e, in: ctx)
         case .stamp(let e): drawStamp(e, in: ctx)
         case .pixelate(let e): drawRedaction(e.rect, amount: e.amount, base: base, canvasSize: canvasSize, in: ctx)
+        case .magnifier(let e): drawMagnifier(e, base: base, redactions: redactions, canvasSize: canvasSize, in: ctx)
+        }
+    }
+
+    private static func magnifierPath(_ e: MagnifierElement) -> CGPath {
+        switch e.shape {
+        case .circle: return CGPath(ellipseIn: e.rect, transform: nil)
+        case .square: return CGPath(roundedRect: e.rect, cornerWidth: e.cornerRadius,
+                                    cornerHeight: e.cornerRadius, transform: nil)
+        }
+    }
+
+    /// Loupe: the base image around the loupe's center scaled by its zoom,
+    /// clipped to its shape, under a ring in the stroke color. Redactions are
+    /// drawn into the magnified view too (see `draw(_:baseImage:in:)`); no
+    /// other annotation is.
+    private static func drawMagnifier(_ e: MagnifierElement, base: CGImage?, redactions: [RedactionElement],
+                                      canvasSize: CGSize, in ctx: CGContext) {
+        let path = magnifierPath(e)
+        withShadow(forStrokeWidth: e.width, in: ctx) {
+            ctx.saveGState()
+            ctx.addPath(path)
+            ctx.clip()
+            let c = e.center
+            ctx.translateBy(x: c.x, y: c.y)
+            ctx.scaleBy(x: e.zoom, y: e.zoom)
+            ctx.translateBy(x: -c.x, y: -c.y)
+            let canvas = CGRect(origin: .zero, size: canvasSize)
+            if let base {
+                ctx.interpolationQuality = .high
+                drawImage(base, in: canvas, ctx: ctx)
+            } else {
+                ctx.setFillColor(red: 0.5, green: 0.5, blue: 0.5, alpha: 1)
+                ctx.fill(canvas)
+            }
+            for redaction in redactions {
+                drawRedaction(redaction.rect, amount: redaction.amount, base: base, canvasSize: canvasSize, in: ctx)
+            }
+            ctx.restoreGState()
+            setStroke(ctx, e.color, e.width)
+            ctx.addPath(path)
+            ctx.strokePath()
         }
     }
 

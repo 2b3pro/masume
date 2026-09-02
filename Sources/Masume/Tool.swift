@@ -109,6 +109,7 @@ extension Annotation {
         case .rectangle, .ellipse: return .shape
         case .pen: return .pen
         case .text: return .text
+        case .magnifier: return .shape
         case .stamp, .pixelate: return nil
         }
     }

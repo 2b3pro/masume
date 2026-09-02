@@ -67,6 +67,22 @@ final class CanvasController {
             persistPreferences()
         }
     }
+    /// Line alignment for new text and callouts; edits the selected text
+    /// element when one is selected.
+    var textAlignment: LineAlignment = .left {
+        didSet {
+            applyTextAlignmentToSelection()
+            persistPreferences()
+        }
+    }
+    /// Bubble shape for new callouts; edits the selected callout when one is
+    /// selected. Plain text is untouched (wrapping it is `setSelectedBubble`).
+    var calloutShape: CalloutShape = .speech {
+        didSet {
+            applyCalloutShapeToSelection()
+            persistPreferences()
+        }
+    }
     var strokeWidth: CGFloat = DefaultStrokeWidth.segmentReferenceWidth {
         didSet {
             rememberStrokeWidth()
@@ -103,6 +119,8 @@ final class CanvasController {
         textStyle = prefs.textStyle
         textOutlineColor = prefs.textOutlineColor
         stampKind = prefs.stampKind
+        textAlignment = prefs.textAlignment
+        calloutShape = prefs.calloutShape
         pixelateAmount = prefs.referencePixelateAmount
         strokeWidth = groupWidths[prefs.tool.strokeWidthGroup ?? .segment] ?? DefaultStrokeWidth.segmentReferenceWidth
     }
@@ -130,6 +148,8 @@ final class CanvasController {
         prefs.textStyle = textStyle
         prefs.textOutlineColor = textOutlineColor
         prefs.stampKind = stampKind
+        prefs.textAlignment = textAlignment
+        prefs.calloutShape = calloutShape
         return prefs
     }
 
@@ -379,11 +399,50 @@ final class CanvasController {
     }
 
     /// True when the text-style control applies: the text tool is active or a
-    /// text element is selected.
+    /// plain text element is selected. Halo and outline do not apply to
+    /// callouts, whose bubble supplies the contrast.
     var editsTextStyle: Bool {
         if tool == .text { return true }
         guard let sel = selection, let doc = document, let i = doc.index(of: sel) else { return false }
-        return doc.elements[i].textStyle != nil
+        return doc.elements[i].textStyle != nil && !doc.elements[i].isCallout
+    }
+
+    /// True when the alignment control applies: the text or callout tool is
+    /// active or a text element (plain or callout) is selected.
+    var editsTextAlignment: Bool {
+        if tool == .text || tool == .callout { return true }
+        return selectionIsText
+    }
+
+    /// True when the bubble-shape control applies: the callout tool is active
+    /// or a callout is selected.
+    var editsCalloutShape: Bool {
+        if tool == .callout { return true }
+        return selectedBubble != nil
+    }
+
+    /// True when the selection is a text element of either kind.
+    var selectionIsText: Bool {
+        guard let sel = selection, let doc = document, let i = doc.index(of: sel) else { return false }
+        return doc.elements[i].textAlignment != nil
+    }
+
+    /// Bubble shape of the selected text element; nil for plain text or when
+    /// nothing text-like is selected.
+    var selectedBubble: CalloutShape? {
+        guard let sel = selection, let doc = document, let i = doc.index(of: sel) else { return nil }
+        return doc.elements[i].calloutShape
+    }
+
+    /// Wraps the selected text in a bubble, or unwraps it for nil, as one
+    /// undo step. The box is re-measured for the changed padding.
+    func setSelectedBubble(_ shape: CalloutShape?) {
+        guard let sel = selection, let doc = document, let i = doc.index(of: sel),
+              case .text(var t) = doc.elements[i], t.container?.shape != shape else { return }
+        if let shape { t.makeCallout(shape) } else { t.removeCallout() }
+        t.size = Renderer.suggestedSize(for: t)
+        perform { $0.elements[i] = .text(t) }
+        if let shape { calloutShape = shape }
     }
 
     /// True when the stamp-kind control applies: the stamp tool is active or
@@ -415,6 +474,8 @@ final class CanvasController {
         if let kind = element.stampKind, kind != stampKind { stampKind = kind }
         if let opacity = element.opacity, opacity != penOpacity { penOpacity = opacity }
         if let outline = element.textOutlineColor, outline != textOutlineColor { textOutlineColor = outline }
+        if let alignment = element.textAlignment, alignment != textAlignment { textAlignment = alignment }
+        if let shape = element.calloutShape, shape != calloutShape { calloutShape = shape }
     }
 
     /// Shared `didSet` hook for the tool-state properties (stroke width /
@@ -464,6 +525,26 @@ final class CanvasController {
               let current = doc.elements[i].textStyle, current != textStyle else { return }
         let style = textStyle
         perform { $0.elements[i].textStyle = style }
+    }
+
+    /// Applies the global alignment to the selected text element as one undo
+    /// step.
+    private func applyTextAlignmentToSelection() {
+        guard !isSyncing else { return }
+        guard let sel = selection, let doc = document, let i = doc.index(of: sel),
+              let current = doc.elements[i].textAlignment, current != textAlignment else { return }
+        let alignment = textAlignment
+        perform { $0.elements[i].textAlignment = alignment }
+    }
+
+    /// Applies the global bubble shape to the selected callout as one undo
+    /// step; plain text has no shape and is left alone.
+    private func applyCalloutShapeToSelection() {
+        guard !isSyncing else { return }
+        guard let sel = selection, let doc = document, let i = doc.index(of: sel),
+              let current = doc.elements[i].calloutShape, current != calloutShape else { return }
+        let shape = calloutShape
+        perform { $0.elements[i].calloutShape = shape }
     }
 
     /// Applies the global stamp kind to the selected stamp as one undo step.

@@ -263,6 +263,7 @@ struct ToolPalette: View {
     @State private var showsStrokeWidth = false
     @State private var showsColorPresets = false
     @State private var showsTextStyle = false
+    @State private var showsTextLayout = false
     @State private var showsPenOpacity = false
 
     var body: some View {
@@ -277,29 +278,36 @@ struct ToolPalette: View {
         .animation(reduceMotion ? nil : .easeOut(duration: 0.1), value: showsColorPresets)
     }
 
+    /// One tool button. Split out of `palette` so the type checker can cope
+    /// with the accessory chain below it.
+    private func toolTile(_ tool: Tool) -> some View {
+        Button {
+            if reduceMotion {
+                controller.tool = tool
+            } else {
+                withAnimation(.easeOut(duration: 0.12)) { controller.tool = tool }
+            }
+        } label: {
+            tileIcon(tool.symbol,
+                     tint: controller.tool == tool ? Color.miroInk : MiroTheme.textSecondary(scheme))
+                .background(
+                    RoundedRectangle(cornerRadius: 11)
+                        .fill(controller.tool == tool ? Color.miroYellow : .clear)
+                )
+        }
+        .buttonStyle(.plain)
+        .help("\(tool.label) (\(String(tool.shortcutKey).uppercased()))")
+        .keyboardShortcut(.none)
+    }
+
     private var palette: some View {
         let editsPixelate = controller.sliderEditsPixelateAmount
         let sliderSymbol = editsPixelate ? Tool.pixelate.symbol : "lineweight"
         return VStack(spacing: 4) {
             ForEach(Tool.allCases) { tool in
-                Button {
-                    if reduceMotion {
-                        controller.tool = tool
-                    } else {
-                        withAnimation(.easeOut(duration: 0.12)) { controller.tool = tool }
-                    }
-                } label: {
-                    tileIcon(tool.symbol,
-                             tint: controller.tool == tool ? Color.miroInk : MiroTheme.textSecondary(scheme))
-                        .background(
-                            RoundedRectangle(cornerRadius: 11)
-                                .fill(controller.tool == tool ? Color.miroYellow : .clear)
-                        )
-                }
-                .buttonStyle(.plain)
-                .help("\(tool.label) (\(String(tool.shortcutKey).uppercased()))")
-                .keyboardShortcut(.none)
-                .anchorPreference(key: StampRowAnchor.self, value: .bounds) { tool == .stamp ? $0 : nil }
+                toolTile(tool)
+                    .anchorPreference(key: StampRowAnchor.self, value: .bounds) { tool == .stamp ? $0 : nil }
+                    .anchorPreference(key: CalloutRowAnchor.self, value: .bounds) { tool == .callout ? $0 : nil }
             }
 
             paletteDivider(width: 28, verticalPadding: 4)
@@ -395,6 +403,28 @@ struct ToolPalette: View {
                 }
             }
 
+            if controller.editsTextAlignment {
+                Button {
+                    showsTextLayout.toggle()
+                } label: {
+                    tileIcon(controller.textAlignment.symbol, tint: MiroTheme.textSecondary(scheme))
+                }
+                .buttonStyle(MiroTileButtonStyle())
+                .help("Text alignment")
+                .popover(isPresented: $showsTextLayout, arrowEdge: .trailing) {
+                    VStack(alignment: .leading, spacing: 10) {
+                        TextAlignmentRow(controller: controller)
+                        if controller.editsCalloutShape {
+                            TextOutlineColorRow(controller: controller, label: "Ink")
+                        }
+                        if controller.selectionIsText {
+                            BubbleRow(controller: controller)
+                        }
+                    }
+                    .padding(12)
+                }
+            }
+
         }
         .miroFloatingPanel()
         // Glyph flyout beside the Stamp tool row whenever a stamp glyph is
@@ -414,6 +444,19 @@ struct ToolPalette: View {
             }
         }
         .animation(reduceMotion ? nil : .easeOut(duration: 0.1), value: controller.editsStampKind)
+        // Same again for the bubble shape beside the Callout tool row.
+        .overlayPreferenceValue(CalloutRowAnchor.self) { anchor in
+            GeometryReader { proxy in
+                if let anchor, controller.editsCalloutShape {
+                    let row = proxy[anchor]
+                    CalloutShapePanel(controller: controller)
+                        .miroFloatingPanel()
+                        .offset(x: proxy.size.width + 8, y: row.minY - 8)
+                        .transition(.scale(scale: 0.95, anchor: .leading).combined(with: .opacity))
+                }
+            }
+        }
+        .animation(reduceMotion ? nil : .easeOut(duration: 0.1), value: controller.editsCalloutShape)
     }
 }
 

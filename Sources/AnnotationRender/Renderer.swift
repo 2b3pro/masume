@@ -255,7 +255,7 @@ public enum Renderer {
         return NSAttributedString(string: e.string, attributes: attrs)
     }
 
-    private static func paragraphStyle(for alignment: TextAlignment) -> CTParagraphStyle {
+    private static func paragraphStyle(for alignment: LineAlignment) -> CTParagraphStyle {
         var ctAlignment: CTTextAlignment
         switch alignment {
         case .left: ctAlignment = .left

@@ -9,6 +9,7 @@ enum Tool: String, CaseIterable, Identifiable, Codable {
     case ellipse
     case pen
     case text
+    case callout
     case stamp
     case pixelate
     case crop
@@ -24,6 +25,7 @@ enum Tool: String, CaseIterable, Identifiable, Codable {
         case .ellipse: return "Ellipse"
         case .pen: return "Pen"
         case .text: return "Text"
+        case .callout: return "Callout"
         case .stamp: return "Stamp"
         case .pixelate: return "Pixelate"
         case .crop: return "Crop"
@@ -40,6 +42,7 @@ enum Tool: String, CaseIterable, Identifiable, Codable {
         case .ellipse: return "o"
         case .pen: return "d"
         case .text: return "t"
+        case .callout: return "b"
         case .stamp: return "s"
         case .pixelate: return "p"
         case .crop: return "c"
@@ -56,6 +59,7 @@ enum Tool: String, CaseIterable, Identifiable, Codable {
         case .ellipse: return "circle"
         case .pen: return "pencil"
         case .text: return "textformat"
+        case .callout: return "text.bubble"
         case .stamp: return "mappin.circle"
         case .pixelate: return "squareshape.split.3x3"
         case .crop: return "crop"
@@ -69,7 +73,7 @@ enum Tool: String, CaseIterable, Identifiable, Codable {
         case .arrow, .line: return .segment
         case .rectangle, .ellipse: return .shape
         case .pen: return .pen
-        case .text: return .text
+        case .text, .callout: return .text
         case .select, .stamp, .pixelate, .crop: return nil
         }
     }

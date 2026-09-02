@@ -98,6 +98,30 @@ extension CanvasNSView {
         }
     }
 
+    /// Callout tool: the mouse-down point is the tail tip. The bubble starts
+    /// above and to the right of it and follows the pointer while dragging
+    /// (`Drag.placingCallout`); mouse-up opens the inline editor.
+    func createCallout(at tip: CGPoint) {
+        guard let controller else { return }
+        let canvasSize = controller.document?.canvasSize ?? DefaultSizeScale.referenceCanvasSize
+        var element = TextElement(origin: .zero,
+                                  size: CGSize(width: DefaultInitialSize.textWidth(forCanvasSize: canvasSize), height: 0),
+                                  string: "",
+                                  font: FontSpec(pointSize: FontSpec.suggestedPointSize(forStrokeWidth: controller.strokeWidth)),
+                                  color: controller.strokeColor,
+                                  style: .plain,
+                                  outlineColor: controller.textOutlineColor,
+                                  alignment: .center,
+                                  container: TextContainer(shape: controller.calloutShape, tailTip: tip))
+        element.size.width += 2 * element.padding
+        element.size.height = Renderer.suggestedSize(for: element).height
+        let offset = DefaultInitialSize.calloutOffset(forCanvasSize: canvasSize)
+        element.origin = CGPoint(x: tip.x + offset.dx, y: tip.y - offset.dy - element.size.height)
+        controller.document?.add(.text(element))
+        controller.selection = element.id
+        drag = .placingCallout(element.id)
+    }
+
     func createText(at p: CGPoint) {
         guard let controller else { return }
         let canvasSize = controller.document?.canvasSize ?? DefaultSizeScale.referenceCanvasSize

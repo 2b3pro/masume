@@ -113,6 +113,16 @@ public enum DefaultInitialSize {
         max(minimumTextWidth, (textWidth * DefaultSizeScale.factor(forCanvasSize: canvasSize)).rounded())
     }
 
+    /// Where a click-placed callout bubble sits relative to its tail tip: this
+    /// far right, and this far up from the tip to the bubble's bottom edge.
+    /// More up than right, so the tail leaves the bottom edge.
+    public static let calloutOffset = CGVector(dx: 30, dy: 50)
+
+    public static func calloutOffset(forCanvasSize canvasSize: CGSize) -> CGVector {
+        let s = DefaultSizeScale.factor(forCanvasSize: canvasSize)
+        return CGVector(dx: calloutOffset.dx * s, dy: calloutOffset.dy * s)
+    }
+
     /// Tail→head vector for a freshly placed arrow/line, scaled to the canvas.
     public static func segment(forCanvasSize canvasSize: CGSize) -> CGVector {
         let s = DefaultSizeScale.factor(forCanvasSize: canvasSize)

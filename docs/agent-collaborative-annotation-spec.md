@@ -241,6 +241,7 @@ Preserve all existing tools and add only the agreed v1 gaps:
 - Rounded rectangle as a rectangle style with editable corner radius.
 - Translucent rectangular highlight.
 - Freehand stroke stored as a simplified image-space point path.
+- Speech-bubble and thought-cloud text callouts with a free tail tip, filled with the palette color and inked (border and text) in white or black, plus left/center/right line alignment on all text. Shipped ahead of the phases below; the tail-first gesture is described in the README.
 - Numbered callout marker with editable integer and automatic next-number default.
 - Optional shadow for arrows, lines, shapes, text, and callouts.
 - Shadow is a global current-session default with a per-object override.

@@ -26,7 +26,8 @@ extension CanvasNSView {
             drawHandle(at: info.modelToView(handle.position),
                        stroke: NSColor.miroBlue, lineWidth: 1.5, in: ctx)
         }
-        if case .text(let text) = element, let center = textStyleButtonCenter(for: element, info: info) {
+        if case .text(let text) = element, !text.isCallout,
+           let center = textStyleButtonCenter(for: element, info: info) {
             drawTextStyleButton(at: center, for: text, in: ctx)
         }
     }
@@ -37,9 +38,10 @@ extension CanvasNSView {
     private static let textStyleButtonGap: CGFloat = 12
 
     /// Center (view coordinates) of the style-cycling button floating above a
-    /// selected text box; nil for other kinds.
+    /// selected text box; nil for other kinds and for callouts, whose bubble
+    /// replaces the halo/outline treatment.
     func textStyleButtonCenter(for element: Annotation, info: DisplayInfo) -> CGPoint? {
-        guard case .text = element else { return nil }
+        guard case .text(let text) = element, !text.isCallout else { return nil }
         let box = info.viewRect(forModelRect: element.boundingBox())
         // Non-flipped view: above the box is the larger y.
         return CGPoint(x: box.midX, y: box.maxY + Self.textStyleButtonGap + Self.textStyleButtonRadius)

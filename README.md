@@ -16,20 +16,28 @@ see [docs/agent-collaborative-annotation-spec.md](docs/agent-collaborative-annot
 Open, paste, or drop an image, mark it up, and export (shortcuts in parentheses).
 
 - **Tools:** Select (`V`), Arrow (`A`), Line (`L`), Rectangle (`R`), Ellipse (`O`), Pen (`D`),
-  Text (`T`), Stamp (`S`), Pixelate (`P`), and Crop (`C`).
+  Text (`T`), Callout (`B`), Stamp (`S`), Pixelate (`P`), and Crop (`C`).
 - **Skitch look:** arrows, lines, rectangles, and ellipses cast a soft drop shadow that scales
   with the stroke width and stays identical at every export size.
 - **Text:** three styles, **Shadow** (white or black halo plus drop shadow), **Outline**, and
   **Plain**, chosen from the palette or by clicking the round "a" button above a selected text
   box, which previews the style you will get next. Side handles set the width and the text
-  re-wraps; the bottom-right handle scales the font.
+  re-wraps; the bottom-right handle scales the font. Lines align left, center, or right from
+  the alignment control.
+- **Callouts:** a text box in a speech bubble or thought cloud with a tail. Press where the
+  tail should point, drag to where the bubble should sit, release, and type. The bubble fills
+  with the stroke color; its border and text use the white-or-black ink. Drag the tail tip to
+  re-aim it; a tip inside the bubble hides the tail. Pick speech or thought from the row
+  beside the Callout tool. A plain text box becomes a callout (and back) from the **Bubble**
+  row in the alignment control.
 - **Stamps:** check, cross, exclamation, question, and heart as Skitch-style pins. Click to
   place; drag while placing to aim the tail; drag the tail later to re-aim; drag the disk edge
   to resize. Pick the glyph from the row that appears beside the Stamp tool.
 - **Pen and highlighter:** freehand strokes with round caps. Lower the opacity to turn the pen
   into a highlighter. Shift-click twice to draw a straight line between two points.
 - **Editing:** select, move, and resize via handles; Undo (`Cmd+Z`), Redo (`Cmd+Shift+Z`),
-  Delete. Stroke color, width, pixel size, opacity, text style, and stamp glyph are remembered
+  Delete. Stroke color, width, pixel size, opacity, text style, alignment, bubble shape, and
+  stamp glyph are remembered
   across launches, with sizes scaled to each image so they look the same on any screenshot.
 - **Navigation:** zoom in and out (`Cmd++` / `Cmd+-`), fit to window (`Cmd+0`), pinch to zoom,
   `Cmd`+scroll wheel to zoom about the pointer, and hold `Space` and drag to pan when zoomed

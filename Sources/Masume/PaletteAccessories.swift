@@ -64,16 +64,149 @@ extension StampKind {
     }
 }
 
-/// White-or-black choice for the text halo/outline color.
+/// Bounds of the Callout tool tile, published by the palette so the bubble
+/// shape flyout can sit beside that row.
+struct CalloutRowAnchor: PreferenceKey {
+    static let defaultValue: Anchor<CGRect>? = nil
+    static func reduce(value: inout Anchor<CGRect>?, nextValue: () -> Anchor<CGRect>?) {
+        value = nextValue() ?? value
+    }
+}
+
+/// Speech or thought bubble for new callouts (and the selected one).
+struct CalloutShapePanel: View {
+    var controller: CanvasController
+    @Environment(\.colorScheme) private var scheme
+
+    var body: some View {
+        HStack(spacing: 4) {
+            ForEach(CalloutShape.allCases, id: \.self) { shape in
+                Button {
+                    controller.calloutShape = shape
+                } label: {
+                    tileIcon(shape.symbol,
+                             tint: controller.calloutShape == shape ? Color.miroInk : MiroTheme.textSecondary(scheme),
+                             iconSize: 22)
+                        .background(
+                            RoundedRectangle(cornerRadius: 11)
+                                .fill(controller.calloutShape == shape ? Color.miroYellow : .clear)
+                        )
+                }
+                .buttonStyle(.plain)
+                .help(shape.label)
+            }
+        }
+    }
+}
+
+extension CalloutShape {
+    var label: String {
+        switch self {
+        case .speech: return "Speech bubble"
+        case .thought: return "Thought cloud"
+        }
+    }
+
+    var symbol: String {
+        switch self {
+        case .speech: return "bubble.left.fill"
+        case .thought: return "cloud.fill"
+        }
+    }
+}
+
+extension LineAlignment {
+    var label: String {
+        switch self {
+        case .left: return "Align left"
+        case .center: return "Center"
+        case .right: return "Align right"
+        }
+    }
+
+    var symbol: String {
+        switch self {
+        case .left: return "text.alignleft"
+        case .center: return "text.aligncenter"
+        case .right: return "text.alignright"
+        }
+    }
+}
+
+/// Left / center / right for the text and callout tools and the selected
+/// text element.
+struct TextAlignmentRow: View {
+    var controller: CanvasController
+    @Environment(\.colorScheme) private var scheme
+
+    var body: some View {
+        HStack(spacing: 4) {
+            ForEach(LineAlignment.allCases, id: \.self) { alignment in
+                Button {
+                    controller.textAlignment = alignment
+                } label: {
+                    tileIcon(alignment.symbol,
+                             tint: controller.textAlignment == alignment ? Color.miroInk : MiroTheme.textSecondary(scheme),
+                             iconSize: 18)
+                        .background(
+                            RoundedRectangle(cornerRadius: 11)
+                                .fill(controller.textAlignment == alignment ? Color.miroYellow : .clear)
+                        )
+                }
+                .buttonStyle(.plain)
+                .help(alignment.label)
+            }
+        }
+    }
+}
+
+/// None / speech / thought for the selected text element: wraps plain text
+/// in a bubble or takes the bubble away.
+struct BubbleRow: View {
+    var controller: CanvasController
+    @Environment(\.colorScheme) private var scheme
+
+    private var choices: [(name: String, symbol: String, shape: CalloutShape?)] {
+        [("No bubble", "textformat", nil)]
+            + CalloutShape.allCases.map { ($0.label, $0.symbol, $0) }
+    }
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Text("Bubble")
+                .font(.miroCaption)
+                .foregroundStyle(MiroTheme.textSecondary(scheme))
+            ForEach(choices, id: \.name) { choice in
+                Button {
+                    controller.setSelectedBubble(choice.shape)
+                } label: {
+                    tileIcon(choice.symbol,
+                             tint: controller.selectedBubble == choice.shape ? Color.miroInk : MiroTheme.textSecondary(scheme),
+                             iconSize: 18)
+                        .background(
+                            RoundedRectangle(cornerRadius: 11)
+                                .fill(controller.selectedBubble == choice.shape ? Color.miroYellow : .clear)
+                        )
+                }
+                .buttonStyle(.plain)
+                .help(choice.name)
+            }
+        }
+    }
+}
+
+/// White-or-black choice for the text halo/outline color, or a callout's
+/// ink (border and text) when `label` says so.
 struct TextOutlineColorRow: View {
     var controller: CanvasController
+    var label: String? = nil
     @Environment(\.colorScheme) private var scheme
 
     private static let choices: [(name: String, color: RGBAColor)] = [("White", .white), ("Black", .black)]
 
     var body: some View {
         HStack(spacing: 8) {
-            Text(controller.textStyle == .outline ? "Outline" : "Halo")
+            Text(label ?? (controller.textStyle == .outline ? "Outline" : "Halo"))
                 .font(.miroCaption)
                 .foregroundStyle(MiroTheme.textSecondary(scheme))
             ForEach(Self.choices, id: \.name) { choice in

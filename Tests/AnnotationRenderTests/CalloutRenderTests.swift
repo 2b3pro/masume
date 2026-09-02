@@ -43,7 +43,7 @@ final class CalloutRenderTests: XCTestCase {
     }
 
     private func callout(_ shape: CalloutShape, string: String = "", fill: RGBAColor = .red,
-                         ink: RGBAColor = .white, alignment: TextAlignment = .left) -> TextElement {
+                         ink: RGBAColor = .white, alignment: LineAlignment = .left) -> TextElement {
         var t = TextElement(origin: CGPoint(x: 60, y: 40), size: CGSize(width: 160, height: 80),
                             string: string, font: FontSpec(pointSize: 40), color: fill, style: .plain,
                             outlineColor: ink, alignment: alignment,
@@ -134,7 +134,7 @@ final class CalloutRenderTests: XCTestCase {
     }
 
     func testAlignmentMovesTheLineWithinTheBox() {
-        func inkRange(_ alignment: TextAlignment) -> ClosedRange<Int> {
+        func inkRange(_ alignment: LineAlignment) -> ClosedRange<Int> {
             let t = callout(.speech, string: "I", fill: .white, ink: .black, alignment: alignment)
             let buf = render(t)
             return inkColumns(buf, in: t.textRect.insetBy(dx: 4, dy: 4)) ?? 0...0
@@ -148,7 +148,7 @@ final class CalloutRenderTests: XCTestCase {
     }
 
     func testPlainTextHonorsAlignmentToo() {
-        func inkRange(_ alignment: TextAlignment) -> ClosedRange<Int> {
+        func inkRange(_ alignment: LineAlignment) -> ClosedRange<Int> {
             var t = TextElement(origin: CGPoint(x: 20, y: 20), size: CGSize(width: 260, height: 60),
                                 string: "I", font: FontSpec(pointSize: 40), color: .black, style: .plain)
             t.alignment = alignment

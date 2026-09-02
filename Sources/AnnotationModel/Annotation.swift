@@ -129,7 +129,7 @@ public enum Annotation: Codable, Equatable, Sendable, Identifiable {
 
     /// Line alignment of a text element; nil for other kinds. Setting is a
     /// no-op for those kinds and for nil.
-    public var textAlignment: TextAlignment? {
+    public var textAlignment: LineAlignment? {
         get {
             guard case .text(let e) = self else { return nil }
             return e.alignment

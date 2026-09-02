@@ -134,7 +134,7 @@ public struct TextElement: Codable, Equatable, Sendable, RectGeometry {
     /// or black in the UI, ignored by the plain style. On a callout it is
     /// the ink: the border and the text, over a body filled with `color`.
     public var outlineColor: RGBAColor
-    public var alignment: TextAlignment
+    public var alignment: LineAlignment
     /// Present when the text is a callout; see `Callout.swift`.
     public var container: TextContainer?
 
@@ -209,7 +209,7 @@ public struct TextElement: Codable, Equatable, Sendable, RectGeometry {
     public init(id: ElementID = UUID(), origin: CGPoint, size: CGSize = CGSize(width: 160, height: 40),
                 string: String = "", font: FontSpec = FontSpec(), color: RGBAColor = .red,
                 style: TextStyle = .shadow, outlineColor: RGBAColor = .white,
-                alignment: TextAlignment = .left, container: TextContainer? = nil) {
+                alignment: LineAlignment = .left, container: TextContainer? = nil) {
         self.id = id; self.origin = origin; self.size = size
         self.string = string; self.font = font; self.color = color
         self.style = style; self.outlineColor = outlineColor
@@ -228,7 +228,7 @@ public struct TextElement: Codable, Equatable, Sendable, RectGeometry {
         color = try c.decode(RGBAColor.self, forKey: .color)
         style = try c.decode(TextStyle.self, forKey: .style)
         outlineColor = try c.decode(RGBAColor.self, forKey: .outlineColor)
-        alignment = try c.decodeIfPresent(TextAlignment.self, forKey: .alignment) ?? .left
+        alignment = try c.decodeIfPresent(LineAlignment.self, forKey: .alignment) ?? .left
         container = try c.decodeIfPresent(TextContainer.self, forKey: .container)
     }
 }

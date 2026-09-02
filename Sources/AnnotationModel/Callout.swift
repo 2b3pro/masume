@@ -2,7 +2,7 @@ import Foundation
 import CoreGraphics
 
 /// Horizontal alignment of the lines inside a text box.
-public enum TextAlignment: String, Codable, Equatable, Sendable, CaseIterable {
+public enum LineAlignment: String, Codable, Equatable, Sendable, CaseIterable {
     case left, center, right
 }
 
@@ -53,8 +53,15 @@ extension TextElement {
         isCallout ? (font.pointSize * 0.45).rounded() : 0
     }
 
-    /// The rect the text is laid out in: the box inset by the padding.
-    public var textRect: CGRect { rect.insetBy(dx: padding, dy: padding) }
+    /// The rect the text is laid out in: the box inset by the padding. Never
+    /// null: a box shorter than twice the padding (one whose height has not
+    /// been measured yet) gives a zero-height rect at full inner width, so
+    /// measuring against it still wraps at the right width.
+    public var textRect: CGRect {
+        let pad = padding
+        return CGRect(x: rect.minX + pad, y: rect.minY + pad,
+                      width: max(0, rect.width - 2 * pad), height: max(0, rect.height - 2 * pad))
+    }
 
     /// Narrowest the box can be dragged, keeping `minimumWidth` for the text.
     public var minimumBoxWidth: CGFloat { Self.minimumWidth + 2 * padding }

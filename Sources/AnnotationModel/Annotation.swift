@@ -127,6 +127,38 @@ public enum Annotation: Codable, Equatable, Sendable, Identifiable {
         }
     }
 
+    /// Line alignment of a text element; nil for other kinds. Setting is a
+    /// no-op for those kinds and for nil.
+    public var textAlignment: TextAlignment? {
+        get {
+            guard case .text(let e) = self else { return nil }
+            return e.alignment
+        }
+        set {
+            guard case .text(var e) = self, let alignment = newValue else { return }
+            e.alignment = alignment
+            self = .text(e)
+        }
+    }
+
+    /// Bubble shape of a callout; nil for plain text and other kinds.
+    /// Setting changes an existing bubble's shape and is a no-op otherwise;
+    /// wrapping plain text is `TextElement.makeCallout`.
+    public var calloutShape: CalloutShape? {
+        get {
+            guard case .text(let e) = self else { return nil }
+            return e.container?.shape
+        }
+        set {
+            guard case .text(var e) = self, e.container != nil, let shape = newValue else { return }
+            e.container?.shape = shape
+            self = .text(e)
+        }
+    }
+
+    /// True for a text element with a bubble.
+    public var isCallout: Bool { calloutShape != nil }
+
     /// Color of the wrapped element; nil for kinds without one (pixelate).
     /// Setting is a no-op for those kinds and for nil.
     public var color: RGBAColor? {

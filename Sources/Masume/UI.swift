@@ -279,13 +279,16 @@ struct ToolPalette: View {
     }
 
     /// One tool button. Split out of `palette` so the type checker can cope
-    /// with the accessory chain below it.
+    /// with the accessory chain below it. Picking the active one-shot tool
+    /// again locks it, shown by a "+" badge: it keeps creating instead of
+    /// handing back to Select after each placement.
     private func toolTile(_ tool: Tool) -> some View {
-        Button {
+        let locked = controller.isLocked(tool)
+        return Button {
             if reduceMotion {
-                controller.tool = tool
+                controller.selectTool(tool)
             } else {
-                withAnimation(.easeOut(duration: 0.12)) { controller.tool = tool }
+                withAnimation(.easeOut(duration: 0.12)) { controller.selectTool(tool) }
             }
         } label: {
             tileIcon(tool.symbol,
@@ -294,10 +297,26 @@ struct ToolPalette: View {
                     RoundedRectangle(cornerRadius: 11)
                         .fill(controller.tool == tool ? Color.miroYellow : .clear)
                 )
+                .overlay(alignment: .bottomTrailing) {
+                    if locked {
+                        Image(systemName: "plus.circle.fill")
+                            .font(.system(size: 12, weight: .bold))
+                            .symbolRenderingMode(.palette)
+                            .foregroundStyle(.white, Color.miroInk)
+                            .offset(x: -4, y: -4)
+                    }
+                }
         }
         .buttonStyle(.plain)
-        .help("\(tool.label) (\(String(tool.shortcutKey).uppercased()))")
+        .help(toolHelp(tool, locked: locked))
         .keyboardShortcut(.none)
+    }
+
+    private func toolHelp(_ tool: Tool, locked: Bool) -> String {
+        let name = "\(tool.label) (\(String(tool.shortcutKey).uppercased()))"
+        guard tool.isOneShot else { return name }
+        return locked ? "\(name). Locked: keeps creating. Click again to unlock."
+                      : "\(name). Click again to lock it for repeated use."
     }
 
     private var palette: some View {

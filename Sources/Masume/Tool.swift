@@ -66,6 +66,16 @@ enum Tool: String, CaseIterable, Identifiable, Codable {
         }
     }
 
+    /// True for tools that place one annotation and then hand back to Select
+    /// unless locked. Pen is sticky (strokes come in bursts); Select and Crop
+    /// create nothing.
+    var isOneShot: Bool {
+        switch self {
+        case .arrow, .line, .rectangle, .ellipse, .text, .callout, .stamp, .pixelate: return true
+        case .select, .pen, .crop: return false
+        }
+    }
+
     /// Which stroke-width memory this tool draws with; nil for tools that
     /// don't create stroked elements.
     var strokeWidthGroup: StrokeWidthGroup? {

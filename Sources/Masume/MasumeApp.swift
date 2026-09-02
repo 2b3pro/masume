@@ -99,7 +99,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                   let index = Int(chars),
                   Tool.allCases.indices.contains(index),
                   !(NSApp.keyWindow?.firstResponder is NSTextView) else { return event }
-            self.workspace.active.tool = Tool.allCases[index]
+            self.workspace.active.selectTool(Tool.allCases[index])
             return nil
         }
 
@@ -278,7 +278,7 @@ struct AppCommands: Commands {
             // text editor, so disable them while it is active. The legacy 0-7
             // digit shortcuts are handled by the key monitor in AppDelegate.
             ForEach(Tool.allCases) { tool in
-                Button(tool.label) { workspace.active.tool = tool }
+                Button(tool.label) { workspace.active.selectTool(tool) }
                     .keyboardShortcut(KeyEquivalent(tool.shortcutKey), modifiers: [])
                     .disabled(workspace.active.isEditingText)
             }

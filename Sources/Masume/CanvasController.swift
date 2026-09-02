@@ -21,10 +21,43 @@ final class CanvasController {
     }
     var tool: Tool = .arrow {
         didSet {
-            selection = nil
+            if !keepsSelectionOnToolChange { selection = nil }
             adoptStrokeWidthForTool()
             persistPreferences()
         }
+    }
+    /// Set around the automatic hand-back to Select after a placement so the
+    /// just-placed element stays selected.
+    @ObservationIgnored private var keepsSelectionOnToolChange = false
+    /// One-shot tools locked to keep creating after each placement. Session
+    /// only: every launch starts unlocked.
+    private(set) var lockedTools: Set<Tool> = []
+
+    func isLocked(_ tool: Tool) -> Bool { lockedTools.contains(tool) }
+
+    /// Palette and shortcut entry point: picks the tool, or toggles its lock
+    /// when it is already active and one-shot (OmniGraffle's double click).
+    func selectTool(_ tool: Tool) {
+        guard tool == self.tool, tool.isOneShot else {
+            self.tool = tool
+            return
+        }
+        if lockedTools.contains(tool) {
+            lockedTools.remove(tool)
+        } else {
+            lockedTools.insert(tool)
+        }
+    }
+
+    /// Called by the canvas once an annotation is placed (a shape on
+    /// mouse-up, text when its editing ends). An unlocked one-shot tool hands
+    /// back to Select so the next canvas click deselects instead of creating;
+    /// the new element stays selected.
+    func didPlaceAnnotation() {
+        guard tool.isOneShot, !lockedTools.contains(tool) else { return }
+        keepsSelectionOnToolChange = true
+        tool = .select
+        keepsSelectionOnToolChange = false
     }
     /// True while the inline text annotation editor is active; disables the
     /// unmodified single-letter tool shortcuts so they don't steal typing.

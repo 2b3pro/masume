@@ -35,6 +35,10 @@ Open, paste, or drop an image, mark it up, and export (shortcuts in parentheses)
   to resize. Pick the glyph from the row that appears beside the Stamp tool.
 - **Pen and highlighter:** freehand strokes with round caps. Lower the opacity to turn the pen
   into a highlighter. Shift-click twice to draw a straight line between two points.
+- **One-shot tools:** after you place an annotation the tool hands back to Select, so the
+  next canvas click deselects instead of creating another. Click the active tool (or press
+  its key) again to lock it; a "+" badge appears and it keeps creating until you click it
+  again. The pen is always sticky. Locks last for the session.
 - **Editing:** select, move, and resize via handles; Undo (`Cmd+Z`), Redo (`Cmd+Shift+Z`),
   Delete. Stroke color, width, pixel size, opacity, text style, alignment, bubble shape, and
   stamp glyph are remembered

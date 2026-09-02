@@ -546,13 +546,20 @@ final class CanvasNSView: NSView {
             pushedHandCursors -= 1
         }
         var placedCallout: ElementID?
-        if case .placingCallout(let id) = drag { placedCallout = id }
+        var placedShape = false
+        switch drag {
+        case .placingCallout(let id): placedCallout = id
+        case .creating, .lining: placedShape = true
+        default: break
+        }
         drag = .none
         controller.commitInteraction()
         refresh()
         // The bubble is placed; typing starts as a separate undo step, like
-        // text created by a click.
+        // text created by a click. Text and callouts count as placed when
+        // their editing ends (see commitTextEditing).
         if let placedCallout { beginTextEditing(for: placedCallout) }
+        if placedShape { controller.didPlaceAnnotation() }
     }
 
     // MARK: Pan
@@ -758,6 +765,10 @@ extension CanvasNSView: NSTextViewDelegate {
                 }
             }
         }
+        // Editing over means the text is placed: an unlocked Text or Callout
+        // tool hands back to Select, so the click that ended typing (if that
+        // is what did) proceeds as a Select click rather than a new box.
+        controller.didPlaceAnnotation()
         refresh()
     }
 

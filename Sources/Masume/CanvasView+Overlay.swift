@@ -94,6 +94,32 @@ extension CanvasNSView {
         label.draw(at: NSPoint(x: track.midX - size.width / 2, y: track.minY - size.height - 1), withAttributes: attrs)
     }
 
+    /// Clicks on the floating controls of the selection: the style button
+    /// above a text box (cycles the style; handled before beginInteraction so
+    /// the controller's own undo step is the only one recorded) and the zoom
+    /// slider under a loupe (one undo step per drag). Returns true when the
+    /// click was consumed.
+    func handleOverlayControlMouseDown(at viewPoint: CGPoint, info: DisplayInfo) -> Bool {
+        guard let controller, let sel = controller.selection,
+              let element = controller.document?.elements.first(where: { $0.id == sel }) else { return false }
+        if let center = textStyleButtonCenter(for: element, info: info),
+           hypot(viewPoint.x - center.x, viewPoint.y - center.y) <= Self.textStyleButtonRadius {
+            controller.textStyle = controller.textStyle.next
+            drag = .none
+            refresh()
+            return true
+        }
+        if let track = magnifierSliderTrack(for: element, info: info),
+           track.insetBy(dx: -6, dy: -6).contains(viewPoint) {
+            controller.beginInteraction()
+            controller.magnifierZoom = Self.magnifierZoom(forX: viewPoint.x, in: track)
+            drag = .magnifierZoom(track: track)
+            refresh()
+            return true
+        }
+        return false
+    }
+
     // MARK: Text style button
 
     static let textStyleButtonRadius: CGFloat = 15

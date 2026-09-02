@@ -3,8 +3,9 @@ import CoreGraphics
 import AnnotationModel
 import AnnotationRender
 
-// Mouse-down helpers for CanvasNSView: element creation, crop grab, and the
-// pen's Shift-click straight line. Split from CanvasView.swift for size.
+// Mouse helpers for CanvasNSView: element creation, crop grab, the pen's
+// Shift-click straight line, and the per-drag update and finish steps.
+// Split from CanvasView.swift for size.
 
 extension CanvasNSView {
     /// Pen tool with Shift held: the first click sets an anchor, the second
@@ -143,5 +144,65 @@ extension CanvasNSView {
         drag = .none
         refresh()
         beginTextEditing(for: element.id)
+    }
+}
+
+// MARK: - Drag updates and finish
+
+extension CanvasNSView {
+    /// Applies a model-space drag (`p` in image coordinates): element moves
+    /// and handles, crop edits, the pen's straight line, and callout placement.
+    func dragModel(to p: CGPoint, controller: CanvasController) {
+        switch drag {
+        case .moving(let id, let last):
+            let delta = CGVector(dx: p.x - last.x, dy: p.y - last.y)
+            controller.document?.mutate(id) { $0.translate(by: delta) }
+            drag = .moving(id, last: p)
+        case .handle(let id, let role), .creating(let id, let role):
+            controller.document?.mutate(id) { Self.moveHandle(&$0, role, to: p) }
+        case .cropping(let anchor):
+            controller.document?.crop = CGRect(corner: anchor, p)
+        case .movingCrop(let last):
+            if let crop = controller.document?.crop {
+                controller.document?.crop = crop.offsetBy(dx: p.x - last.x, dy: p.y - last.y)
+            }
+            drag = .movingCrop(last: p)
+        case .lining(let id, let anchor):
+            controller.document?.mutate(id) { Self.setStraightLine(&$0, from: anchor, to: p) }
+        case .placingCallout(let id):
+            controller.document?.mutate(id) { Self.placeCallout(&$0, centeredAt: p) }
+        case .none, .magnifierZoom, .panning:
+            break
+        }
+    }
+
+    /// Settles what a finished drag leaves behind, before it is committed: a
+    /// plain click (no real drag) leaves a degenerate element and gets a
+    /// default initial size, Skitch-style, rather than being dropped (drag-
+    /// created elements keep their size; the helper is a no-op for them), and
+    /// a crop rect is kept within the canvas with degenerate ones dropped.
+    func finishDrag(_ finished: Drag, controller: CanvasController) {
+        switch finished {
+        case .creating(let id, _):
+            guard let canvasSize = controller.document?.canvasSize else { return }
+            controller.document?.mutate(id) { $0 = $0.applyingDefaultInitialSize(canvasSize: canvasSize) }
+        case .cropping, .movingCrop:
+            guard let doc = controller.document, let crop = doc.crop else { return }
+            controller.document?.crop = doc.clampedCrop(crop)
+        default:
+            break
+        }
+    }
+
+    private static func setStraightLine(_ element: inout Annotation, from anchor: CGPoint, to p: CGPoint) {
+        guard case .pen(var line) = element else { return }
+        line.points = [anchor, p]
+        element = .pen(line)
+    }
+
+    private static func placeCallout(_ element: inout Annotation, centeredAt p: CGPoint) {
+        guard case .text(var t) = element else { return }
+        t.origin = CGPoint(x: p.x - t.size.width / 2, y: p.y - t.size.height / 2)
+        element = .text(t)
     }
 }

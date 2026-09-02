@@ -70,7 +70,7 @@ final class MagnifierGestureTests: XCTestCase {
         let undoDepthBefore = controller.canUndo
 
         // The slider floats under the loupe's box (view y below its minY).
-        let info = view.displayInfoForTesting
+        let info = view.displayInfo
         guard let track = view.magnifierSliderTrack(for: .magnifier(m), info: info) else {
             return XCTFail("no slider for a selected loupe")
         }

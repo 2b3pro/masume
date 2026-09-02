@@ -196,7 +196,7 @@ struct BubbleRow: View {
 /// ink (border and text) when `label` says so.
 struct TextOutlineColorRow: View {
     var controller: CanvasController
-    var label: String? = nil
+    var label: String?
     @Environment(\.colorScheme) private var scheme
 
     private static let choices: [(name: String, color: RGBAColor)] = [("White", .white), ("Black", .black)]

@@ -131,11 +131,12 @@ final class ToolLockTests: XCTestCase {
         XCTAssertEqual(controller.document?.elements.count, 2, "the second click starts another box")
     }
 
-    func testLocksAreNotPersisted() {
+    func testLocksAreNotPersisted() throws {
         let (_, controller) = makeView(tool: .arrow)
         controller.selectTool(.arrow)
         XCTAssertTrue(controller.isLocked(.arrow))
-        let data = try! JSONEncoder().encode(controller.toolPreferences)
-        XCTAssertFalse(String(decoding: data, as: UTF8.self).lowercased().contains("lock"))
+        let data = try JSONEncoder().encode(controller.toolPreferences)
+        let json = try XCTUnwrap(String(data: data, encoding: .utf8))
+        XCTAssertFalse(json.lowercased().contains("lock"))
     }
 }

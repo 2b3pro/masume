@@ -134,7 +134,7 @@ private struct PDFPageThumbnail: View {
             if let image = source.render(page: number, scale: scale) {
                 Image(decorative: image, scale: 1)
                     .resizable()
-                    .aspectRatio(contentMode: .fit)
+                    .scaledToFit()
             } else {
                 Color.miroDivider
             }

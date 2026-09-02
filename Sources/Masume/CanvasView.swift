@@ -4,20 +4,6 @@ import CoreGraphics
 import AnnotationModel
 import AnnotationRender
 
-private class MinimalTextView: NSTextView {
-    override func willOpenMenu(_ menu: NSMenu, with event: NSEvent) {
-        super.willOpenMenu(menu, with: event)
-        menu.items.removeAll { item in
-            if let action = item.action {
-                return blockedMenuActions.contains(action)
-            }
-            return blockedMenuTitles.contains(item.title)
-        }
-        while menu.items.last?.isSeparatorItem == true { menu.removeItem(at: menu.items.count - 1) }
-        while menu.items.first?.isSeparatorItem == true { menu.removeItem(at: 0) }
-    }
-}
-
 // MARK: - SwiftUI bridge
 
 struct CanvasView: NSViewRepresentable {
@@ -99,8 +85,8 @@ final class CanvasNSView: NSView {
     // the Document copy + equality entirely on redraws with no model change
     // (e.g. the 12Hz marching-ants ticks).
     private var flattenedVersion: Int = -1
-    private var textEditor: NSTextView?
-    private var editingTextID: ElementID?
+    var textEditor: NSTextView?
+    var editingTextID: ElementID?
     private var antsTimer: Timer?
     private var antsPhase: CGFloat = 0
 
@@ -206,11 +192,7 @@ final class CanvasNSView: NSView {
         return doc
     }
 
-    /// The live mapping, exposed for gesture tests that need view-space
-    /// positions of overlay controls.
-    var displayInfoForTesting: DisplayInfo { displayInfo }
-
-    private var displayInfo: DisplayInfo {
+    var displayInfo: DisplayInfo {
         let canvas: CGRect
         if let controller, let doc = displayDocument {
             canvas = doc.outputRect(for: controller.exportBounds)
@@ -416,30 +398,9 @@ final class CanvasNSView: NSView {
             pushHandCursor(.closedHand)
             return
         }
-        // Style button above a selected text box: cycle its style. Handled
-        // before beginInteraction so the controller's own undo step is the
-        // only one recorded.
-        if let sel = controller.selection,
-           let element = controller.document?.elements.first(where: { $0.id == sel }),
-           let center = textStyleButtonCenter(for: element, info: info),
-           hypot(viewPoint.x - center.x, viewPoint.y - center.y) <= Self.textStyleButtonRadius {
-            controller.textStyle = controller.textStyle.next
-            drag = .none
-            refresh()
-            return
-        }
-        // Zoom slider under a selected loupe: a click or drag on it sets the
-        // zoom, as one undo step per drag.
-        if let sel = controller.selection,
-           let element = controller.document?.elements.first(where: { $0.id == sel }),
-           let track = magnifierSliderTrack(for: element, info: info),
-           track.insetBy(dx: -6, dy: -6).contains(viewPoint) {
-            controller.beginInteraction()
-            controller.magnifierZoom = Self.magnifierZoom(forX: viewPoint.x, in: track)
-            drag = .magnifierZoom(track: track)
-            refresh()
-            return
-        }
+        // Floating controls of the selection (text style button, loupe zoom
+        // slider) take the click before any canvas interaction starts.
+        if handleOverlayControlMouseDown(at: viewPoint, info: info) { return }
         let p = info.viewToModel(viewPoint)
         controller.beginInteraction()
 
@@ -504,43 +465,19 @@ final class CanvasNSView: NSView {
 
     override func mouseDragged(with event: NSEvent) {
         guard let controller else { return }
-        let info = dragDisplayInfo ?? displayInfo
-        let p = info.viewToModel(convert(event.locationInWindow, from: nil))
+        let viewPoint = convert(event.locationInWindow, from: nil)
         switch drag {
         case .none:
             return
-        case .moving(let id, let last):
-            let delta = CGVector(dx: p.x - last.x, dy: p.y - last.y)
-            controller.document?.mutate(id) { $0.translate(by: delta) }
-            drag = .moving(id, last: p)
-        case .handle(let id, let role), .creating(let id, let role):
-            controller.document?.mutate(id) { Self.moveHandle(&$0, role, to: p) }
-        case .cropping(let anchor):
-            controller.document?.crop = CGRect(corner: anchor, p)
-        case .movingCrop(let last):
-            if let crop = controller.document?.crop {
-                controller.document?.crop = crop.offsetBy(dx: p.x - last.x, dy: p.y - last.y)
-            }
-            drag = .movingCrop(last: p)
-        case .lining(let id, let anchor):
-            controller.document?.mutate(id) {
-                guard case .pen(var line) = $0 else { return }
-                line.points = [anchor, p]
-                $0 = .pen(line)
-            }
-        case .placingCallout(let id):
-            controller.document?.mutate(id) {
-                guard case .text(var t) = $0 else { return }
-                t.origin = CGPoint(x: p.x - t.size.width / 2, y: p.y - t.size.height / 2)
-                $0 = .text(t)
-            }
         case .magnifierZoom(let track):
-            let v = convert(event.locationInWindow, from: nil)
-            controller.magnifierZoom = Self.magnifierZoom(forX: v.x, in: track)
+            controller.magnifierZoom = Self.magnifierZoom(forX: viewPoint.x, in: track)
         case .panning(let last):
-            let v = convert(event.locationInWindow, from: nil)
-            pan(by: CGVector(dx: v.x - last.x, dy: v.y - last.y))
-            drag = .panning(last: v)
+            pan(by: CGVector(dx: viewPoint.x - last.x, dy: viewPoint.y - last.y))
+            drag = .panning(last: viewPoint)
+        default:
+            // Model-space drags use the mapping frozen at mouse-down.
+            let info = dragDisplayInfo ?? displayInfo
+            dragModel(to: info.viewToModel(viewPoint), controller: controller)
         }
         refresh()
     }
@@ -548,40 +485,24 @@ final class CanvasNSView: NSView {
     override func mouseUp(with event: NSEvent) {
         dragDisplayInfo = nil
         guard let controller else { return }
-        // A plain click (no real drag) leaves a degenerate element: give it a
-        // default initial size, Skitch-style, rather than dropping it. Drag-
-        // created elements keep their size (the helper is a no-op for them).
-        if case .creating(let id, _) = drag, let canvasSize = controller.document?.canvasSize {
-            controller.document?.mutate(id) { $0 = $0.applyingDefaultInitialSize(canvasSize: canvasSize) }
-        }
-        // Keep the crop rect within the canvas; drop degenerate ones.
-        switch drag {
-        case .cropping, .movingCrop:
-            if let doc = controller.document, let crop = doc.crop {
-                controller.document?.crop = doc.clampedCrop(crop)
-            }
-        default:
-            break
-        }
-        if case .panning = drag, pushedHandCursors > 0 {
+        let finished = drag
+        finishDrag(finished, controller: controller)
+        if case .panning = finished, pushedHandCursors > 0 {
             NSCursor.pop()
             pushedHandCursors -= 1
-        }
-        var placedCallout: ElementID?
-        var placedShape = false
-        switch drag {
-        case .placingCallout(let id): placedCallout = id
-        case .creating, .lining: placedShape = true
-        default: break
         }
         drag = .none
         controller.commitInteraction()
         refresh()
-        // The bubble is placed; typing starts as a separate undo step, like
-        // text created by a click. Text and callouts count as placed when
-        // their editing ends (see commitTextEditing).
-        if let placedCallout { beginTextEditing(for: placedCallout) }
-        if placedShape { controller.didPlaceAnnotation() }
+        // Placement follow-ups run after the commit: a bubble's typing is a
+        // separate undo step, like text created by a click, and an unlocked
+        // one-shot tool hands back to Select. Text and callouts count as
+        // placed when their editing ends (see commitTextEditing).
+        switch finished {
+        case .placingCallout(let id): beginTextEditing(for: id)
+        case .creating, .lining: controller.didPlaceAnnotation()
+        default: break
+        }
     }
 
     // MARK: Pan
@@ -715,113 +636,3 @@ final class CanvasNSView: NSView {
 }
 
 // MARK: - Inline text editing
-
-extension CanvasNSView: NSTextViewDelegate {
-    /// Editor frame for a text element's model rect; the -2 inset leaves room
-    /// for the editor chrome around the rendered text.
-    private func textEditorFrame(forModelRect rect: CGRect) -> NSRect {
-        displayInfo.viewRect(forModelRect: rect).insetBy(dx: -2, dy: -2)
-    }
-
-    func beginTextEditing(for id: ElementID) {
-        guard let controller,
-              let element = controller.document?.elements.first(where: { $0.id == id }),
-              case .text(let text) = element else { return }
-        commitTextEditing()
-
-        let info = displayInfo
-        let tv = MinimalTextView(frame: textEditorFrame(forModelRect: text.textRect))
-        tv.string = text.string
-        tv.font = nsFont(for: text.font, scale: info.scale)
-        tv.alignment = nsAlignment(text.alignment)
-        if text.isCallout {
-            // Edit in the bubble's own colors: ink on the fill.
-            tv.textColor = nsColor(text.outlineColor)
-            tv.backgroundColor = nsColor(text.color).withAlphaComponent(0.9)
-        } else {
-            tv.textColor = nsColor(text.color)
-            tv.backgroundColor = NSColor.textBackgroundColor.withAlphaComponent(0.9)
-        }
-        tv.isRichText = false
-        tv.drawsBackground = true
-        tv.delegate = self
-        addSubview(tv)
-        window?.makeFirstResponder(tv)
-        textEditor = tv
-        editingTextID = id
-        controller.isEditingText = true
-    }
-
-    /// Re-anchors the inline editor after the display mapping moved under it
-    /// (pan). Sizes from the live editor string, like textDidChange, so a
-    /// mid-typing pan doesn't snap the frame back to the committed text.
-    fileprivate func syncTextEditorFrame() {
-        guard let tv = textEditor, let id = editingTextID,
-              let element = controller?.document?.elements.first(where: { $0.id == id }),
-              case .text(var t) = element else { return }
-        t.string = tv.string
-        t.size = Renderer.suggestedSize(for: t)
-        let newFrame = textEditorFrame(forModelRect: t.textRect)
-        if tv.frame != newFrame { tv.frame = newFrame }
-    }
-
-    func commitTextEditing() {
-        guard let tv = textEditor, let id = editingTextID, let controller else { return }
-        let newString = tv.string
-        tv.removeFromSuperview()
-        textEditor = nil
-        editingTextID = nil
-        controller.isEditingText = false
-
-        if newString.isEmpty {
-            controller.perform { $0.remove(id) }
-            if controller.selection == id { controller.selection = nil }
-        } else {
-            controller.perform { doc in
-                doc.mutate(id) { annotation in
-                    if case .text(var t) = annotation {
-                        t.string = newString
-                        t.size = Renderer.suggestedSize(for: t)
-                        annotation = .text(t)
-                    }
-                }
-            }
-        }
-        // Editing over means the text is placed: an unlocked Text or Callout
-        // tool hands back to Select, so the click that ended typing (if that
-        // is what did) proceeds as a Select click rather than a new box.
-        controller.didPlaceAnnotation()
-        refresh()
-    }
-
-    func textDidEndEditing(_ notification: Notification) {
-        commitTextEditing()
-    }
-
-    // Resize the inline editor with its content; otherwise text past the fixed
-    // frame is invisible while typing (the model rect is synced on commit).
-    func textDidChange(_ notification: Notification) {
-        syncTextEditorFrame()
-    }
-}
-
-private func nsColor(_ c: RGBAColor) -> NSColor {
-    NSColor(srgbRed: c.r, green: c.g, blue: c.b, alpha: c.a)
-}
-
-private func nsAlignment(_ alignment: LineAlignment) -> NSTextAlignment {
-    switch alignment {
-    case .left: return .left
-    case .center: return .center
-    case .right: return .right
-    }
-}
-
-private func nsFont(for spec: FontSpec, scale: CGFloat) -> NSFont {
-    let size = spec.pointSize * scale
-    let base = NSFont(name: spec.family, size: size) ?? NSFont.systemFont(ofSize: size)
-    if spec.bold {
-        return NSFontManager.shared.convert(base, toHaveTrait: .boldFontMask)
-    }
-    return base
-}

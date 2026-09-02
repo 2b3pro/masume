@@ -11,6 +11,7 @@ enum Tool: String, CaseIterable, Identifiable, Codable {
     case text
     case callout
     case stamp
+    case magnifier
     case pixelate
     case crop
 
@@ -27,6 +28,7 @@ enum Tool: String, CaseIterable, Identifiable, Codable {
         case .text: return "Text"
         case .callout: return "Callout"
         case .stamp: return "Stamp"
+        case .magnifier: return "Magnify"
         case .pixelate: return "Pixelate"
         case .crop: return "Crop"
         }
@@ -44,6 +46,7 @@ enum Tool: String, CaseIterable, Identifiable, Codable {
         case .text: return "t"
         case .callout: return "b"
         case .stamp: return "s"
+        case .magnifier: return "m"
         case .pixelate: return "p"
         case .crop: return "c"
         }
@@ -61,6 +64,7 @@ enum Tool: String, CaseIterable, Identifiable, Codable {
         case .text: return "textformat"
         case .callout: return "text.bubble"
         case .stamp: return "mappin.circle"
+        case .magnifier: return "magnifyingglass"
         case .pixelate: return "squareshape.split.3x3"
         case .crop: return "crop"
         }
@@ -71,7 +75,7 @@ enum Tool: String, CaseIterable, Identifiable, Codable {
     /// create nothing.
     var isOneShot: Bool {
         switch self {
-        case .arrow, .line, .rectangle, .ellipse, .text, .callout, .stamp, .pixelate: return true
+        case .arrow, .line, .rectangle, .ellipse, .text, .callout, .stamp, .magnifier, .pixelate: return true
         case .select, .pen, .crop: return false
         }
     }
@@ -81,7 +85,7 @@ enum Tool: String, CaseIterable, Identifiable, Codable {
     var strokeWidthGroup: StrokeWidthGroup? {
         switch self {
         case .arrow, .line: return .segment
-        case .rectangle, .ellipse: return .shape
+        case .rectangle, .ellipse, .magnifier: return .shape
         case .pen: return .pen
         case .text, .callout: return .text
         case .select, .stamp, .pixelate, .crop: return nil

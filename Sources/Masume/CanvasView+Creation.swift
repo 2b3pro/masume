@@ -69,6 +69,12 @@ extension CanvasNSView {
             new = .pen(PenElement(points: [p], color: color, width: width, opacity: controller.penOpacity)); role = .end
         case .pixelate:
             new = .pixelate(RedactionElement(rect: zeroRect, amount: controller.pixelateAmount))
+        case .magnifier:
+            // The click is the loupe's center; the drag grows it around that
+            // point (moveHandle(.end)). A plain click gets the default size.
+            new = .magnifier(MagnifierElement(rect: zeroRect, shape: controller.magnifierShape,
+                                              zoom: controller.magnifierZoom, color: color, width: width))
+            role = .end
         case .stamp:
             // Stamps are placed at a default size at the click point; the
             // click-drag swings the tail so it points the way you drag. A

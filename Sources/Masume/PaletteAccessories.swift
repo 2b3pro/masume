@@ -1,45 +1,92 @@
 import SwiftUI
 import AnnotationModel
 
-// Palette accessories split from UI.swift for file size: the stamp glyph
-// flyout and its anchor preference, the slider and color preset panel, the
-// text halo/outline color row, and the palette labels/symbols for
-// TextStyle and StampKind.
+// Palette accessories split from UI.swift for file size: the tool-row
+// flyouts (stamp glyph, bubble shape, loupe shape) and their anchor
+// preference, the slider and color preset panel, the text rows, and the
+// palette labels/symbols for the choice enums.
 
-/// Bounds of the Stamp tool tile, published by the palette so the glyph
-/// flyout can sit beside that row.
-struct StampRowAnchor: PreferenceKey {
-    static let defaultValue: Anchor<CGRect>? = nil
-    static func reduce(value: inout Anchor<CGRect>?, nextValue: () -> Anchor<CGRect>?) {
-        value = nextValue() ?? value
+/// Bounds of the tool tiles that own a flyout (stamp glyph, bubble shape,
+/// loupe shape), keyed by tool, so each flyout can sit beside its own row.
+struct ToolRowAnchors: PreferenceKey {
+    static let defaultValue: [Tool: Anchor<CGRect>] = [:]
+    static func reduce(value: inout [Tool: Anchor<CGRect>], nextValue: () -> [Tool: Anchor<CGRect>]) {
+        value.merge(nextValue()) { $1 }
     }
 }
 
-/// Horizontal row of the five stamp glyphs; the current one is highlighted.
-struct StampKindPanel: View {
-    var controller: CanvasController
+/// A palette choice with a tooltip and an SF Symbol.
+protocol PaletteChoice: Hashable {
+    var label: String { get }
+    var symbol: String { get }
+}
+
+/// Horizontal row of symbol tiles; the current choice is highlighted.
+struct ChoicePanel<Choice: PaletteChoice>: View {
+    let choices: [Choice]
+    let selected: Choice
+    var iconSize: CGFloat = 22
+    let select: (Choice) -> Void
     @Environment(\.colorScheme) private var scheme
 
     var body: some View {
         HStack(spacing: 4) {
-            ForEach(StampKind.allCases, id: \.self) { kind in
+            ForEach(choices, id: \.self) { choice in
                 Button {
-                    controller.stampKind = kind
+                    select(choice)
                 } label: {
-                    tileIcon(kind.symbol,
-                             tint: controller.stampKind == kind ? Color.miroInk : MiroTheme.textSecondary(scheme),
-                             iconSize: 22)
+                    tileIcon(choice.symbol,
+                             tint: selected == choice ? Color.miroInk : MiroTheme.textSecondary(scheme),
+                             iconSize: iconSize)
                         .background(
                             RoundedRectangle(cornerRadius: 11)
-                                .fill(controller.stampKind == kind ? Color.miroYellow : .clear)
+                                .fill(selected == choice ? Color.miroYellow : .clear)
                         )
                 }
                 .buttonStyle(.plain)
-                .help(kind.label)
+                .help(choice.label)
             }
         }
     }
 }
+
+/// The flyout beside a tool row: stamp glyphs, bubble shapes, or loupe shapes.
+struct ToolFlyout: View {
+    var controller: CanvasController
+    let tool: Tool
+
+    var body: some View {
+        switch tool {
+        case .stamp:
+            ChoicePanel(choices: StampKind.allCases, selected: controller.stampKind) { controller.stampKind = $0 }
+        case .callout:
+            ChoicePanel(choices: CalloutShape.allCases, selected: controller.calloutShape) { controller.calloutShape = $0 }
+        case .magnifier:
+            ChoicePanel(choices: MagnifierShape.allCases, selected: controller.magnifierShape) { controller.magnifierShape = $0 }
+        default:
+            EmptyView()
+        }
+    }
+}
+
+extension StampKind: PaletteChoice {}
+extension CalloutShape: PaletteChoice {}
+extension MagnifierShape: PaletteChoice {
+    var label: String {
+        switch self {
+        case .circle: return "Round loupe"
+        case .square: return "Square loupe"
+        }
+    }
+
+    var symbol: String {
+        switch self {
+        case .circle: return "circle"
+        case .square: return "square"
+        }
+    }
+}
+extension LineAlignment: PaletteChoice {}
 
 extension StampKind {
     var label: String {
@@ -60,41 +107,6 @@ extension StampKind {
         case .exclaim: return "exclamationmark.circle.fill"
         case .question: return "questionmark.circle.fill"
         case .heart: return "heart.circle.fill"
-        }
-    }
-}
-
-/// Bounds of the Callout tool tile, published by the palette so the bubble
-/// shape flyout can sit beside that row.
-struct CalloutRowAnchor: PreferenceKey {
-    static let defaultValue: Anchor<CGRect>? = nil
-    static func reduce(value: inout Anchor<CGRect>?, nextValue: () -> Anchor<CGRect>?) {
-        value = nextValue() ?? value
-    }
-}
-
-/// Speech or thought bubble for new callouts (and the selected one).
-struct CalloutShapePanel: View {
-    var controller: CanvasController
-    @Environment(\.colorScheme) private var scheme
-
-    var body: some View {
-        HStack(spacing: 4) {
-            ForEach(CalloutShape.allCases, id: \.self) { shape in
-                Button {
-                    controller.calloutShape = shape
-                } label: {
-                    tileIcon(shape.symbol,
-                             tint: controller.calloutShape == shape ? Color.miroInk : MiroTheme.textSecondary(scheme),
-                             iconSize: 22)
-                        .background(
-                            RoundedRectangle(cornerRadius: 11)
-                                .fill(controller.calloutShape == shape ? Color.miroYellow : .clear)
-                        )
-                }
-                .buttonStyle(.plain)
-                .help(shape.label)
-            }
         }
     }
 }
@@ -137,25 +149,10 @@ extension LineAlignment {
 /// text element.
 struct TextAlignmentRow: View {
     var controller: CanvasController
-    @Environment(\.colorScheme) private var scheme
 
     var body: some View {
-        HStack(spacing: 4) {
-            ForEach(LineAlignment.allCases, id: \.self) { alignment in
-                Button {
-                    controller.textAlignment = alignment
-                } label: {
-                    tileIcon(alignment.symbol,
-                             tint: controller.textAlignment == alignment ? Color.miroInk : MiroTheme.textSecondary(scheme),
-                             iconSize: 18)
-                        .background(
-                            RoundedRectangle(cornerRadius: 11)
-                                .fill(controller.textAlignment == alignment ? Color.miroYellow : .clear)
-                        )
-                }
-                .buttonStyle(.plain)
-                .help(alignment.label)
-            }
+        ChoicePanel(choices: LineAlignment.allCases, selected: controller.textAlignment, iconSize: 18) {
+            controller.textAlignment = $0
         }
     }
 }

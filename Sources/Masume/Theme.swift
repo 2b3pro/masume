@@ -32,6 +32,7 @@ extension Color {
 extension NSColor {
     /// Selection chrome; identical across light and dark themes (DESIGN.md §7).
     static let miroBlue = NSColor(srgbRed: 0.259, green: 0.384, blue: 1.000, alpha: 1)
+    static let miroDivider = NSColor(srgbRed: 0.890, green: 0.890, blue: 0.910, alpha: 1)
 }
 
 // MARK: - Scheme-resolving helpers

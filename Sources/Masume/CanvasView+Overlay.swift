@@ -30,6 +30,68 @@ extension CanvasNSView {
            let center = textStyleButtonCenter(for: element, info: info) {
             drawTextStyleButton(at: center, for: text, in: ctx)
         }
+        if case .magnifier(let loupe) = element, let track = magnifierSliderTrack(for: element, info: info) {
+            drawMagnifierSlider(in: track, zoom: loupe.zoom, in: ctx)
+        }
+    }
+
+    // MARK: Magnifier zoom slider
+
+    /// Knob diameter; the track is thinner and vertically centered in it.
+    static let magnifierSliderHeight: CGFloat = 16
+    private static let magnifierSliderGap: CGFloat = 14
+    private static let magnifierSliderMinWidth: CGFloat = 120
+    private static let magnifierSliderMaxWidth: CGFloat = 240
+
+    /// Track rect (view coordinates) of the zoom slider floating under a
+    /// selected loupe; nil for other kinds.
+    func magnifierSliderTrack(for element: Annotation, info: DisplayInfo) -> CGRect? {
+        guard case .magnifier = element else { return nil }
+        let box = info.viewRect(forModelRect: element.boundingBox())
+        let width = min(Self.magnifierSliderMaxWidth, max(Self.magnifierSliderMinWidth, box.width))
+        // Non-flipped view: below the box is the smaller y.
+        return CGRect(x: box.midX - width / 2,
+                      y: box.minY - Self.magnifierSliderGap - Self.magnifierSliderHeight,
+                      width: width, height: Self.magnifierSliderHeight)
+    }
+
+    /// Zoom for a pointer x along the track (clamped to the ends).
+    static func magnifierZoom(forX x: CGFloat, in track: CGRect) -> CGFloat {
+        let usable = track.width - magnifierSliderHeight
+        let fraction = usable > 0 ? min(1, max(0, (x - track.minX - magnifierSliderHeight / 2) / usable)) : 0
+        let range = MagnifierElement.zoomRange
+        return range.lowerBound + fraction * (range.upperBound - range.lowerBound)
+    }
+
+    private static func magnifierKnobX(forZoom zoom: CGFloat, in track: CGRect) -> CGFloat {
+        let range = MagnifierElement.zoomRange
+        let fraction = (MagnifierElement.clampedZoom(zoom) - range.lowerBound) / (range.upperBound - range.lowerBound)
+        return track.minX + magnifierSliderHeight / 2 + fraction * (track.width - magnifierSliderHeight)
+    }
+
+    /// Miro-style slider: gray track, blue fill up to a white knob, and the
+    /// zoom factor as a small label beneath.
+    private func drawMagnifierSlider(in track: CGRect, zoom: CGFloat, in ctx: CGContext) {
+        let knobX = Self.magnifierKnobX(forZoom: zoom, in: track)
+        let bar = CGRect(x: track.minX + Self.magnifierSliderHeight / 2, y: track.midY - 2,
+                         width: track.width - Self.magnifierSliderHeight, height: 4)
+        let barPath = CGPath(roundedRect: bar, cornerWidth: 2, cornerHeight: 2, transform: nil)
+        ctx.setFillColor(NSColor.white.withAlphaComponent(0.85).cgColor)
+        ctx.fill(track.insetBy(dx: -6, dy: -4))
+        ctx.setFillColor(NSColor.miroDivider.cgColor)
+        ctx.addPath(barPath)
+        ctx.fillPath()
+        ctx.setFillColor(NSColor.miroBlue.cgColor)
+        ctx.fill(CGRect(x: bar.minX, y: bar.minY, width: max(0, knobX - bar.minX), height: bar.height))
+        drawHandle(at: CGPoint(x: knobX, y: track.midY), stroke: NSColor.miroBlue, lineWidth: 1.5, in: ctx)
+
+        let label = String(format: "%.1f×", zoom) as NSString
+        let attrs: [NSAttributedString.Key: Any] = [
+            .font: NSFont.systemFont(ofSize: 10, weight: .medium),
+            .foregroundColor: NSColor.miroBlue,
+        ]
+        let size = label.size(withAttributes: attrs)
+        label.draw(at: NSPoint(x: track.midX - size.width / 2, y: track.minY - size.height - 1), withAttributes: attrs)
     }
 
     // MARK: Text style button

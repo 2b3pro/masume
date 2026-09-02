@@ -329,8 +329,7 @@ struct ToolPalette: View {
         return VStack(spacing: 4) {
             ForEach(Tool.allCases) { tool in
                 toolTile(tool)
-                    .anchorPreference(key: StampRowAnchor.self, value: .bounds) { tool == .stamp ? $0 : nil }
-                    .anchorPreference(key: CalloutRowAnchor.self, value: .bounds) { tool == .callout ? $0 : nil }
+                    .anchorPreference(key: ToolRowAnchors.self, value: .bounds) { [tool: $0] }
             }
 
             paletteDivider(width: 28, verticalPadding: 4)
@@ -450,14 +449,15 @@ struct ToolPalette: View {
 
         }
         .miroFloatingPanel()
-        // Glyph flyout beside the Stamp tool row whenever a stamp glyph is
-        // editable. The row's bounds arrive as an anchor preference, resolved
-        // in this same layout pass, so the flyout tracks the row exactly.
-        .overlayPreferenceValue(StampRowAnchor.self) { anchor in
+        // Flyout beside the row of whichever tool has one showing (stamp
+        // glyph, bubble shape, loupe shape). The rows' bounds arrive as an
+        // anchor preference, resolved in this same layout pass, so the flyout
+        // tracks its row exactly.
+        .overlayPreferenceValue(ToolRowAnchors.self) { anchors in
             GeometryReader { proxy in
-                if let anchor, controller.editsStampKind {
+                if let tool = controller.flyoutTool, let anchor = anchors[tool] {
                     let row = proxy[anchor]
-                    StampKindPanel(controller: controller)
+                    ToolFlyout(controller: controller, tool: tool)
                         .miroFloatingPanel()
                         // Both panels pad their tiles by 8, so top-aligning
                         // the flyout 8 above the row lines the tiles up.
@@ -466,20 +466,7 @@ struct ToolPalette: View {
                 }
             }
         }
-        .animation(reduceMotion ? nil : .easeOut(duration: 0.1), value: controller.editsStampKind)
-        // Same again for the bubble shape beside the Callout tool row.
-        .overlayPreferenceValue(CalloutRowAnchor.self) { anchor in
-            GeometryReader { proxy in
-                if let anchor, controller.editsCalloutShape {
-                    let row = proxy[anchor]
-                    CalloutShapePanel(controller: controller)
-                        .miroFloatingPanel()
-                        .offset(x: proxy.size.width + 8, y: row.minY - 8)
-                        .transition(.scale(scale: 0.95, anchor: .leading).combined(with: .opacity))
-                }
-            }
-        }
-        .animation(reduceMotion ? nil : .easeOut(duration: 0.1), value: controller.editsCalloutShape)
+        .animation(reduceMotion ? nil : .easeOut(duration: 0.1), value: controller.flyoutTool)
     }
 }
 

@@ -16,7 +16,7 @@ see [docs/agent-collaborative-annotation-spec.md](docs/agent-collaborative-annot
 Open, paste, or drop an image, mark it up, and export (shortcuts in parentheses).
 
 - **Tools:** Select (`V`), Arrow (`A`), Line (`L`), Rectangle (`R`), Ellipse (`O`), Pen (`D`),
-  Text (`T`), Callout (`B`), Stamp (`S`), Pixelate (`P`), and Crop (`C`).
+  Text (`T`), Callout (`B`), Stamp (`S`), Magnify (`M`), Pixelate (`P`), and Crop (`C`).
 - **Skitch look:** arrows, lines, rectangles, and ellipses cast a soft drop shadow that scales
   with the stroke width and stays identical at every export size.
 - **Text:** three styles, **Shadow** (white or black halo plus drop shadow), **Outline**, and
@@ -33,6 +33,12 @@ Open, paste, or drop an image, mark it up, and export (shortcuts in parentheses)
 - **Stamps:** check, cross, exclamation, question, and heart as Skitch-style pins. Click to
   place; drag while placing to aim the tail; drag the tail later to re-aim; drag the disk edge
   to resize. Pick the glyph from the row that appears beside the Stamp tool.
+- **Magnifier:** a loupe that shows the image under it enlarged. Press where the loupe should
+  center and drag outward to size it (a plain click gives a default size); corner handles
+  reshape it afterwards, so a circle can become an oval. Drag the slider under a selected
+  loupe to set the zoom (1.5× to 8×). Round or square from the row beside the Magnify tool;
+  the ring uses the stroke color and width. Loupes magnify the image and any pixelation over
+  it, never other annotations.
 - **Pen and highlighter:** freehand strokes with round caps. Lower the opacity to turn the pen
   into a highlighter. Shift-click twice to draw a straight line between two points.
 - **One-shot tools:** after you place an annotation the tool hands back to Select, so the

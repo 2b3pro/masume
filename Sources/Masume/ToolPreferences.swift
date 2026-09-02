@@ -18,6 +18,8 @@ struct ToolPreferences: Codable, Equatable {
     var stampKind: StampKind = .check
     var textAlignment: LineAlignment = .left
     var calloutShape: CalloutShape = .speech
+    var magnifierShape: MagnifierShape = .circle
+    var magnifierZoom: CGFloat = MagnifierElement.defaultZoom
 
     static let defaultReferenceWidths: [StrokeWidthGroup: CGFloat] = [
         .segment: DefaultStrokeWidth.segmentReferenceWidth,
@@ -46,6 +48,9 @@ struct ToolPreferences: Codable, Equatable {
         stampKind = try c.decodeIfPresent(StampKind.self, forKey: .stampKind) ?? defaults.stampKind
         textAlignment = try c.decodeIfPresent(LineAlignment.self, forKey: .textAlignment) ?? defaults.textAlignment
         calloutShape = try c.decodeIfPresent(CalloutShape.self, forKey: .calloutShape) ?? defaults.calloutShape
+        magnifierShape = try c.decodeIfPresent(MagnifierShape.self, forKey: .magnifierShape) ?? defaults.magnifierShape
+        magnifierZoom = MagnifierElement.clampedZoom(
+            try c.decodeIfPresent(CGFloat.self, forKey: .magnifierZoom) ?? defaults.magnifierZoom)
     }
 }
 

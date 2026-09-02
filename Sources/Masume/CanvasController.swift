@@ -116,6 +116,22 @@ final class CanvasController {
             persistPreferences()
         }
     }
+    /// Outline for new loupes; edits the selected loupe when one is selected.
+    var magnifierShape: MagnifierShape = .circle {
+        didSet {
+            applyMagnifierShapeToSelection()
+            persistPreferences()
+        }
+    }
+    /// Zoom for new loupes; edits the selected loupe when one is selected.
+    /// Undo boundaries are the caller's job (the canvas slider wraps drags in
+    /// begin/commitInteraction), like `strokeWidth`.
+    var magnifierZoom: CGFloat = MagnifierElement.defaultZoom {
+        didSet {
+            applyMagnifierZoomToSelection()
+            persistPreferences()
+        }
+    }
     var strokeWidth: CGFloat = DefaultStrokeWidth.segmentReferenceWidth {
         didSet {
             rememberStrokeWidth()
@@ -154,6 +170,8 @@ final class CanvasController {
         stampKind = prefs.stampKind
         textAlignment = prefs.textAlignment
         calloutShape = prefs.calloutShape
+        magnifierShape = prefs.magnifierShape
+        magnifierZoom = prefs.magnifierZoom
         pixelateAmount = prefs.referencePixelateAmount
         strokeWidth = groupWidths[prefs.tool.strokeWidthGroup ?? .segment] ?? DefaultStrokeWidth.segmentReferenceWidth
     }
@@ -183,6 +201,8 @@ final class CanvasController {
         prefs.stampKind = stampKind
         prefs.textAlignment = textAlignment
         prefs.calloutShape = calloutShape
+        prefs.magnifierShape = magnifierShape
+        prefs.magnifierZoom = magnifierZoom
         return prefs
     }
 
@@ -486,6 +506,22 @@ final class CanvasController {
         if let shape { calloutShape = shape }
     }
 
+    /// True when the loupe-shape control applies: the magnifier tool is
+    /// active or a loupe is selected.
+    var editsMagnifierShape: Bool {
+        if tool == .magnifier { return true }
+        guard let sel = selection, let doc = document, let i = doc.index(of: sel) else { return false }
+        return doc.elements[i].magnifierShape != nil
+    }
+
+    /// The tool whose flyout (glyph, bubble, or loupe shape) is showing, if any.
+    var flyoutTool: Tool? {
+        if editsStampKind { return .stamp }
+        if editsCalloutShape { return .callout }
+        if editsMagnifierShape { return .magnifier }
+        return nil
+    }
+
     /// True when the stamp-kind control applies: the stamp tool is active or
     /// a stamp element is selected.
     var editsStampKind: Bool {
@@ -517,6 +553,8 @@ final class CanvasController {
         if let outline = element.textOutlineColor, outline != textOutlineColor { textOutlineColor = outline }
         if let alignment = element.textAlignment, alignment != textAlignment { textAlignment = alignment }
         if let shape = element.calloutShape, shape != calloutShape { calloutShape = shape }
+        if let shape = element.magnifierShape, shape != magnifierShape { magnifierShape = shape }
+        if let zoom = element.magnifierZoom, zoom != magnifierZoom { magnifierZoom = zoom }
     }
 
     /// Shared `didSet` hook for the tool-state properties (stroke width /
@@ -586,6 +624,21 @@ final class CanvasController {
               let current = doc.elements[i].calloutShape, current != calloutShape else { return }
         let shape = calloutShape
         perform { $0.elements[i].calloutShape = shape }
+    }
+
+    /// Applies the global loupe shape to the selected loupe as one undo step.
+    private func applyMagnifierShapeToSelection() {
+        guard !isSyncing else { return }
+        guard let sel = selection, let doc = document, let i = doc.index(of: sel),
+              let current = doc.elements[i].magnifierShape, current != magnifierShape else { return }
+        let shape = magnifierShape
+        perform { $0.elements[i].magnifierShape = shape }
+    }
+
+    /// Applies the global loupe zoom to the selected loupe. Undo boundaries
+    /// are the caller's job (the canvas slider wraps drags).
+    private func applyMagnifierZoomToSelection() {
+        applyToSelection(\.magnifierZoom, magnifierZoom)
     }
 
     /// Applies the global stamp kind to the selected stamp as one undo step.

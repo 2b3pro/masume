@@ -2,9 +2,10 @@
 
 Masume is a native **Apple Silicon (arm64)** annotation workspace for macOS, written in Swift
 (SwiftUI shell + AppKit canvas, Core Graphics / Core Image rendering). One human and one agent
-mark up the same image: the human through a Skitch-like interface, the agent through MCP, both
-speaking a spreadsheet-style grid (`D5`, `D5:F14`) as a shared spatial language. The editable
-project is the source of truth; PNG, JPEG, WebP, and PDF are flattened exports.
+mark up the same image: the human through a Skitch-like interface, the agent through MCP, the
+`masume` command line, or AppleScript, both speaking a spreadsheet-style grid (`D5`, `D5:F14`,
+`D5.3`) as a shared spatial language. The editable project is the source of truth; PNG, JPEG,
+and WebP are flattened exports.
 
 Masume grew out of [2b3pro/kakico](https://github.com/2b3pro/kakico), a Skitch-look fork of
 [tk3fftk/kakico](https://github.com/tk3fftk/kakico). That fork continues separately as a plain
@@ -126,10 +127,12 @@ Masume is not distributed as a binary; build it from source (below).
 
 The current version lives in [`VERSION`](VERSION) and follows semantic versioning while the
 app is pre-1.0: a minor bump for new tools or formats, a patch bump for fixes. The build
-script stamps it into the bundle, and each release is tagged `vX.Y.Z` on `main`.
+script stamps it into the bundle, and each release is tagged `vX.Y.Z` on `main`. The full
+history is in [CHANGELOG.md](CHANGELOG.md).
 
 | Version | Highlights |
 |---|---|
+| 0.3.0 | The shared document: `.masume` projects with attributed history and crash recovery, the grid with quadrant addresses, the command service behind MCP, the `masume` CLI, and AppleScript, an in-app MCP server with a menu bar item, image layers, Option-drag duplicates, tab naming and Close All. |
 | 0.2.0 | Callouts (speech and thought) with text alignment, one-shot tools with a lock, the magnifier loupe with a zoom slider, PDF import at 2× with a page picker. |
 | 0.1.0 | The Skitch-look fork as inherited from kakico: shadows, text styles, stamps, pen and highlighter, remembered tool state. |
 
@@ -151,11 +154,19 @@ ad-hoc-signed bundle (no Apple Developer account required). The repository's lin
 - `Sources/AnnotationRender/` — Core Graphics rendering of a `Document` into a `CGImage`,
   including the Skitch shadow, text styles, callout bubbles, stamp pins, loupes, and pen
   strokes.
-- `Sources/Masume/` — the app: tabs, canvas, palette, PDF import, export, and tool-state
-  persistence.
-- `Tests/` — unit tests for all three, including pixel checks on rendered output and
-  synthetic-event tests that drive the canvas view directly for gestures such as the
-  callout and loupe drags, Shift-click lines, space-drag panning, and `Cmd`+scroll.
+- `Sources/MasumeCommands/` — the agent-facing command vocabulary: request and response
+  envelopes, element JSON, and grid-address resolution shared by the app and the CLI.
+- `Sources/Masume/` — the app: tabs, canvas, palette, projects and recovery, the grid
+  overlay, the command service, Apple Events, the MCP server controller and menu bar item,
+  PDF import, export, and tool-state persistence.
+- `Sources/MasumeCLI/` and `Sources/MasumeTool/` — the `masume` command line as a library
+  and its executable.
+- `mcp/` — the MCP server (TypeScript) that spawns the CLI; see `mcp/README.md`.
+- `scripts/` — the app build, CLI install, and the two round-trip integration scripts.
+- `Tests/` — unit tests for the model, renderer, commands, CLI, and app, including pixel
+  checks on rendered output and synthetic-event tests that drive the canvas view directly
+  for gestures such as the callout and loupe drags, Option-drag duplication, Shift-click
+  lines, space-drag panning, and `Cmd`+scroll.
 
 ## License
 

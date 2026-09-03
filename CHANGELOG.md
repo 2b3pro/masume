@@ -1,0 +1,82 @@
+# Changelog
+
+All notable changes to Masume. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
+and the project uses semantic versioning while pre-1.0: a minor bump for new tools, formats,
+or surfaces, a patch bump for fixes. Each release is tagged `vX.Y.Z` on `main`.
+
+## [0.3.0] - 2026-09-02
+
+The release where a person and an agent share the document: an editable project format, a
+grid as the common spatial language, and three ways in for automation.
+
+### Added
+
+- **Projects.** `.masume` packages hold the original image, the annotations, and an
+  attributed history of every committed change. Save, Save As with a new identity, Open,
+  double-click to reopen. A recovery package shadows every commit, so a crash reopens what
+  you had. The first save of a document with the unredacted original says so;
+  Create Share-Safe Copy… writes only flattened pixels.
+- **Grid.** A spreadsheet grid over the image, density tiered from the image's pixel size
+  and stored in the project. `D5` is a cell, `D5:F14` a range, and `D5.3` a quadrant
+  (1 to 4 clockwise from the upper left; quadrants nest, as in `D5.3.1`, four levels deep).
+  Show Grid (`Cmd+G`), a toggle button beside the zoom control, and View ▸ Grid Density.
+- **Command service.** Sixteen JSON commands with one envelope and error codes
+  (`conflict`, `not_found`, `invalid_address`, `invalid_argument`, `unsupported`, `io`).
+  Mutations carry the document id and expected revision and fail closed on a mismatch;
+  agent edits land in the shared history and undo stack with the actor and reason.
+- **AppleScript and JXA.** Read-only document properties and one `execute` verb
+  (`Resources/Masume.sdef`).
+- **`masume` command line.** Live subcommands over Apple Events, offline `info`, `export`,
+  `resolve`, and `new` through the model and renderer libraries, exit codes that mirror the
+  error codes. Bundled at `Contents/Helpers/masume`; `scripts/install-cli.sh` links it.
+- **MCP server** (`mcp/`), stdio and Streamable HTTP with a bearer token, one `masume_*`
+  tool per command, spawning the CLI. The app bundles it and a menu bar item starts and
+  stops it, shows the port and tool count, and copies the URL or a JSON config;
+  Settings ▸ MCP holds port, token, Node path, agent name, and start-at-launch.
+- **Image layers.** Pasting or dropping an image onto an open document adds a layer with a
+  rectangle, rounded, or circle mask, an optional border and shadow, and aspect-locked
+  resizing. Hold `Option` while dropping to open a new tab instead. Replace Image from
+  Clipboard moved to the File menu.
+- **Option-drag** an annotation to drag off a copy and leave the original in place.
+- **Tabs.** Untitled until named, press-and-hold to rename in place (renaming the package
+  on disk for a saved project), an unsaved dot, and Close All Tabs (`Opt+Cmd+W` or
+  `Opt`-click a close button) that visits each tab and asks about unsaved changes.
+- Round-trip scripts against the built app: `scripts/ae-roundtrip.sh` (JXA) and
+  `scripts/roundtrip.sh` (CLI, including kill and recover).
+- App icon.
+
+### Changed
+
+- The close dialog offers Save, Don't Save, and Cancel; a tab holding only an imported
+  image closes without asking.
+- Opening a file from Finder opens a new tab rather than replacing the active one.
+- The MCP server's default port is 8722 (8765 belongs to DEVONthink's).
+
+### Fixed
+
+- Unit tests no longer write recovery packages into the real Application Support folder.
+- Callout text was clipped on boxes that had not yet been measured.
+- Updating one end of an arrow or line through the command service no longer requires
+  the other.
+
+## [0.2.0] - 2026-09-02
+
+### Added
+
+- Callouts: speech bubbles and thought clouds with a tail, palette fill, white-or-black ink,
+  and left, center, or right text alignment.
+- One-shot tools hand back to Select after placing; clicking the active tool again locks it
+  (a "+" badge). The pen is always sticky.
+- Magnifier loupe, round or square, with a zoom slider under the selection.
+- PDF import at 2× with a page picker for multi-page files.
+- The stroke-width slider shows a font-size glyph while editing text.
+- `VERSION` file and `vX.Y.Z` tags; the build script stamps the bundle.
+
+## [0.1.0] - 2026-08-13
+
+The Skitch-look fork as inherited from [2b3pro/kakico](https://github.com/2b3pro/kakico):
+drop shadows, text styles, stamps, pen and highlighter, and remembered tool state.
+
+[0.3.0]: https://github.com/2b3pro/masume/compare/v0.2.0...v0.3.0
+[0.2.0]: https://github.com/2b3pro/masume/compare/v0.1.0...v0.2.0
+[0.1.0]: https://github.com/2b3pro/masume/releases/tag/v0.1.0

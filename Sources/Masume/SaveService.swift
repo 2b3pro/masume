@@ -32,6 +32,24 @@ enum SaveService {
         }
     }
 
+    /// Save As as a modal, for the close flow: returns true once the project
+    /// is written and bound, false on cancel or failure.
+    static func saveAsModal(_ controller: CanvasController) -> Bool {
+        guard controller.hasDocument else { return false }
+        let panel = NSSavePanel()
+        panel.allowedContentTypes = [projectType]
+        panel.canCreateDirectories = true
+        panel.nameFieldStringValue = "\(controller.documentTitle).\(ProjectPackage.pathExtension)"
+        guard panel.runModal() == .OK, let url = panel.url, disclose(controller) else { return false }
+        do {
+            try controller.saveProject(to: url, newIdentity: controller.project?.projectURL != nil)
+            return true
+        } catch {
+            NSAlert(error: error).runModal()
+            return false
+        }
+    }
+
     /// The unredacted-original disclosure, shown before the first save of
     /// each document until the user opts out. Returns false to cancel.
     static var disclose: @MainActor (CanvasController) -> Bool = { controller in

@@ -23,10 +23,14 @@ final class WorkspaceController {
     /// which owns the (single) quit confirmation.
     @ObservationIgnored
     private let requestTermination: () -> Void
-    /// Save / Don't Save / Cancel for a dirty saved project, injected like
-    /// `confirmDiscard`. Returning `.save` runs Save before closing.
+    /// Save / Don't Save / Cancel for a document with unsaved work, injected
+    /// like `confirmDiscard`. Returning `.save` saves before closing.
     @ObservationIgnored
     private let confirmSave: (_ name: String) -> SaveChoice
+    /// Save As for a never-saved document that the user chose to save on
+    /// close; returns false when the panel was cancelled or the save failed.
+    @ObservationIgnored
+    private let saveAs: (CanvasController) -> Bool
     @ObservationIgnored
     private let recoveryStore: RecoveryStore
 
@@ -37,11 +41,13 @@ final class WorkspaceController {
             ExportService.confirmDiscard(message: $0, info: $1, confirmTitle: $2)
         },
         confirmSave: @escaping (String) -> SaveChoice = { ExportService.confirmSave(name: $0) },
+        saveAs: @escaping (CanvasController) -> Bool = { SaveService.saveAsModal($0) },
         requestTermination: @escaping () -> Void = { NSApp.terminate(nil) },
         recoveryStore: RecoveryStore = .default
     ) {
         self.confirmDiscard = confirmDiscard
         self.confirmSave = confirmSave
+        self.saveAs = saveAs
         self.requestTermination = requestTermination
         self.recoveryStore = recoveryStore
         // Whatever the last run left in recovery comes back where it was,
@@ -152,26 +158,21 @@ final class WorkspaceController {
         }
     }
 
-    /// Asks before losing work: a dirty saved project offers Save; anything
-    /// else with a document keeps the discard confirmation. Returns true when
-    /// closing may proceed (after saving, if chosen).
+    /// Asks before losing work, with Save / Don't Save / Cancel: a dirty
+    /// saved project saves in place, a never-saved document runs Save As. A
+    /// tab holding nothing but an imported image (no committed change) closes
+    /// without asking. Returns true when closing may proceed.
     private func mayClose(_ controller: CanvasController) -> Bool {
-        guard controller.hasDocument else { return true }
-        if let url = controller.project?.projectURL {
-            guard controller.isDirty else { return true }
-            switch confirmSave(controller.documentTitle) {
-            case .cancel: return false
-            case .discard: return true
-            case .save:
-                do { try controller.saveProject(to: url, newIdentity: false) } catch { return false }
-                return true
-            }
+        guard controller.hasDocument, let project = controller.project else { return true }
+        guard controller.isDirty, project.revision > 0 || project.projectURL != nil else { return true }
+        switch confirmSave(controller.documentTitle) {
+        case .cancel: return false
+        case .discard: return true
+        case .save:
+            guard let url = project.projectURL else { return saveAs(controller) }
+            do { try controller.saveProject(to: url, newIdentity: false) } catch { return false }
+            return true
         }
-        return confirmDiscard(
-            "Close this tab?",
-            "Closing will discard the image you are editing. Unsaved annotations will be lost.",
-            "Close Tab"
-        )
     }
 
     func close(_ controller: CanvasController) {

@@ -10,7 +10,14 @@ import AnnotationRender
 struct RecoveryStore: Sendable {
     let directory: URL
 
+    /// Under XCTest this is a throwaway directory per test process, so no
+    /// test can ever leave packages in the user's Application Support (which
+    /// the app would reopen as tabs at the next launch).
     static let `default`: RecoveryStore = {
+        if ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil || NSClassFromString("XCTestCase") != nil {
+            return RecoveryStore(directory: FileManager.default.temporaryDirectory
+                .appendingPathComponent("masume-test-recovery-\(ProcessInfo.processInfo.processIdentifier)", isDirectory: true))
+        }
         let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
             ?? FileManager.default.temporaryDirectory
         return RecoveryStore(directory: base.appendingPathComponent("Masume/Recovery", isDirectory: true))

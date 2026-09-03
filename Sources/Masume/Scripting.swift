@@ -1,6 +1,7 @@
 import AppKit
 import Foundation
 import AnnotationModel
+import MasumeCommands
 
 // The AppleScript surface declared in Resources/Masume.sdef: the read-only
 // `active document` with its properties, and the `execute` verb over the

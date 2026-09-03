@@ -77,6 +77,31 @@ A PDF page is rasterized at 2× on import; a multi-page PDF shows a page picker 
 - **Tabs:** new tab (`Cmd+T`), close tab (`Cmd+W`), previous and next tab (`Opt+Cmd+←/→`).
   Edit multiple images in separate tabs without losing work.
 
+## Agents and automation
+
+Masume has one command service inside the app and three ways in, all of which speak the same
+JSON commands and get the same `{ok, result}` or `{ok, error: {code, message}}` envelope:
+
+- **`masume` command line.** Live subcommands send one Apple Event each to the running app:
+  `masume doc`, `masume resolve D5:F14`, `masume add arrow from=B3 to=D6 --reason "…"`,
+  `masume view D5:F14 --out crop.png`, `masume undo`, `masume save ~/Shots/Login.masume`,
+  `masume export out.png`, and `masume exec '<json>'` for anything by name. Mutations default
+  to the active document at its current revision and say so on stderr; pass `--doc` and
+  `--revision` to pin them. Offline subcommands need no app: `masume info file.masume`,
+  `masume export file.masume out.png`, `masume resolve --file file.masume D5`, and
+  `masume new shot.png file.masume [--page n]` for images and PDFs. Exit status mirrors the
+  error code (2 conflict, 3 not found, 4 invalid address, 5 invalid argument, 6 unsupported,
+  7 io, 10 Masume not running, 64 usage). Install with `bash scripts/install-cli.sh`.
+- **AppleScript and JXA.** `Application("Masume").activeDocument.revision()` and
+  `Application("Masume").execute(json)`; see `Resources/Masume.sdef`.
+  `scripts/ae-roundtrip.sh` drives the built app this way.
+- **MCP.** The server in `mcp/` spawns the CLI for each tool call; stdio by default, Streamable
+  HTTP on request. See `mcp/README.md`.
+
+Every mutation carries the document id and expected revision and fails closed on a mismatch,
+and every agent edit lands in the same history and undo stack as yours, attributed and with
+the reason the agent gave.
+
 ## Install
 
 Masume is not distributed as a binary; build it from source (below).

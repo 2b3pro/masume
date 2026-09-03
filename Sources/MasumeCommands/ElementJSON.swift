@@ -10,20 +10,20 @@ import AnnotationRender
 // MARK: - Colors
 
 extension RGBAColor {
-    static let named: [String: RGBAColor] = [
+    public static let named: [String: RGBAColor] = [
         "red": .red, "orange": .orange, "yellow": .yellow, "green": .green,
         "blue": .blue, "pink": .pink, "white": .white, "black": .black,
     ]
 
     /// `#RRGGBB`, or `#RRGGBBAA` when not fully opaque.
-    var hex: String {
+    public var hex: String {
         func byte(_ v: Double) -> String { String(format: "%02X", Int((min(1, max(0, v)) * 255).rounded())) }
         let rgb = "#\(byte(r))\(byte(g))\(byte(b))"
         return a >= 0.999 ? rgb : rgb + byte(a)
     }
 
     /// A palette name or `#RGB`, `#RRGGBB`, `#RRGGBBAA`.
-    init?(text: String) {
+    public init?(text: String) {
         let trimmed = text.trimmingCharacters(in: .whitespaces)
         if let named = Self.named[trimmed.lowercased()] { self = named; return }
         guard trimmed.hasPrefix("#") else { return nil }
@@ -39,8 +39,8 @@ extension RGBAColor {
 
 // MARK: - Output
 
-enum ElementJSON {
-    static func typeName(_ a: Annotation) -> String {
+public enum ElementJSON {
+    public static func typeName(_ a: Annotation) -> String {
         switch a {
         case .arrow: return "arrow"
         case .line: return "line"
@@ -54,7 +54,7 @@ enum ElementJSON {
         }
     }
 
-    static func json(_ a: Annotation) -> JSONValue {
+    public static func json(_ a: Annotation) -> JSONValue {
         var fields: [String: JSONValue] = [
             "id": .string(a.id.uuidString),
             "type": .string(typeName(a)),
@@ -105,15 +105,20 @@ enum ElementJSON {
 /// Geometry and style for `create_element` and `update_element`. Pixel
 /// geometry and grid addresses are both accepted; addresses resolve through
 /// the document's grid at call time.
-struct ElementInput {
-    let params: Params
-    let document: Document
+public struct ElementInput {
+    public let params: Params
+    public let document: Document
 
-    var type: String? { try? params.optionalString("type") }
+    public init(params: Params, document: Document) {
+        self.params = params
+        self.document = document
+    }
+
+    public var type: String? { try? params.optionalString("type") }
 
     // Geometry, pixels or grid.
 
-    func segmentEnds() throws -> (start: CGPoint, end: CGPoint)? {
+    public func segmentEnds() throws -> (start: CGPoint, end: CGPoint)? {
         let start = try params.optionalPoint("start") ?? (try cellCenter("from"))
         let end = try params.optionalPoint("end") ?? (try cellCenter("to"))
         switch (start, end) {
@@ -123,27 +128,27 @@ struct ElementInput {
         }
     }
 
-    func box() throws -> CGRect? {
+    public func box() throws -> CGRect? {
         if let rect = try params.optionalRect("rect") { return rect }
         if let over = try params.optionalString("over") { return try resolve(over).rect }
         if let at = try params.optionalString("at") { return try resolve(at).rect }
         return nil
     }
 
-    func centerPoint() throws -> CGPoint? {
+    public func centerPoint() throws -> CGPoint? {
         try params.optionalPoint("center") ?? (try cellCenter("at"))
     }
 
-    func tailTip() throws -> CGPoint? {
+    public func tailTip() throws -> CGPoint? {
         try params.optionalPoint("tailTip") ?? (try cellCenter("tail"))
     }
 
-    func cellCenter(_ key: String) throws -> CGPoint? {
+    public func cellCenter(_ key: String) throws -> CGPoint? {
         guard let address = try params.optionalString(key) else { return nil }
         return try resolve(address).center
     }
 
-    func resolve(_ address: String) throws -> GridGeometry {
+    public func resolve(_ address: String) throws -> GridGeometry {
         do {
             return try document.grid.resolve(address, in: document.canvasSize)
         } catch {
@@ -153,7 +158,7 @@ struct ElementInput {
 
     // Style.
 
-    func color(_ key: String = "color") throws -> RGBAColor? {
+    public func color(_ key: String = "color") throws -> RGBAColor? {
         guard let text = try params.optionalString(key) else { return nil }
         guard let color = RGBAColor(text: text) else {
             throw CommandError.invalidArgument("\(key) must be a palette name or #RRGGBB, not \(text)")
@@ -161,9 +166,9 @@ struct ElementInput {
         return color
     }
 
-    func width() throws -> CGFloat? { try params.optionalDouble("width").map { CGFloat($0) } }
+    public func width() throws -> CGFloat? { try params.optionalDouble("width").map { CGFloat($0) } }
 
-    func enumValue<T: RawRepresentable>(_ key: String, _ type: T.Type) throws -> T? where T.RawValue == String {
+    public func enumValue<T: RawRepresentable>(_ key: String, _ type: T.Type) throws -> T? where T.RawValue == String {
         guard let raw = try params.optionalString(key) else { return nil }
         guard let value = T(rawValue: raw.lowercased()) else {
             throw CommandError.invalidArgument("\(key) cannot be \(raw)")
@@ -176,8 +181,8 @@ struct ElementInput {
 
 /// Builds and updates annotations from `ElementInput`. Defaults match what
 /// the palette would give a new element on this canvas.
-enum ElementFactory {
-    static func make(_ input: ElementInput) throws -> Annotation {
+public enum ElementFactory {
+    public static func make(_ input: ElementInput) throws -> Annotation {
         guard let type = input.type else { throw CommandError.invalidArgument("type is required") }
         switch type {
         case "arrow", "line": return try makeSegment(input, arrow: type == "arrow")
@@ -275,7 +280,7 @@ enum ElementFactory {
 
     /// Applies the provided keys of `input` to `element`; untouched keys keep
     /// their values. Geometry keys follow the element's kind.
-    static func apply(_ input: ElementInput, to element: inout Annotation) throws {
+    public static func apply(_ input: ElementInput, to element: inout Annotation) throws {
         try applyCommon(input, to: &element)
         switch element {
         case .arrow(var e): try applySegment(input, to: &e); element = .arrow(e)

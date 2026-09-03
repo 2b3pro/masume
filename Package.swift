@@ -8,6 +8,8 @@ let package = Package(
         .executable(name: "Masume", targets: ["Masume"]),
         .library(name: "AnnotationModel", targets: ["AnnotationModel"]),
         .library(name: "AnnotationRender", targets: ["AnnotationRender"]),
+        .library(name: "MasumeCommands", targets: ["MasumeCommands"]),
+        .executable(name: "masume", targets: ["MasumeTool"]),
     ],
     dependencies: [
         // ImageIO cannot encode WebP, so WebP export uses libwebp.
@@ -22,11 +24,21 @@ let package = Package(
             "AnnotationModel",
             .product(name: "libwebp", package: "libwebp-Xcode"),
         ]),
+        // The agent-facing command and element JSON, shared by the app's
+        // command service and the masume CLI.
+        .target(name: "MasumeCommands", dependencies: ["AnnotationModel", "AnnotationRender"]),
         .executableTarget(
             name: "Masume",
-            dependencies: ["AnnotationModel", "AnnotationRender"]
+            dependencies: ["AnnotationModel", "AnnotationRender", "MasumeCommands"]
         ),
-        .testTarget(name: "MasumeTests", dependencies: ["Masume"]),
+        // The masume command-line tool: offline over the libraries, live
+        // over Apple Events to the running app.
+        .target(name: "MasumeCLI", dependencies: ["AnnotationModel", "AnnotationRender", "MasumeCommands"]),
+        // Named MasumeTool because the filesystem is case-insensitive and
+        // Sources/masume would collide with Sources/Masume.
+        .executableTarget(name: "MasumeTool", dependencies: ["MasumeCLI"]),
+        .testTarget(name: "MasumeTests", dependencies: ["Masume", "MasumeCommands"]),
+        .testTarget(name: "MasumeCLITests", dependencies: ["MasumeCLI", "MasumeCommands"]),
         .testTarget(name: "AnnotationModelTests", dependencies: ["AnnotationModel"]),
         .testTarget(name: "AnnotationRenderTests", dependencies: ["AnnotationModel", "AnnotationRender"]),
     ]

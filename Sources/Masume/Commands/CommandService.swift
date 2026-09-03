@@ -3,6 +3,7 @@ import CoreGraphics
 import Foundation
 import UniformTypeIdentifiers
 import AnnotationModel
+import MasumeCommands
 import AnnotationRender
 
 /// The one way anything outside the canvas drives a document: JSON command

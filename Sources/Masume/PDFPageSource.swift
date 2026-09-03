@@ -2,12 +2,13 @@ import CoreGraphics
 import Foundation
 import SwiftUI
 import UniformTypeIdentifiers
+import AnnotationRender
 
 /// A PDF waiting to become a base image. Pages are rasterized on demand at
 /// `importScale` pixels per point (2×, so text in a screenshot-sized page
 /// stays legible), honoring each page's rotation, on a white background.
 struct PDFPageSource: Identifiable {
-    static let importScale: CGFloat = 2
+    static let importScale = PDFRasterizer.importScale
 
     let id = UUID()
     let document: CGPDFDocument
@@ -15,16 +16,13 @@ struct PDFPageSource: Identifiable {
     let sourceURL: URL?
 
     init?(url: URL) {
-        guard Self.isPDF(url), let document = CGPDFDocument(url as CFURL), document.numberOfPages > 0 else {
-            return nil
-        }
+        guard Self.isPDF(url), let document = PDFRasterizer.document(at: url) else { return nil }
         self.document = document
         self.sourceURL = url
     }
 
     init?(data: Data) {
-        guard Self.looksLikePDF(data), let provider = CGDataProvider(data: data as CFData),
-              let document = CGPDFDocument(provider), document.numberOfPages > 0 else { return nil }
+        guard let document = PDFRasterizer.document(data: data) else { return nil }
         self.document = document
         self.sourceURL = nil
     }
@@ -38,40 +36,12 @@ struct PDFPageSource: Identifiable {
         return url.pathExtension.lowercased() == "pdf"
     }
 
-    static func looksLikePDF(_ data: Data) -> Bool {
-        data.starts(with: Array("%PDF".utf8))
-    }
+    static func looksLikePDF(_ data: Data) -> Bool { PDFRasterizer.looksLikePDF(data) }
 
-    /// Size of a page in points once its `/Rotate` is applied.
-    func pageSize(_ number: Int) -> CGSize? {
-        guard let page = document.page(at: number) else { return nil }
-        let box = page.getBoxRect(.cropBox)
-        let quarterTurns = ((page.rotationAngle % 360) + 360) % 360 / 90
-        return quarterTurns % 2 == 1 ? CGSize(width: box.height, height: box.width) : box.size
-    }
+    func pageSize(_ number: Int) -> CGSize? { PDFRasterizer.pageSize(document, page: number) }
 
-    /// Rasterizes page `number` (1-based) at `scale` pixels per point.
-    func render(page number: Int, scale: CGFloat = PDFPageSource.importScale) -> CGImage? {
-        guard let page = document.page(at: number), let size = pageSize(number),
-              size.width > 0, size.height > 0 else { return nil }
-        let pixelW = Int((size.width * scale).rounded(.up))
-        let pixelH = Int((size.height * scale).rounded(.up))
-        guard pixelW > 0, pixelH > 0, pixelW * pixelH <= 64 * 1024 * 1024 else { return nil }
-        let cs = CGColorSpace(name: CGColorSpace.sRGB)!
-        guard let ctx = CGContext(data: nil, width: pixelW, height: pixelH, bitsPerComponent: 8, bytesPerRow: 0,
-                                  space: cs, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else {
-            return nil
-        }
-        ctx.setFillColor(red: 1, green: 1, blue: 1, alpha: 1)
-        ctx.fill(CGRect(x: 0, y: 0, width: pixelW, height: pixelH))
-        ctx.interpolationQuality = .high
-        // PDF space is y-up like the bitmap, so no flip: scale, then let
-        // Core Graphics fit the (rotated) page into the point-sized rect.
-        ctx.scaleBy(x: scale, y: scale)
-        ctx.concatenate(page.getDrawingTransform(.cropBox, rect: CGRect(origin: .zero, size: size),
-                                                 rotate: 0, preserveAspectRatio: true))
-        ctx.drawPDFPage(page)
-        return ctx.makeImage()
+    func render(page number: Int, scale: CGFloat = PDFRasterizer.importScale) -> CGImage? {
+        PDFRasterizer.render(document, page: number, scale: scale)
     }
 }
 

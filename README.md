@@ -171,6 +171,7 @@ history is in [CHANGELOG.md](CHANGELOG.md).
 
 | Version | Highlights |
 |---|---|
+| 0.4.0 | Numbered, lettered, and emoji stamps with `+`/`-`, `Tab`, and Shift-snapped tails; the agent guide (`masume_guide` and server instructions) with MCP setup directions; `masume help <subcommand>` with every element key; the CLI addresses the app by process id. |
 | 0.3.0 | The shared document: `.masume` projects with attributed history and crash recovery, the grid with quadrant addresses, the command service behind MCP, the `masume` CLI, and AppleScript, an in-app MCP server with a menu bar item, image layers, Option-drag duplicates, tab naming and Close All. |
 | 0.2.0 | Callouts (speech and thought) with text alignment, one-shot tools with a lock, the magnifier loupe with a zoom slider, PDF import at 2× with a page picker. |
 | 0.1.0 | The Skitch-look fork as inherited from kakico: shadows, text styles, stamps, pen and highlighter, remembered tool state. |

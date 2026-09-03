@@ -4,7 +4,9 @@ All notable changes to Masume. The format follows [Keep a Changelog](https://kee
 and the project uses semantic versioning while pre-1.0: a minor bump for new tools, formats,
 or surfaces, a patch bump for fixes. Each release is tagged `vX.Y.Z` on `main`.
 
-## [Unreleased]
+## [0.4.0] - 2026-09-02
+
+Counted and emoji stamps, an agent guide over MCP, and real CLI help.
 
 ### Added
 
@@ -101,7 +103,7 @@ grid as the common spatial language, and three ways in for automation.
 The Skitch-look fork as inherited from [2b3pro/kakico](https://github.com/2b3pro/kakico):
 drop shadows, text styles, stamps, pen and highlighter, and remembered tool state.
 
-[Unreleased]: https://github.com/2b3pro/masume/compare/v0.3.0...HEAD
+[0.4.0]: https://github.com/2b3pro/masume/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/2b3pro/masume/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/2b3pro/masume/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/2b3pro/masume/releases/tag/v0.1.0

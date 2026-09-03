@@ -12,7 +12,16 @@ or surfaces, a patch bump for fixes. Each release is tagged `vX.Y.Z` on `main`.
   taking the count past the highest of its kind. With one selected, `+` and `-` change the
   count and `Tab` (or the stamp row) switches between digits and letters. Through the command service,
   stamps of kind `number` or `letter` accept and report `ordinal` and report `label`.
+- Emoji stamps: the stamp row's last glyph shows any character you type, paste, or pick
+  from Emoji & Symbols; the choice is remembered and edits a selected emoji stamp. Through
+  the command service, stamps of kind `emoji` accept and report `emoji`.
 - Shift while dragging a stamp's tail snaps it to 45° steps.
+
+### Fixed
+
+- The `masume` CLI addresses the running app by process id. Addressing it by bundle
+  identifier could hand the Apple Event to a stale Launch Services registration, where it
+  timed out (-1712) while the app sat idle.
 
 ## [0.3.0] - 2026-09-02
 

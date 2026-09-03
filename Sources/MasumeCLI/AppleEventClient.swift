@@ -10,16 +10,23 @@ public enum AppleEventClient {
     static let eventClass = FourCharCode(fromString: "Msum")
     static let eventID = FourCharCode(fromString: "Exec")
 
-    public static var isRunning: Bool {
-        !NSRunningApplication.runningApplications(withBundleIdentifier: bundleIdentifier).isEmpty
+    /// The running app, if any. The event is addressed to its process id
+    /// rather than the bundle identifier: Launch Services can resolve the
+    /// identifier to a stale registration of the bundle, and the event then
+    /// goes nowhere and times out (-1712) while the app sits idle.
+    static var runningApp: NSRunningApplication? {
+        NSRunningApplication.runningApplications(withBundleIdentifier: bundleIdentifier)
+            .first { !$0.isTerminated }
     }
+
+    public static var isRunning: Bool { runningApp != nil }
 
     /// The envelope JSON, or `CLIError.notRunning`; an Apple Event failure
     /// (a malformed request, or an app that will not answer) is returned as
     /// an envelope with code `io` so callers have one shape to parse.
     public static func execute(_ requestJSON: Data, timeoutSeconds: TimeInterval = 30) throws -> Data {
-        guard isRunning else { throw CLIError.notRunning }
-        let target = NSAppleEventDescriptor(bundleIdentifier: bundleIdentifier)
+        guard let app = runningApp else { throw CLIError.notRunning }
+        let target = NSAppleEventDescriptor(processIdentifier: app.processIdentifier)
         let event = NSAppleEventDescriptor(eventClass: AEEventClass(eventClass), eventID: AEEventID(eventID),
                                            targetDescriptor: target, returnID: AEReturnID(kAutoGenerateReturnID),
                                            transactionID: AETransactionID(kAnyTransactionID))

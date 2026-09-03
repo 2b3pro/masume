@@ -7,15 +7,15 @@ no document state and implements no document logic. Install the CLI first
 
 ```sh
 cd mcp && npm install && npm run build
-node dist/index.js                     # stdio, for hosts that spawn the server
-node dist/index.js --http 8765         # Streamable HTTP on 127.0.0.1:8765, token printed once
-node dist/index.js --actor-id nova --actor-name Nova
+node dist/src/index.js                     # stdio, for hosts that spawn the server
+node dist/src/index.js --http 8765         # Streamable HTTP on 127.0.0.1:8765, token printed once
+node dist/src/index.js --actor-id nova --actor-name Nova
 ```
 
 Claude Code, stdio:
 
 ```json
-{ "mcpServers": { "masume": { "command": "node", "args": ["/path/to/masume/mcp/dist/index.js", "--actor-id", "nova", "--actor-name", "Nova"] } } }
+{ "mcpServers": { "masume": { "command": "node", "args": ["/path/to/masume/mcp/dist/src/index.js", "--actor-id", "nova", "--actor-name", "Nova"] } } }
 ```
 
 Streamable HTTP binds to loopback only, requires `Authorization: Bearer <token>` (generated at

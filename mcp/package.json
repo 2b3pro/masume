@@ -3,12 +3,12 @@
   "version": "0.1.0",
   "description": "MCP server for Masume: annotate the open image with an agent, over the masume command-line tool.",
   "type": "module",
-  "bin": { "masume-mcp": "dist/index.js" },
+  "bin": { "masume-mcp": "dist/src/index.js" },
   "files": ["dist"],
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "test": "npm run build && node --test dist/test/*.test.js",
-    "start": "node dist/index.js"
+    "start": "node dist/src/index.js"
   },
   "engines": { "node": ">=20" },
   "license": "MIT",

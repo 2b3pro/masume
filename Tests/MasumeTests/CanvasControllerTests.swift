@@ -285,6 +285,24 @@ final class CanvasControllerTests: XCTestCase {
         XCTAssertFalse(controller.canUndo)
     }
 
+    func testEmojiFollowsAndEditsTheSelectedEmojiStamp() {
+        let controller = makeLoadedController()
+        let stamp = StampElement(center: CGPoint(x: 50, y: 50), kind: .emoji, emoji: "\u{1F525}")
+        controller.document?.add(.stamp(stamp))
+        controller.selection = stamp.id
+        XCTAssertEqual(controller.stampKind, .emoji)
+        XCTAssertEqual(controller.stampEmoji, "\u{1F525}", "selecting adopts the stamp's emoji")
+        XCTAssertFalse(controller.canUndo)
+        controller.stampEmoji = "\u{2B50}"
+        XCTAssertEqual(controller.document?.elements.first?.stampEmoji, "\u{2B50}")
+        XCTAssertTrue(controller.canUndo)
+        controller.undo()
+        XCTAssertEqual(controller.document?.elements.first?.stampEmoji, "\u{1F525}")
+        controller.selection = addStamp(controller, kind: .heart)
+        controller.stampEmoji = "\u{1F600}"
+        XCTAssertEqual(controller.document?.elements[1].stampKind, .heart, "a glyph stamp ignores the emoji")
+    }
+
     func testStampKindControlShowsForStampToolOrStampSelection() {
         let controller = makeLoadedController()
         XCTAssertFalse(controller.editsStampKind)

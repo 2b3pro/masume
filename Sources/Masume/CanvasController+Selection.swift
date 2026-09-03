@@ -33,8 +33,8 @@ extension CanvasController {
     }
 
     func syncStyles(from element: Annotation) {
+        syncStampStyles(from: element)
         if let style = element.textStyle, style != textStyle { textStyle = style }
-        if let kind = element.stampKind, kind != stampKind { stampKind = kind }
         if let outline = element.textOutlineColor, outline != textOutlineColor { textOutlineColor = outline }
         if let alignment = element.textAlignment, alignment != textAlignment { textAlignment = alignment }
         if let shape = element.calloutShape, shape != calloutShape { calloutShape = shape }
@@ -43,6 +43,11 @@ extension CanvasController {
         if let mask = element.imageMask, mask != imageMask { imageMask = mask }
         if let shadow = element.imageShadow, shadow != imageShadow { imageShadow = shadow }
         if case .image(let e) = element, (e.borderWidth > 0) != imageBorder { imageBorder = e.borderWidth > 0 }
+    }
+
+    private func syncStampStyles(from element: Annotation) {
+        if let kind = element.stampKind, kind != stampKind { stampKind = kind }
+        if let emoji = element.stampEmoji, emoji != stampEmoji { stampEmoji = emoji }
     }
 
     /// Border on: the layer takes the shared shape width; off: zero.
@@ -155,6 +160,15 @@ extension CanvasController {
                 document.elements[i] = .stamp(e)
             }
         }
+    }
+
+    /// Applies the chosen emoji to the selected emoji stamp as one undo step.
+    func applyStampEmojiToSelection() {
+        guard !isSyncing else { return }
+        guard let sel = selection, let doc = document, let i = doc.index(of: sel),
+              let current = doc.elements[i].stampEmoji, current != stampEmoji else { return }
+        let emoji = stampEmoji
+        perform { $0.elements[i].stampEmoji = emoji }
     }
 
     /// Switches the selected flag between digits and letters, keeping its

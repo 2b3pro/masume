@@ -273,6 +273,26 @@ final class AnnotationRenderTests: XCTestCase {
         XCTAssertFalse(whiteInOne.contains { $0.0 < 88 && $0.1 > 90 }, "the 1 has nothing there")
     }
 
+    /// An emoji stamp draws the character in color inside the disk: on a
+    /// red disk, a fire emoji leaves orange and yellow where a glyph stamp
+    /// would have only red and white.
+    func testEmojiStampDrawsTheCharacterInColor() {
+        let base = solidImage(CGSize(width: 200, height: 200), color: (0, 0, 0))
+        var doc = Document(baseImage: .pngData(Data()), canvasSize: CGSize(width: 200, height: 200))
+        doc.add(.stamp(StampElement(center: CGPoint(x: 100, y: 80), radius: 40, kind: .emoji, color: .red, emoji: "\u{1F525}")))
+        let out = Renderer.flatten(doc, baseImage: base, scale: 1)!
+        var colored = 0
+        for x in 76...124 {
+            for y in 56...104 where hypot(Double(x - 100), Double(y - 80)) < 24 {
+                let p = samplePixel(out, x: x, y: y)
+                let isRed = p.r > 180 && p.g < 90 && p.b < 90
+                let isWhite = min(p.r, p.g, p.b) > 200
+                if !isRed && !isWhite { colored += 1 }
+            }
+        }
+        XCTAssertGreaterThan(colored, 200, "the emoji's own colors cover much of the inner disk")
+    }
+
     func testStampGlyphIsWhiteAtItsCenterForBarGlyphs() {
         let base = solidImage(CGSize(width: 200, height: 200), color: (0, 0, 0))
         // The cross and exclaim glyphs both cover the disk center.

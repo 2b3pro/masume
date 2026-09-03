@@ -89,6 +89,29 @@ final class StampElementTests: XCTestCase {
         XCTAssertFalse(StampKind.check.isOrdinal)
     }
 
+    func testEmojiStampsShowTheirCharacterAndNormalizeInput() throws {
+        var s = StampElement(center: .zero, kind: .emoji)
+        XCTAssertEqual(s.label, StampElement.defaultEmoji, "a thumbs up until one is chosen")
+        s.emoji = "\u{1F525}"
+        XCTAssertEqual(s.label, "\u{1F525}")
+        s.kind = .check
+        XCTAssertNil(s.label)
+        XCTAssertEqual(StampElement.normalizedEmoji("  \u{1F525} "), "\u{1F525}")
+        XCTAssertEqual(StampElement.normalizedEmoji("\u{1F44D}\u{1F525}"), "\u{1F525}", "the last one typed wins")
+        XCTAssertEqual(StampElement.normalizedEmoji("\u{1F44D}\u{1F3FD}"), "\u{1F44D}\u{1F3FD}", "a skin tone stays attached")
+        XCTAssertEqual(StampElement.normalizedEmoji("\u{1F1EF}\u{1F1F5}"), "\u{1F1EF}\u{1F1F5}", "a flag stays whole")
+        XCTAssertNil(StampElement.normalizedEmoji("  \n"))
+        var legacy = try JSONSerialization.jsonObject(with: JSONEncoder().encode(stamp())) as? [String: Any] ?? [:]
+        legacy.removeValue(forKey: "emoji")
+        let decoded = try JSONDecoder().decode(StampElement.self, from: JSONSerialization.data(withJSONObject: legacy))
+        XCTAssertEqual(decoded.emoji, StampElement.defaultEmoji, "older stamps decode with the default")
+        var a = Annotation.stamp(StampElement(center: .zero, kind: .emoji, emoji: "\u{1F525}"))
+        XCTAssertEqual(a.stampEmoji, "\u{1F525}")
+        a.stampEmoji = "\u{2B50}"
+        XCTAssertEqual(a.stampEmoji, "\u{2B50}")
+        XCTAssertNil(Annotation.stamp(stamp()).stampEmoji, "glyph stamps expose no emoji")
+    }
+
     func testStepClampsToTheOrdinalRange() {
         var s = StampElement(center: .zero, kind: .number, ordinal: 2)
         s.step(by: -1); XCTAssertEqual(s.ordinal, 1)

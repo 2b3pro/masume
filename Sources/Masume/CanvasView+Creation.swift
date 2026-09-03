@@ -84,7 +84,8 @@ extension CanvasNSView {
             let kind = controller.stampKind
             let stamp = StampElement(center: p, radius: StampElement.defaultRadius(forCanvasSize: canvasSize),
                                      kind: kind, color: color,
-                                     ordinal: controller.document?.nextStampOrdinal(for: kind) ?? 1)
+                                     ordinal: controller.document?.nextStampOrdinal(for: kind) ?? 1,
+                                     emoji: controller.stampEmoji)
             controller.document?.add(.stamp(stamp))
             controller.selection = stamp.id
             drag = .creating(stamp.id, .end)

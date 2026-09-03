@@ -99,6 +99,20 @@ public enum Annotation: Codable, Equatable, Sendable, Identifiable {
         }
     }
 
+    /// The character of an emoji stamp; nil for anything else. Setting is
+    /// a no-op for other kinds and for nil.
+    public var stampEmoji: String? {
+        get {
+            guard case .stamp(let e) = self, e.kind == .emoji else { return nil }
+            return e.emoji
+        }
+        set {
+            guard case .stamp(var e) = self, let emoji = newValue else { return }
+            e.emoji = emoji
+            self = .stamp(e)
+        }
+    }
+
     /// Pixel block size of a pixelate element; nil for other kinds. Setting
     /// is a no-op for those kinds and for nil.
     public var pixelateAmount: CGFloat? {

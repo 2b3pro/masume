@@ -55,6 +55,15 @@ public enum ElementJSON {
         }
     }
 
+    private static func stampFields(_ e: StampElement, into fields: inout [String: JSONValue]) {
+        fields["center"] = .point(e.center); fields["radius"] = .number(e.radius)
+        fields["kind"] = .string(e.kind.rawValue); fields["pointerAngle"] = .number(e.pointerAngle)
+        fields["tailTip"] = .point(e.tailTip)
+        if let label = e.label { fields["label"] = .string(label) }
+        if e.kind.isOrdinal { fields["ordinal"] = .int(e.ordinal) }
+        if e.kind == .emoji { fields["emoji"] = .string(e.emoji) }
+    }
+
     public static func json(_ a: Annotation) -> JSONValue {
         var fields: [String: JSONValue] = [
             "id": .string(a.id.uuidString),
@@ -74,10 +83,7 @@ public enum ElementJSON {
         case .text(let t):
             textFields(t, into: &fields)
         case .stamp(let e):
-            fields["center"] = .point(e.center); fields["radius"] = .number(e.radius)
-            fields["kind"] = .string(e.kind.rawValue); fields["pointerAngle"] = .number(e.pointerAngle)
-            fields["tailTip"] = .point(e.tailTip)
-            if let label = e.label { fields["ordinal"] = .int(e.ordinal); fields["label"] = .string(label) }
+            stampFields(e, into: &fields)
         case .pixelate(let e):
             fields["rect"] = .rect(e.rect); fields["amount"] = .number(e.amount)
         case .magnifier(let e):
@@ -245,9 +251,19 @@ public enum ElementFactory {
             ?? StampElement.defaultRadius(forCanvasSize: input.document.canvasSize)
         let kind = try input.enumValue("kind", StampKind.self) ?? .check
         var stamp = StampElement(center: center, radius: radius, kind: kind, color: try input.color() ?? .red,
-                                 ordinal: try ordinal(input) ?? input.document.nextStampOrdinal(for: kind))
+                                 ordinal: try ordinal(input) ?? input.document.nextStampOrdinal(for: kind),
+                                 emoji: try emoji(input) ?? StampElement.defaultEmoji)
         if let angle = try input.params.optionalDouble("pointerAngle") { stamp.pointerAngle = CGFloat(angle) }
         return .stamp(stamp)
+    }
+
+    /// `emoji`, the character an emoji stamp shows; one grapheme cluster.
+    private static func emoji(_ input: ElementInput) throws -> String? {
+        guard let text = try input.params.optionalString("emoji") else { return nil }
+        guard let emoji = StampElement.normalizedEmoji(text), emoji == text else {
+            throw CommandError.invalidArgument("emoji must be a single character")
+        }
+        return emoji
     }
 
     /// `ordinal`, the count a numbered or lettered stamp shows, 1 to 999.
@@ -365,6 +381,7 @@ public enum ElementFactory {
         if let kind = try input.enumValue("kind", StampKind.self) { e.kind = kind }
         if let angle = try input.params.optionalDouble("pointerAngle") { e.pointerAngle = CGFloat(angle) }
         if let ordinal = try ordinal(input) { e.ordinal = ordinal }
+        if let emoji = try emoji(input) { e.emoji = emoji }
     }
 
     private static func applyPixelate(_ input: ElementInput, to e: inout RedactionElement) throws {

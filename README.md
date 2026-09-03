@@ -40,7 +40,9 @@ A PDF page is rasterized at 2× on import; a multi-page PDF shows a page picker 
   change its count, and `Tab` (or the other flag kind in the row) switches it between digits
   and letters without losing its place. Click to place; drag while placing to aim the tail,
   holding `Shift` to snap it to 45°; drag the tail later to re-aim; drag the disk edge to
-  resize. Pick the glyph from the row that appears beside the Stamp tool.
+  resize. Pick the glyph from the row that appears beside the Stamp tool. The last glyph is
+  an emoji of your choosing: type or paste one into the field that appears, or use the
+  keyboard button to open Emoji & Symbols. It applies to the selected emoji stamp too.
 - **Magnifier:** a loupe that shows the image under it enlarged. Press where the loupe should
   center and drag outward to size it (a plain click gives a default size); corner handles
   reshape it afterwards, so a circle can become an oval. Drag the slider under a selected

@@ -16,6 +16,7 @@ struct ToolPreferences: Codable, Equatable {
     var textStyle: TextStyle = .shadow
     var textOutlineColor: RGBAColor = .white
     var stampKind: StampKind = .check
+    var stampEmoji: String = StampElement.defaultEmoji
     var textAlignment: LineAlignment = .left
     var calloutShape: CalloutShape = .speech
     var magnifierShape: MagnifierShape = .circle
@@ -49,6 +50,7 @@ struct ToolPreferences: Codable, Equatable {
         textStyle = try c.decodeIfPresent(TextStyle.self, forKey: .textStyle) ?? defaults.textStyle
         textOutlineColor = try c.decodeIfPresent(RGBAColor.self, forKey: .textOutlineColor) ?? defaults.textOutlineColor
         stampKind = try c.decodeIfPresent(StampKind.self, forKey: .stampKind) ?? defaults.stampKind
+        stampEmoji = try c.decodeIfPresent(String.self, forKey: .stampEmoji) ?? defaults.stampEmoji
         textAlignment = try c.decodeIfPresent(LineAlignment.self, forKey: .textAlignment) ?? defaults.textAlignment
         calloutShape = try c.decodeIfPresent(CalloutShape.self, forKey: .calloutShape) ?? defaults.calloutShape
         magnifierShape = try c.decodeIfPresent(MagnifierShape.self, forKey: .magnifierShape) ?? defaults.magnifierShape

@@ -7,7 +7,7 @@
 export const INSTRUCTIONS = `Masume: annotate the image a person has open, on the same canvas, undo stack, and history they see.
 Call masume_guide once per session for the workflow, grid grammar, element fields, and errors.
 Start with masume_get_active_document; every mutation needs its id and revision and returns the next revision.
-Point with grid addresses (D5 cell, D5.3 quadrant, D5:F14 range), look with masume_view_base_image by range, and give each edit a short reason.`;
+Point with grid addresses (D5 cell, D5.3 quadrant, D5:F14 range, or "zone" for the region the person marked out), look with masume_view_base_image by range, and give each edit a short reason.`;
 
 export const GUIDE = `# Masume for agents
 
@@ -17,6 +17,7 @@ One person and one agent mark up the same image. Your edits land in the person's
 1. masume_get_active_document: id, revision, canvas size, grid (columns x rows), crop, selection. Nothing open is not_found; ask the person to open or paste an image.
 2. Look only where you need to. masume_view_base_image with a range ("C4:F9", margin 20) is far cheaper than the whole image. The base image never shows annotations; masume_list_elements does.
 3. Point with grid addresses, not pixels. D5 is a cell, D5.3 a quadrant (1 to 4 clockwise from the upper left; nest as D5.3.1), D5:F14 a range. masume_resolve_grid gives pixels when you need numbers. Addresses are exact; nothing clamps.
+   The zone: the person can mark a region out with the Select tool (marching ants; never exported). masume_get_active_document reports it as rect, shape, and the grid range covering it, and the address "zone" stands for it anywhere: view it, create over it, crop to it. Mark one out yourself with masume_set_zone when you want the person to look somewhere; it changes no revision.
 4. Mutate with documentId and expectedRevision. Each mutation returns the new revision: carry it forward, do not re-read. A conflict means the person edited meanwhile: re-read the document, look again, then retry with intent.
 5. Related edits go in masume_batch: one atomic commit, one undo step for the person.
 
@@ -33,7 +34,7 @@ update only: zOrder front|back
 Every element comes back with id, type, bounds, color, and its own fields; ids are stable.
 
 ## Other tools
-masume_get_element (id), masume_get_history (limit), masume_set_crop (rect, range, or null), masume_set_grid_density (8 12 16 24 32 across the long side; changes every address), masume_undo, masume_redo (either side's actions), masume_save_project (absolute .masume path first time; holds the unredacted original), masume_export (absolute png/jpeg/webp path; bounds expandToFit|clipToImage).
+masume_get_element (id), masume_get_history (limit), masume_set_zone (rect, range, or null; shape), masume_set_crop (rect, range, or null), masume_set_grid_density (8 12 16 24 32 across the long side; changes every address), masume_undo, masume_redo (either side's actions), masume_save_project (absolute .masume path first time; holds the unredacted original), masume_export (absolute png/jpeg/webp path; bounds expandToFit|clipToImage).
 
 ## Errors
 conflict (revision moved), not_found, invalid_address, invalid_argument, unsupported, io. The message says what to fix; the document is unchanged.

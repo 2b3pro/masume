@@ -6,6 +6,13 @@ or surfaces, a patch bump for fixes. Each release is tagged `vX.Y.Z` on `main`.
 
 ## [Unreleased]
 
+### Added
+
+- Zones: the Select tool drags a marching-ants region on empty canvas, rectangle or ellipse,
+  as a pointer for the agent. It is not an annotation and never exports. Agents read it from
+  the document summary (rect, shape, covering grid range), use `zone` as an address anywhere,
+  and can mark one out for the person with `set_zone` (`masume zone`, `masume_set_zone`).
+
 ### Changed
 
 - Grid axis labels are navy-on-gray chips spaced 10 points outside the canvas; fit mode

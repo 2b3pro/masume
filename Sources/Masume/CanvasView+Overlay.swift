@@ -166,3 +166,62 @@ extension CanvasNSView {
         ctx.restoreGState()
     }
 }
+
+// MARK: - Crop frame and zone
+
+extension CanvasNSView {
+    func drawCropOverlay(_ crop: CGRect, info: DisplayInfo, imageRect: CGRect, in ctx: CGContext) {
+        let viewCrop = info.viewRect(forModelRect: crop)
+        ctx.setFillColor(NSColor.black.withAlphaComponent(0.45).cgColor)
+        ctx.fill(imageRect)
+        ctx.clear(viewCrop)
+        // Frame outside the image: the new canvas that applying would add.
+        ctx.setFillColor(NSColor.white.cgColor)
+        ctx.fill(viewCrop)
+        if let img = flattened {
+            ctx.saveGState()
+            ctx.clip(to: viewCrop)
+            ctx.draw(img, in: imageRect)
+            ctx.restoreGState()
+        }
+        // Marching ants (phase advanced by `antsTimer`); dark underlay keeps
+        // the white dashes visible over light image regions.
+        ctx.setStrokeColor(NSColor.black.withAlphaComponent(0.55).cgColor)
+        ctx.setLineWidth(1)
+        ctx.stroke(viewCrop)
+        ctx.setStrokeColor(NSColor.white.cgColor)
+        ctx.setLineDash(phase: antsPhase, lengths: [5, 4])
+        ctx.stroke(viewCrop)
+        ctx.setLineDash(phase: 0, lengths: [])
+
+        drawFrameHandles(viewCrop, in: ctx)
+    }
+
+    /// The zone's marching ants: a rectangle or ellipse, dark underlay and
+    /// white dashes like the crop outline, with nothing dimmed.
+    func drawZone(_ zone: Zone, info: DisplayInfo, in ctx: CGContext) {
+        let viewRect = info.viewRect(forModelRect: zone.rect)
+        let path: CGPath
+        switch zone.shape {
+        case .rectangle: path = CGPath(rect: viewRect, transform: nil)
+        case .ellipse: path = CGPath(ellipseIn: viewRect, transform: nil)
+        }
+        ctx.saveGState()
+        ctx.setLineWidth(1.5)
+        ctx.setStrokeColor(NSColor.black.withAlphaComponent(0.55).cgColor)
+        ctx.addPath(path)
+        ctx.strokePath()
+        ctx.setStrokeColor(NSColor.white.cgColor)
+        ctx.setLineDash(phase: antsPhase, lengths: [6, 4])
+        ctx.addPath(path)
+        ctx.strokePath()
+        ctx.restoreGState()
+    }
+
+    /// Corner and edge handles so a frame is re-editable with the crop tool.
+    func drawFrameHandles(_ viewRect: CGRect, in ctx: CGContext) {
+        for handle in viewRect.frameHandles() {
+            drawHandle(at: handle.position, stroke: NSColor.miroBlue, lineWidth: 1, in: ctx)
+        }
+    }
+}

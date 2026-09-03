@@ -110,7 +110,7 @@ final class MagnifierGestureTests: XCTestCase {
         let m = MagnifierElement(rect: CGRect(x: 10, y: 10, width: 50, height: 50), shape: .square, zoom: 4)
         controller.perform { $0.add(.magnifier(m)) }
         controller.tool = .select
-        XCTAssertNil(controller.flyoutTool)
+        XCTAssertEqual(controller.flyoutTool, .select, "the Select tool's own row: the zone shape")
         controller.selection = m.id
         XCTAssertEqual(controller.magnifierShape, .square)
         XCTAssertEqual(controller.magnifierZoom, 4)

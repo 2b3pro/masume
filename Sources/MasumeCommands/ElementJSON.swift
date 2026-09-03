@@ -120,10 +120,13 @@ public enum ElementJSON {
 public struct ElementInput {
     public let params: Params
     public let document: Document
+    /// The zone drawn in the app, which the address `zone` names.
+    public let zone: Zone?
 
-    public init(params: Params, document: Document) {
+    public init(params: Params, document: Document, zone: Zone? = nil) {
         self.params = params
         self.document = document
+        self.zone = zone
     }
 
     public var type: String? { try? params.optionalString("type") }
@@ -165,12 +168,19 @@ public struct ElementInput {
     }
 
     public func resolve(_ address: String) throws -> GridGeometry {
+        if address.trimmingCharacters(in: .whitespaces).lowercased() == Self.zoneAddress {
+            guard let zone else { throw CommandError.invalidAddress("no zone is drawn; ask for one or use a grid address") }
+            return GridGeometry(rect: zone.rect, normalized: document.grid.normalized(zone.rect, in: document.canvasSize))
+        }
         do {
             return try document.grid.resolve(address, in: document.canvasSize)
         } catch {
             throw CommandError.wrap(error)
         }
     }
+
+    /// The address that stands for the zone in any geometry parameter.
+    public static let zoneAddress = "zone"
 
     // Style.
 

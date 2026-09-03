@@ -28,6 +28,7 @@ The handshake carries short server instructions, and `masume_guide` returns the 
 
 Tools: `masume_guide`, `masume_get_active_document`, `masume_list_elements`, `masume_get_element`,
 `masume_resolve_grid`, `masume_view_base_image` (returns the PNG as image content),
+`masume_set_zone` (a region marked out for the person, and readable back as the address `zone`),
 `masume_get_history`, `masume_create_element`, `masume_update_element`,
 `masume_delete_elements`, `masume_set_crop`, `masume_set_grid_density`, `masume_undo`,
 `masume_redo`, `masume_batch`, `masume_save_project`, `masume_export`. Mutations take

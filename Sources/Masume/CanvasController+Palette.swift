@@ -99,6 +99,7 @@ extension CanvasController {
         if editsStampKind { return .stamp }
         if editsCalloutShape { return .callout }
         if editsMagnifierShape { return .magnifier }
+        if tool == .select { return .select }
         return nil
     }
 

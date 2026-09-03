@@ -58,6 +58,8 @@ export function buildRequest(tool: string, args: Record<string, unknown>, actor:
         ...(a.range !== undefined ? { range: a.range } : {}),
         ...(a.margin !== undefined ? { margin: a.margin } : {}),
       }, a.documentId);
+    case "masume_set_zone":
+      return read("set_zone", { zone: a.zone ?? null, ...(a.shape !== undefined ? { shape: a.shape } : {}) }, a.documentId);
     case "masume_get_history":
       return read("get_history", a.limit !== undefined ? { limit: a.limit } : {}, a.documentId);
     case "masume_create_element": return mutation("create_element", a.element, m, actor);

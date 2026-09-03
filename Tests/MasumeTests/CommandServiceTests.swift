@@ -72,6 +72,46 @@ final class CommandServiceTests: XCTestCase {
         XCTAssertEqual(errorCode(run("update_element", params: ["id": id, "emoji": ""])), "invalid_argument")
     }
 
+    // MARK: Zones
+
+    func testTheZoneIsReportedResolvedAndUsableAsAnAddress() {
+        XCTAssertNil(result(run("get_active_document", mutation: false))["zone"] as? [String: Any])
+        controller.zone = Zone(rect: CGRect(x: 150, y: 250, width: 300, height: 100), shape: .ellipse)
+        let zone = result(run("get_active_document", mutation: false))["zone"] as? [String: Any]
+        XCTAssertEqual(zone?["shape"] as? String, "ellipse")
+        XCTAssertEqual(zone?["range"] as? String, "B3:E4", "the grid range covering it")
+        XCTAssertEqual((zone?["rect"] as? [String: Any])?["width"] as? Double, 300)
+        let resolved = result(run("resolve_grid", params: ["address": "zone"], mutation: false))
+        XCTAssertEqual((resolved["center"] as? [String: Any])?["x"] as? Double, 300)
+        XCTAssertEqual(resolved["address"] as? String, "zone")
+        let box = result(run("create_element", params: ["type": "rectangle", "over": "zone"]))
+        let boxRect = (box["element"] as? [String: Any])?["rect"] as? [String: Any]
+        XCTAssertEqual(boxRect?["x"] as? Double, 150, "a box over the zone")
+        XCTAssertEqual(boxRect?["width"] as? Double, 300)
+        let stamp = result(run("create_element", params: ["type": "stamp", "at": "ZONE"]))
+        XCTAssertEqual(((stamp["element"] as? [String: Any])?["center"] as? [String: Any])?["y"] as? Double, 300)
+        let crop = result(run("set_crop", params: ["crop": "zone"]))
+        XCTAssertEqual((crop["crop"] as? [String: Any])?["height"] as? Double, 100)
+        controller.zone = nil
+        XCTAssertEqual(errorCode(run("resolve_grid", params: ["address": "zone"], mutation: false)), "not_found")
+        XCTAssertEqual(errorCode(run("create_element", params: ["type": "rectangle", "over": "zone"])), "invalid_address")
+    }
+
+    func testAnAgentCanMarkAZoneOutWithoutTouchingTheRevision() {
+        let before = revision
+        let byRange = result(run("set_zone", params: ["zone": "C3:D4", "shape": "ellipse"], mutation: false))
+        XCTAssertEqual(controller.zone, Zone(rect: CGRect(x: 200, y: 200, width: 200, height: 200), shape: .ellipse))
+        XCTAssertEqual((byRange["zone"] as? [String: Any])?["range"] as? String, "C3:D4")
+        result(run("set_zone", params: ["zone": ["x": 10, "y": 20, "width": 30, "height": 40]], mutation: false))
+        XCTAssertEqual(controller.zone?.rect, CGRect(x: 10, y: 20, width: 30, height: 40))
+        XCTAssertEqual(controller.zone?.shape, .ellipse, "the shape carries over when not given")
+        XCTAssertEqual(revision, before, "no revision, no history")
+        XCTAssertEqual(errorCode(run("set_zone", params: ["zone": ["x": 0, "y": 0, "width": 2, "height": 2]], mutation: false)), "invalid_argument")
+        XCTAssertEqual(errorCode(run("set_zone", params: ["zone": "A1", "shape": "star"], mutation: false)), "invalid_argument")
+        result(run("set_zone", params: ["zone": NSNull()], mutation: false))
+        XCTAssertNil(controller.zone)
+    }
+
     // MARK: Helpers
 
     private var docID: String { controller.project!.id.uuidString }

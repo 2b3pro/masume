@@ -11,7 +11,8 @@ extension MasumeCLI {
 
           Geometry by grid address     from=B3 to=D6 (arrow, line) | over=D5:F14 (rectangle, ellipse,
                                        pixelate, magnifier) | at=C3 (text origin, stamp center) |
-                                       tail=E7 (callout tail). Cells D5, quadrants D5.3, ranges D5:F14.
+                                       tail=E7 (callout tail). Cells D5, quadrants D5.3, ranges D5:F14, or
+                                       zone (the region marked out on the canvas).
           Geometry by pixels           start=x,y end=x,y | rect=x,y,w,h | center=x,y | tailTip=x,y |
                                        points=x,y;x,y;... (pen)
           Style (most types)           color=red|#RRGGBB width=6 fill=#RRGGBB opacity=0.5 (pen: below 1
@@ -63,6 +64,7 @@ extension MasumeCLI {
                         quadrants nest (D5.3.1), four levels deep
               D5:F14    a range, from D5's upper-left edge to F14's lower-right edge; either end
                         may be a quadrant (D5.3:F14)
+              zone      the region marked out on the canvas (see masume help zone)
             Case-insensitive. Nothing is clamped: a cell off the grid or a reversed range is an error.
             """,
         "view": """
@@ -75,6 +77,15 @@ extension MasumeCLI {
             masume crop <range|x,y,w,h|none>
             Sets the non-destructive crop to a grid range or a pixel rect, or clears it with none.
             Export honors it; the base image is untouched.
+            """,
+        "zone": """
+            masume zone <range|x,y,w,h|none> [--shape rectangle|ellipse]
+            Marks a region out for the person as marching ants (or clears it with none). Not an
+            annotation: it is never exported and changes no revision. The person draws one the same way
+            with the Select tool, and "zone" then works as an address anywhere one is taken:
+              masume view zone --out look.png
+              masume add rectangle over=zone
+              masume resolve zone
             """,
         "density": "masume density <n>\nGrid preset: 8, 12, 16, 24, or 32 cells across the long side. Every address changes; resolve again.",
         "undo": "masume undo\nUndo the latest committed action, whoever made it.",
@@ -105,8 +116,8 @@ extension MasumeCLI {
               {"command": "create_element", "params": {"type": "arrow", "from": "B3", "to": "D6"}}
             --doc, --revision, --actor, --actor-name, and --reason are merged in.
             Commands: get_active_document list_elements get_element resolve_grid view_base_image get_history
-            create_element update_element delete_elements set_crop set_grid_density undo redo save_project
-            export batch.
+            set_zone create_element update_element delete_elements set_crop set_grid_density undo redo
+            save_project export batch.
             """,
         "options": """
             Global options, accepted after any live subcommand:

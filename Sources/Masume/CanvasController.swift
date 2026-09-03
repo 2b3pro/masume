@@ -98,6 +98,16 @@ final class CanvasController {
             persistPreferences()
         }
     }
+    /// The zone either side marked out: shown as marching ants, read by
+    /// agents, never exported, not part of the document or its history.
+    var zone: Zone?
+    /// Outline for the next zone; restyles the current one too.
+    var zoneShape: ZoneShape = .rectangle {
+        didSet {
+            if zone != nil, zone?.shape != zoneShape { zone?.shape = zoneShape }
+            persistPreferences()
+        }
+    }
 
     /// Halo/outline color for new text (white or black); edits the selected
     /// text element when one is selected.
@@ -206,6 +216,7 @@ final class CanvasController {
         textOutlineColor = prefs.textOutlineColor
         stampKind = prefs.stampKind
         stampEmoji = prefs.stampEmoji
+        zoneShape = prefs.zoneShape
         textAlignment = prefs.textAlignment
         calloutShape = prefs.calloutShape
         magnifierShape = prefs.magnifierShape
@@ -241,6 +252,7 @@ final class CanvasController {
         prefs.textOutlineColor = textOutlineColor
         prefs.stampKind = stampKind
         prefs.stampEmoji = stampEmoji
+        prefs.zoneShape = zoneShape
         prefs.textAlignment = textAlignment
         prefs.calloutShape = calloutShape
         prefs.magnifierShape = magnifierShape

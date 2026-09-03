@@ -7,6 +7,11 @@ public struct GridGeometry: Equatable, Sendable {
     public var rect: CGRect
     public var normalized: CGRect
 
+    public init(rect: CGRect, normalized: CGRect) {
+        self.rect = rect
+        self.normalized = normalized
+    }
+
     public var center: CGPoint { CGPoint(x: rect.midX, y: rect.midY) }
     public var corners: [CGPoint] {
         let c = rect.corners

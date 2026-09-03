@@ -81,7 +81,7 @@ export function createMasumeServer(actor: Actor): McpServer {
     inputSchema: {},
   }, async () => ({ content: [{ type: "text" as const, text: GUIDE }] }));
   server.registerTool("masume_get_active_document", {
-    description: "The active document: id, revision, canvas size, grid, crop, selection, dirty state, and counts. Read this first; mutations need its id and revision.",
+    description: "The active document: id, revision, canvas size, grid, crop, selection, the zone the person marked out (rect, shape, covering grid range), dirty state, and counts. Read this first; mutations need its id and revision.",
     inputSchema: docShape,
   }, call("masume_get_active_document"));
   server.registerTool("masume_list_elements", {
@@ -93,13 +93,17 @@ export function createMasumeServer(actor: Actor): McpServer {
     inputSchema: { ...docShape, id: z.string() },
   }, call("masume_get_element"));
   server.registerTool("masume_resolve_grid", {
-    description: "A cell (D5), a quadrant of it (D5.3: 1 to 4 clockwise from the upper left, nesting as D5.3.1), or a range (D5:F14) to pixels: rect, center, corners, and normalized coordinates. Never clamps; a bad address is an error.",
+    description: "A cell (D5), a quadrant of it (D5.3: 1 to 4 clockwise from the upper left, nesting as D5.3.1), a range (D5:F14), or \"zone\" (the region marked out on the canvas) to pixels: rect, center, corners, and normalized coordinates. Never clamps; a bad address is an error.",
     inputSchema: { ...docShape, address: z.string() },
   }, call("masume_resolve_grid"));
   server.registerTool("masume_view_base_image", {
-    description: "The untouched base image, whole or by grid range, as PNG. Annotations never appear in it and looking leaves no trace.",
+    description: "The untouched base image, whole or by grid range (or \"zone\"), as PNG. Annotations never appear in it and looking leaves no trace.",
     inputSchema: { ...docShape, range: z.string().optional(), margin: z.number().optional().describe("Context margin in pixels.") },
   }, async (args) => cropResult(await executeRequest(buildRequest("masume_view_base_image", args, actor))));
+  server.registerTool("masume_set_zone", {
+    description: "Mark a region out for the person as marching ants (a rect, a grid range, or null to clear), optionally as an ellipse. Not an annotation: never exported, no revision change. The person's own zone, drawn with the Select tool, is read from masume_get_active_document, and \"zone\" works as an address in any geometry parameter.",
+    inputSchema: { ...docShape, zone: z.union([rect, z.string(), z.null()]), shape: z.enum(["rectangle", "ellipse"]).optional() },
+  }, call("masume_set_zone"));
   server.registerTool("masume_get_history", {
     description: "Committed actions, oldest first, with actor, revisions, summary, reason, and affected ids.",
     inputSchema: { ...docShape, limit: z.number().int().optional() },

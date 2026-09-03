@@ -53,11 +53,8 @@ public enum CLIRequest {
         case "elements": return ("list_elements", [:])
         case "element": return ("get_element", ["id": try one(arguments, "element <id>")])
         case "resolve": return ("resolve_grid", ["address": try one(arguments, "resolve <address>")])
-        case "view":
-            var params: [String: Any] = [:]
-            if let range = arguments.first { params["range"] = range }
-            if let margin = flags["margin"] { params["margin"] = try number(margin, "--margin") }
-            return ("view_base_image", params)
+        case "view": return ("view_base_image", try viewParams(arguments, flags: flags))
+        case "zone": return ("set_zone", try zoneParams(arguments, flags: flags))
         case "history":
             var params: [String: Any] = [:]
             if let limit = flags["limit"] { params["limit"] = try number(limit, "--limit") }
@@ -113,6 +110,21 @@ public enum CLIRequest {
     private static func number(_ text: String, _ what: String) throws -> Any {
         guard let value = Double(text) else { throw CLIError.usage("\(what) must be a number, not \(text)") }
         return value == value.rounded() ? Int(value) : value
+    }
+
+    private static func viewParams(_ arguments: [String], flags: [String: String]) throws -> [String: Any] {
+        var params: [String: Any] = [:]
+        if let range = arguments.first { params["range"] = range }
+        if let margin = flags["margin"] { params["margin"] = try number(margin, "--margin") }
+        return params
+    }
+
+    private static func zoneParams(_ arguments: [String], flags: [String: String]) throws -> [String: Any] {
+        var params: [String: Any] = [
+            "zone": try cropValue(try one(arguments, "zone <range|x,y,w,h|none> [--shape rectangle|ellipse]")),
+        ]
+        if let shape = flags["shape"] { params["shape"] = shape }
+        return params
     }
 
     static func absolute(_ path: String) -> String {

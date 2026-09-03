@@ -192,6 +192,8 @@ extension CanvasNSView {
             controller.document?.mutate(id) { Self.moveHandle(&$0, role, to: p, snapping: snapping) }
         case .cropping, .movingCrop, .resizingCrop:
             dragFrame(to: p, controller: controller)
+        case .zoning(let anchor):
+            controller.zone = Zone(rect: CGRect(corner: anchor, p), shape: controller.zoneShape)
         case .lining(let id, let anchor):
             controller.document?.mutate(id) { Self.setStraightLine(&$0, from: anchor, to: p) }
         case .placingCallout(let id):
@@ -234,6 +236,12 @@ extension CanvasNSView {
             // grows); one that keeps none of the image, or has no area, is dropped.
             guard let doc = controller.document, let crop = doc.crop else { return }
             controller.document?.crop = doc.framedRect(crop)
+        case .zoning:
+            // A click, or a wobble of a few pixels, marks nothing out.
+            if let zone = controller.zone,
+               zone.rect.width < Zone.minimumSide || zone.rect.height < Zone.minimumSide {
+                controller.zone = nil
+            }
         default:
             break
         }

@@ -21,6 +21,12 @@ A PDF page is rasterized at 2× on import; a multi-page PDF shows a page picker 
 
 - **Tools:** Select (`V`), Arrow (`A`), Line (`L`), Rectangle (`R`), Ellipse (`O`), Pen (`D`),
   Text (`T`), Callout (`B`), Stamp (`S`), Magnify (`M`), Pixelate (`P`), and Crop (`C`).
+- **Zones:** with the Select tool, drag on empty canvas to mark a region out with marching
+  ants, rectangular or elliptical from the row beside the tool. A zone is a pointer, not an
+  annotation: it never exports, it isn't in the history, and a click on empty canvas or `Esc`
+  clears it. Agents read it as a rect, a shape, and the grid range that covers it, and the
+  address `zone` works wherever an address does, so "look at the zone" and "put a box over the
+  zone" both work. An agent can mark one out for you the same way.
 - **Skitch look:** arrows, lines, rectangles, and ellipses cast a soft drop shadow that scales
   with the stroke width and stays identical at every export size.
 - **Text:** three styles, **Shadow** (white or black halo plus drop shadow), **Outline**, and
@@ -112,7 +118,8 @@ JSON commands and get the same `{ok, result}` or `{ok, error: {code, message}}` 
 
 - **`masume` command line.** Live subcommands send one Apple Event each to the running app:
   `masume doc`, `masume resolve D5:F14`, `masume add arrow from=B3 to=D6 --reason "…"`,
-  `masume view D5:F14 --out crop.png`, `masume undo`, `masume save ~/Shots/Login.masume`,
+  `masume view D5:F14 --out crop.png` (or `view zone`), `masume zone C3:E6`, `masume undo`,
+  `masume save ~/Shots/Login.masume`,
   `masume export out.png`, and `masume exec '<json>'` for anything by name. Mutations default
   to the active document at its current revision and say so on stderr; pass `--doc` and
   `--revision` to pin them. Offline subcommands need no app: `masume info file.masume`,

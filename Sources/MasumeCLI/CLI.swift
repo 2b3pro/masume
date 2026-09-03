@@ -20,7 +20,8 @@ public enum MasumeCLI {
           add <type> key=value ...    create: from=B3 to=D6 | over=D5:F14 | at=C3 | text=... color=...
           update <id> key=value ...   change the given keys only (zOrder=front|back)
           delete <id> ...             remove annotations
-          crop <range|x,y,w,h|none>   the non-destructive crop
+          crop <range|x,y,w,h|none>   the non-destructive crop (a range may be "zone")
+          zone <range|x,y,w,h|none>   mark a region for the person to look at [--shape ellipse]
           density <n>                 grid preset: 8, 12, 16, 24, or 32 cells across
           undo | redo                 one step of the shared history
           save [path]                 write the project (path required the first time)
@@ -64,7 +65,7 @@ public enum MasumeCLI {
     }
 
     static let valueFlags: Set<String> = [
-        "doc", "revision", "actor", "actor-name", "reason", "out", "margin", "limit", "format", "bounds", "page", "file",
+        "doc", "revision", "actor", "actor-name", "reason", "out", "margin", "limit", "format", "bounds", "page", "file", "shape",
     ]
 
     static let helpWords: Set<String> = ["-h", "--help", "help"]

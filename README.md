@@ -46,8 +46,9 @@ A PDF page is rasterized at 2× on import; a multi-page PDF shows a page picker 
   next canvas click deselects instead of creating another. Click the active tool (or press
   its key) again to lock it; a "+" badge appears and it keeps creating until you click it
   again. The pen is always sticky. Locks last for the session.
-- **Editing:** select, move, and resize via handles; Undo (`Cmd+Z`), Redo (`Cmd+Shift+Z`),
-  Delete. Stroke color, width, pixel size, opacity, text style, alignment, bubble shape, loupe
+- **Editing:** select, move, and resize via handles; hold `Option` while dragging an
+  annotation to drag off a copy and leave the original in place. Undo (`Cmd+Z`), Redo
+  (`Cmd+Shift+Z`), Delete. Stroke color, width, pixel size, opacity, text style, alignment, bubble shape, loupe
   shape and zoom, and stamp glyph are remembered across launches, with sizes scaled to each
   image so they look the same on any screenshot.
 - **Navigation:** zoom in and out (`Cmd++` / `Cmd+-`), fit to window (`Cmd+0`), pinch to zoom,

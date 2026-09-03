@@ -305,6 +305,24 @@ public enum Annotation: Codable, Equatable, Sendable, Identifiable {
         mutate { $0.translate(by: delta) }
     }
 
+    /// A copy of this annotation under a new identity: same kind, geometry,
+    /// and style (an image copy shares its asset). What Option-drag and a
+    /// Duplicate command hand out.
+    public func duplicated(id newID: ElementID = UUID()) -> Annotation {
+        switch self {
+        case .arrow(var e): e.id = newID; return .arrow(e)
+        case .line(var e): e.id = newID; return .line(e)
+        case .rectangle(var e): e.id = newID; return .rectangle(e)
+        case .ellipse(var e): e.id = newID; return .ellipse(e)
+        case .pen(var e): e.id = newID; return .pen(e)
+        case .text(var e): e.id = newID; return .text(e)
+        case .stamp(var e): e.id = newID; return .stamp(e)
+        case .pixelate(var e): e.id = newID; return .pixelate(e)
+        case .magnifier(var e): e.id = newID; return .magnifier(e)
+        case .image(var e): e.id = newID; return .image(e)
+        }
+    }
+
     /// Applies a mutation to the wrapped element while preserving its kind.
     private mutating func mutate(_ body: (inout AnnotationGeometry) -> Void) {
         switch self {

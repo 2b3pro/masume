@@ -176,6 +176,7 @@ private struct CanvasPane: View {
         .overlay(alignment: .bottomTrailing) {
             if let doc = controller.document {
                 HStack(spacing: 8) {
+                    GridToggleButton(controller: controller)
                     ZoomMenuButton(controller: controller)
                     ImageSizeBadge(document: doc, exportBounds: controller.exportBounds)
                 }
@@ -563,6 +564,40 @@ struct ZoomMenuButton: View {
         .fixedSize()
         .miroFloatingPanel()
         .help("Zoom")
+    }
+}
+
+/// Bottom-right toggle for the address grid, highlighted while it shows.
+/// Same action as View ▸ Show Grid (⌘G).
+struct GridToggleButton: View {
+    var controller: CanvasController
+    @Environment(\.colorScheme) private var scheme
+
+    var body: some View {
+        Button {
+            controller.showsGrid.toggle()
+        } label: {
+            HStack(spacing: 4) {
+                Image(systemName: "grid")
+                    .font(.system(size: 11, weight: .semibold))
+                if let doc = controller.document {
+                    Text("\(doc.grid.columns)\u{00D7}\(doc.grid.rows)")
+                        .font(.miroCaption)
+                        .monospacedDigit()
+                }
+            }
+            .foregroundStyle(controller.showsGrid ? Color.miroInk : MiroTheme.textSecondary(scheme))
+            .padding(.horizontal, 2)
+            .background(
+                RoundedRectangle(cornerRadius: 6)
+                    .fill(controller.showsGrid ? Color.miroYellow : .clear)
+                    .padding(-4)
+            )
+        }
+        .buttonStyle(.plain)
+        .fixedSize()
+        .miroFloatingPanel()
+        .help(controller.showsGrid ? "Hide Grid (\u{2318}G)" : "Show Grid (\u{2318}G)")
     }
 }
 

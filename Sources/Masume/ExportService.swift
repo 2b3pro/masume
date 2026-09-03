@@ -21,6 +21,14 @@ enum ExportService {
         return Renderer.encode(cg, as: .png)
     }
 
+    /// Writes the flattened PNG to `url`: what Create Share-Safe Copy saves.
+    static func writeShareSafeCopy(_ controller: CanvasController, to url: URL) throws {
+        guard let png = pngData(controller) else {
+            throw ProjectError.io("There is no image to flatten.")
+        }
+        try png.write(to: url, options: .atomic)
+    }
+
     static func copyToClipboard(_ controller: CanvasController) {
         guard let cg = flatten(controller) else { NSSound.beep(); return }
         // Write concrete PNG + TIFF bytes instead of an NSImage promise:

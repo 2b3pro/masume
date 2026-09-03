@@ -1,5 +1,7 @@
 # Phase 1: Durable document, implementation plan
 
+**Status:** shipped 2026-09-02 in four commits on `feat/durable-document`, as laid out below.
+
 Companion to sections 7 and 8 of `agent-collaborative-annotation-spec.md`. The spec says what
 the package holds and how saving behaves; this plan says how the code gets there, in four
 commits that each leave the suite green.

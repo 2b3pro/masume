@@ -32,9 +32,24 @@ enum SaveService {
         }
     }
 
-    /// Hook for the unredacted-original disclosure; returns false to cancel
-    /// the save. Replaced in the disclosure commit.
-    static var disclose: @MainActor (CanvasController) -> Bool = { _ in true }
+    /// The unredacted-original disclosure, shown before the first save of
+    /// each document until the user opts out. Returns false to cancel.
+    static var disclose: @MainActor (CanvasController) -> Bool = { controller in
+        guard let project = controller.project,
+              RedactionDisclosure.shouldShow(project: project, defaults: .standard) else { return true }
+        let alert = NSAlert()
+        alert.messageText = RedactionDisclosure.title
+        alert.informativeText = RedactionDisclosure.body
+        alert.alertStyle = .warning
+        alert.addButton(withTitle: "Save")
+        alert.addButton(withTitle: "Cancel")
+        alert.showsSuppressionButton = true
+        alert.suppressionButton?.title = "Don\u{2019}t show this again"
+        guard alert.runModal() == .alertFirstButtonReturn else { return false }
+        RedactionDisclosure.recordShown(project: project, suppress: alert.suppressionButton?.state == .on,
+                                        defaults: .standard)
+        return true
+    }
 
     private static func write(_ controller: CanvasController, to url: URL, newIdentity: Bool) {
         guard disclose(controller) else { return }
@@ -43,6 +58,25 @@ enum SaveService {
             controller.flashToast("Saved \(controller.documentTitle)")
         } catch {
             NSAlert(error: error).runModal()
+        }
+    }
+
+    /// Create Share-Safe Copy: a flattened PNG through a save panel. The
+    /// name says what it is; the file holds only rendered pixels.
+    static func createShareSafeCopy(_ controller: CanvasController) {
+        guard controller.hasDocument else { NSSound.beep(); return }
+        let panel = NSSavePanel()
+        panel.allowedContentTypes = [.png]
+        panel.canCreateDirectories = true
+        panel.nameFieldStringValue = "\(controller.documentTitle) share-safe.png"
+        panel.begin { response in
+            guard response == .OK, let url = panel.url else { return }
+            do {
+                try ExportService.writeShareSafeCopy(controller, to: url)
+                controller.flashToast("Share-safe copy saved")
+            } catch {
+                NSAlert(error: error).runModal()
+            }
         }
     }
 

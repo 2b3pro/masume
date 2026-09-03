@@ -246,6 +246,8 @@ struct AppCommands: Commands {
             Button("Export Flattened Image…") { ExportService.exportPanel(workspace.active) }
                 .keyboardShortcut("e", modifiers: .command)
                 .disabled(!workspace.active.hasDocument)
+            Button("Create Share-Safe Copy…") { SaveService.createShareSafeCopy(workspace.active) }
+                .disabled(!workspace.active.hasDocument)
             Button("Copy Image to Clipboard") { ExportService.copyToClipboard(workspace.active) }
                 .keyboardShortcut("c", modifiers: [.command, .shift])
                 .disabled(!workspace.active.hasDocument)

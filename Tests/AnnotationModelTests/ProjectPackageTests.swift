@@ -36,7 +36,7 @@ final class ProjectPackageTests: XCTestCase {
         return data as Data
     }
 
-    private let actor = Actor(id: "human", name: "Ian")
+    private let actor = HistoryActor(id: "human", name: "Ian")
 
     private func manifest(elements: [Annotation] = [], png: Data, width: Int = 40, height: Int = 30) -> ProjectManifest {
         ProjectManifest(id: UUID(), revision: 3, canvasSize: CGSize(width: width, height: height),

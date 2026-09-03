@@ -155,9 +155,15 @@ final class CanvasController {
     private var referenceWidths: [StrokeWidthGroup: CGFloat]
     private var referencePixelateAmount: CGFloat
     @ObservationIgnored private let preferencesStore: ToolPreferencesStore
+    @ObservationIgnored private let recoveryStore: RecoveryStore
+    /// The document's durable identity, history, and recovery shadow; nil
+    /// until an image is loaded.
+    private(set) var project: ProjectSession?
 
-    init(preferencesStore: ToolPreferencesStore = UserDefaultsToolPreferencesStore()) {
+    init(preferencesStore: ToolPreferencesStore = UserDefaultsToolPreferencesStore(),
+         recoveryStore: RecoveryStore = .default) {
         self.preferencesStore = preferencesStore
+        self.recoveryStore = recoveryStore
         let prefs = preferencesStore.load() ?? ToolPreferences()
         referenceWidths = prefs.referenceWidths
         referencePixelateAmount = prefs.referencePixelateAmount
@@ -353,6 +359,32 @@ final class CanvasController {
         pendingCommitTask = nil
         interactionSnapshot = nil
         zoomMode = .fit
+        // A new document is durable from the first moment: its recovery
+        // package exists before any edit or project path does.
+        project = ProjectSession(baseImagePNG: Renderer.encode(image, as: .png) ?? Data(), recovery: recoveryStore)
+        autosave()
+    }
+
+    // MARK: - Project commits
+
+    /// The one place a committed change becomes durable: revision, history
+    /// entry, recovery autosave. Every path that registers undo ends here.
+    private func didCommit(before: State, after: Document) {
+        guard let project else { return }
+        if let image = baseImage, before.image !== image, let png = Renderer.encode(image, as: .png) {
+            project.replaceBaseImage(png)
+        }
+        project.record(before: before.document, after: after)
+        autosave()
+    }
+
+    /// Writes the recovery package. A failure is shown in the toast; the
+    /// document is dirty either way, so nothing is reported as saved.
+    private func autosave() {
+        guard let project, let document else { return }
+        let base = baseImage
+        project.autosave(document: document) { ProjectSession.previewPNG(document: document, baseImage: base) }
+        if let error = project.autosaveError { flashToast("Recovery autosave failed: \(error)") }
     }
 
     // MARK: - Zoom
@@ -399,9 +431,10 @@ final class CanvasController {
     /// Commit an interaction; pushes the pre-state if the document changed.
     func commitInteraction() {
         defer { interactionSnapshot = nil }
-        guard let pre = interactionSnapshot, pre.document != document else { return }
+        guard let pre = interactionSnapshot, let document, pre.document != document else { return }
         undoStack.append(pre)
         redoStack.removeAll()
+        didCommit(before: pre, after: document)
     }
 
     /// One-shot mutation with undo registration.
@@ -414,24 +447,29 @@ final class CanvasController {
         undoStack.append(pre)
         redoStack.removeAll()
         document = doc
+        didCommit(before: pre, after: doc)
     }
 
     func undo() {
         flushPendingCommit()
         guard let pre = undoStack.popLast(), let current = document else { return }
-        redoStack.append(State(document: current, image: baseImage))
+        let now = State(document: current, image: baseImage)
+        redoStack.append(now)
         document = pre.document
         baseImage = pre.image
         clampSelection()
+        didCommit(before: now, after: pre.document)
     }
 
     func redo() {
         flushPendingCommit()
         guard let next = redoStack.popLast(), let current = document else { return }
-        undoStack.append(State(document: current, image: baseImage))
+        let now = State(document: current, image: baseImage)
+        undoStack.append(now)
         document = next.document
         baseImage = next.image
         clampSelection()
+        didCommit(before: now, after: next.document)
     }
 
     private func clampSelection() {
@@ -690,10 +728,12 @@ final class CanvasController {
         let delta = CGVector(dx: -clamped.minX, dy: -clamped.minY)
         for i in newDoc.elements.indices { newDoc.elements[i].translate(by: delta) }
 
-        undoStack.append(State(document: doc, image: base))
+        let pre = State(document: doc, image: base)
+        undoStack.append(pre)
         redoStack.removeAll()
         baseImage = croppedBase
         document = newDoc
+        didCommit(before: pre, after: newDoc)
     }
 
     /// Cancels the pending crop without touching the image.

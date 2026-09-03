@@ -3,7 +3,7 @@ import CoreGraphics
 
 /// Who committed an action. `id` is stable ("human", an agent's id); `name`
 /// is what the history panel prints.
-public struct Actor: Codable, Equatable, Sendable {
+public struct HistoryActor: Codable, Equatable, Sendable {
     public var id: String
     public var name: String
 
@@ -18,7 +18,7 @@ public struct Actor: Codable, Equatable, Sendable {
 /// after, and the crop when it changed.
 public struct HistoryEntry: Codable, Equatable, Sendable {
     public var id: UUID
-    public var actor: Actor
+    public var actor: HistoryActor
     public var timestamp: Date
     public var revisionBefore: Int
     public var revisionAfter: Int
@@ -33,7 +33,7 @@ public struct HistoryEntry: Codable, Equatable, Sendable {
     public var cropBefore: CGRect?
     public var cropAfter: CGRect?
 
-    public init(id: UUID = UUID(), actor: Actor, timestamp: Date, revisionBefore: Int, revisionAfter: Int,
+    public init(id: UUID = UUID(), actor: HistoryActor, timestamp: Date, revisionBefore: Int, revisionAfter: Int,
                 summary: String, affected: [ElementID], before: [Annotation], after: [Annotation],
                 cropChanged: Bool, cropBefore: CGRect?, cropAfter: CGRect?) {
         self.id = id; self.actor = actor; self.timestamp = Dates.rounded(timestamp)
@@ -46,7 +46,7 @@ public struct HistoryEntry: Codable, Equatable, Sendable {
     /// affected when it was added, deleted, changed, or moved in z-order.
     /// `summary` is generated unless `summaryOverride` is given (undo and
     /// redo name the action they reversed).
-    public static func diff(from old: Document, to new: Document, actor: Actor, revisionBefore: Int,
+    public static func diff(from old: Document, to new: Document, actor: HistoryActor, revisionBefore: Int,
                             timestamp: Date = Date(), id: UUID = UUID(),
                             summaryOverride: String? = nil) -> HistoryEntry {
         let oldIndex = Dictionary(uniqueKeysWithValues: old.elements.enumerated().map { ($1.id, $0) })
@@ -81,7 +81,7 @@ public struct HistoryEntry: Codable, Equatable, Sendable {
 public enum HistorySummary {
     public enum CropChange { case changed, cleared }
 
-    public static func sentence(actor: Actor, changed: [Annotation], added: [Annotation], deleted: [Annotation],
+    public static func sentence(actor: HistoryActor, changed: [Annotation], added: [Annotation], deleted: [Annotation],
                                 crop: CropChange?) -> String {
         var parts: [String] = []
         if let part = phrase("changed", changed) { parts.append(part) }

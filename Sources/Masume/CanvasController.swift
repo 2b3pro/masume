@@ -215,6 +215,12 @@ final class CanvasController {
     private func persistPreferences() {
         preferencesStore.save(toolPreferences)
     }
+    private static let showsGridKey = "showsGrid"
+    /// Whether the address grid is drawn over the canvas. Display only: the
+    /// grid never exports and addresses resolve whether or not it shows.
+    var showsGrid: Bool = UserDefaults.standard.bool(forKey: CanvasController.showsGridKey) {
+        didSet { UserDefaults.standard.set(showsGrid, forKey: Self.showsGridKey) }
+    }
     private static let exportBoundsKey = "exportBounds"
     var exportBounds: ExportBounds = UserDefaults.standard.rawRepresentable(
         forKey: CanvasController.exportBoundsKey, default: .expandToFit
@@ -650,6 +656,10 @@ final class CanvasController {
         var newDoc = doc
         newDoc.crop = nil
         newDoc.canvasSize = clamped.size
+        // A different image now: the default grid for its size, new version.
+        newDoc.grid = GridDefinition.preset(doc.grid.matchingPreset(for: doc.canvasSize)
+                                            ?? GridDefinition.tier(forLongSide: max(clamped.width, clamped.height)),
+                                            for: clamped.size, version: doc.grid.version + 1)
         let delta = CGVector(dx: -clamped.minX, dy: -clamped.minY)
         for i in newDoc.elements.indices { newDoc.elements[i].translate(by: delta) }
 

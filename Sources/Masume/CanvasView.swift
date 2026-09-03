@@ -149,6 +149,7 @@ final class CanvasNSView: NSView {
             _ = controller.baseImage
             _ = controller.selection
             _ = controller.exportBounds
+            _ = controller.showsGrid
             // effectiveZoomScale is deliberately NOT tracked: this view writes
             // it, so reading it here would loop redraws.
             _ = controller.zoomMode
@@ -305,6 +306,11 @@ final class CanvasNSView: NSView {
             drawCropOverlay(crop, info: info, imageRect: imageRect, in: ctx)
         }
         updateAntsTimer(cropVisible: doc.crop != nil)
+
+        // The address grid: chrome over the image, under the selection.
+        if controller.showsGrid {
+            drawGrid(doc, info: info, in: ctx)
+        }
 
         // Selection handles.
         if let sel = controller.selection, let element = doc.elements.first(where: { $0.id == sel }) {

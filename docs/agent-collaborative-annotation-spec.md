@@ -284,11 +284,13 @@ Current-session style memory resets when the application quits. It applies to ne
 
 Implementation notes are in `phase-1-durable-document-plan.md`. The base image is stored as PNG; history entries carry the affected elements' before and after objects; recovery packages reopen automatically; the disclosure shows once per document with a global opt-out.
 
-### Phase 2: Shared spatial language
+### Phase 2: Shared spatial language (shipped 2026-09-02)
 
 1. Add the stored grid definition and pure address parser/resolver in `AnnotationModel`.
 2. Render the non-exporting grid overlay and labels in the existing canvas.
 3. Add grid controls and tests across zoom, pan, portrait, landscape, and non-divisible image sizes.
+
+`GridDefinition`, `GridCell`, `GridRange`, and the resolver live in `AnnotationModel/Grid/`; the manifest stores `grid`; density changes go through the commit funnel with their own history sentence; a destructive crop re-derives the grid for the new size at the same preset.
 
 ### Phase 3: Agent surfaces
 

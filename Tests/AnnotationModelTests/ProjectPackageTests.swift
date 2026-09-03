@@ -56,7 +56,7 @@ final class ProjectPackageTests: XCTestCase {
 
     func testManifestRoundTripsAndKeepsUnknownKeys() throws {
         var m = manifest(elements: sampleElements, png: png(width: 40, height: 30))
-        m.extra = ["grid": .object(["columns": .number(12), "rows": .number(9)]), "note": .string("keep me")]
+        m.extra = ["semanticMap": .object(["cells": .number(12), "stale": .bool(false)]), "note": .string("keep me")]
         let data = try ProjectPackage.encodeManifest(m)
         let back = try ProjectPackage.decodeManifest(data)
         XCTAssertEqual(back, m)
@@ -65,7 +65,7 @@ final class ProjectPackageTests: XCTestCase {
         XCTAssertEqual((json["canvasSize"] as? [String: Any])?["width"] as? Double, 40)
         XCTAssertEqual((json["crop"] as? [String: Any])?["x"] as? Double, 1)
         XCTAssertEqual(json["formatVersion"] as? Int, ProjectManifest.currentFormatVersion)
-        XCTAssertNotNil(json["grid"], "unknown keys are written back at the top level")
+        XCTAssertNotNil(json["semanticMap"], "unknown keys are written back at the top level")
     }
 
     func testNewerFormatVersionIsRejectedBeforeAnythingElse() throws {

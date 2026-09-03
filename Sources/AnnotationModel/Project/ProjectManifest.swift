@@ -104,6 +104,9 @@ public struct ProjectManifest: Equatable, Sendable {
     public var createdAt: Date
     public var updatedAt: Date
     public var baseImage: BaseImageInfo
+    /// Stored grid counts; nil in packages written before grids existed, in
+    /// which case the default for the canvas size applies.
+    public var grid: GridDefinition?
     /// Recovery packages only: the project this document was saved to, so a
     /// relaunch can rebind it.
     public var boundProjectPath: String?
@@ -112,11 +115,12 @@ public struct ProjectManifest: Equatable, Sendable {
 
     public init(formatVersion: Int = ProjectManifest.currentFormatVersion, id: UUID, revision: Int,
                 canvasSize: CGSize, crop: CGRect?, elements: [Annotation], createdAt: Date, updatedAt: Date,
-                baseImage: BaseImageInfo, boundProjectPath: String? = nil, extra: [String: JSONValue] = [:]) {
+                baseImage: BaseImageInfo, grid: GridDefinition? = nil, boundProjectPath: String? = nil,
+                extra: [String: JSONValue] = [:]) {
         self.formatVersion = formatVersion; self.id = id; self.revision = revision
         self.canvasSize = canvasSize; self.crop = crop; self.elements = elements
         self.createdAt = Dates.rounded(createdAt); self.updatedAt = Dates.rounded(updatedAt); self.baseImage = baseImage
-        self.boundProjectPath = boundProjectPath; self.extra = extra
+        self.grid = grid; self.boundProjectPath = boundProjectPath; self.extra = extra
     }
 }
 
@@ -149,7 +153,7 @@ private struct RectJSON: Codable {
 extension ProjectManifest: Codable {
     private static let knownKeys: Set<String> = [
         "formatVersion", "id", "revision", "canvasSize", "crop", "elements",
-        "createdAt", "updatedAt", "baseImage", "boundProjectPath",
+        "createdAt", "updatedAt", "baseImage", "grid", "boundProjectPath",
     ]
 
     public init(from decoder: Decoder) throws {
@@ -167,6 +171,7 @@ extension ProjectManifest: Codable {
         createdAt = try c.decode(Date.self, forKey: .named("createdAt"))
         updatedAt = try c.decode(Date.self, forKey: .named("updatedAt"))
         baseImage = try c.decode(BaseImageInfo.self, forKey: .named("baseImage"))
+        grid = try c.decodeIfPresent(GridDefinition.self, forKey: .named("grid"))
         boundProjectPath = try c.decodeIfPresent(String.self, forKey: .named("boundProjectPath"))
         var unknown: [String: JSONValue] = [:]
         for key in c.allKeys where !Self.knownKeys.contains(key.stringValue) {
@@ -186,6 +191,7 @@ extension ProjectManifest: Codable {
         try c.encode(createdAt, forKey: .named("createdAt"))
         try c.encode(updatedAt, forKey: .named("updatedAt"))
         try c.encode(baseImage, forKey: .named("baseImage"))
+        try c.encodeIfPresent(grid, forKey: .named("grid"))
         try c.encodeIfPresent(boundProjectPath, forKey: .named("boundProjectPath"))
         for (key, value) in extra where !Self.knownKeys.contains(key) {
             try c.encode(value, forKey: .named(key))

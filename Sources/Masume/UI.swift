@@ -51,6 +51,7 @@ struct TabBarView: View {
                     canRename: tab.hasDocument,
                     select: { workspace.activate(tab) },
                     close: { workspace.close(tab) },
+                    closeAll: { workspace.closeAll() },
                     rename: { workspace.rename(tab, to: $0) }
                 )
                 Rectangle().fill(Color.miroDivider).frame(width: 1)
@@ -82,6 +83,9 @@ private struct TabItem: View {
     let canRename: Bool
     let select: () -> Void
     let close: () -> Void
+    /// Option-click on the close button: every tab, each brought to the
+    /// front for its own Save prompt.
+    let closeAll: () -> Void
     let rename: (String) -> Void
     @Environment(\.colorScheme) private var scheme
     @State private var hovering = false
@@ -150,7 +154,9 @@ private struct TabItem: View {
             .background(backgroundColor)
             .overlay(alignment: .leading) {
                 if hovering || isActive {
-                    Button(action: close) {
+                    Button {
+                        if NSEvent.modifierFlags.contains(.option) { closeAll() } else { close() }
+                    } label: {
                         Image(systemName: "xmark")
                             .font(.system(size: 9, weight: .bold))
                             .foregroundStyle(MiroTheme.textSecondary(scheme))
@@ -159,7 +165,7 @@ private struct TabItem: View {
                     }
                     .buttonStyle(MiroTileButtonStyle())
                     .padding(.leading, 6)
-                    .help("Close Tab (⌘W)")
+                    .help("Close Tab (\u{2318}W). \u{2325}-click closes all tabs.")
                 }
             }
             .contentShape(.rect)

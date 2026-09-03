@@ -240,6 +240,9 @@ struct AppCommands: Commands {
             // and the quit confirmation, like the red close button.
             Button("Close Tab") { workspace.closeActiveTab() }
                 .keyboardShortcut("w", modifiers: .command)
+            Button("Close All Tabs") { workspace.closeAll() }
+                .keyboardShortcut("w", modifiers: [.command, .option])
+                .disabled(workspace.openDocumentCount == 0)
             Divider()
             Button("Save") { SaveService.save(workspace.active) }
                 .keyboardShortcut("s", modifiers: .command)

@@ -109,6 +109,27 @@ final class WorkspaceController {
 
     func closeActiveTab() { close(active) }
 
+    /// Closes every tab, bringing each to the front in turn so its Save
+    /// prompt is about the document on screen. Stops at the first Cancel,
+    /// leaving the rest open. Ends with one fresh empty tab rather than
+    /// quitting: the user asked to clear the workspace, not leave.
+    func closeAll() {
+        for controller in tabs {
+            activate(controller)
+            guard mayClose(controller) else { return }
+            controller.discardRecovery()
+            guard let index = tabs.firstIndex(where: { $0 === controller }) else { continue }
+            tabs.remove(at: index)
+            if tabs.isEmpty {
+                let fresh = CanvasController(recoveryStore: recoveryStore)
+                tabs = [fresh]
+                active = fresh
+            } else {
+                active = tabs[min(index, tabs.count - 1)]
+            }
+        }
+    }
+
     /// Inline tab rename. Failures (a sibling with that name, an empty name)
     /// are shown; the tab keeps its title.
     func rename(_ controller: CanvasController, to name: String) {

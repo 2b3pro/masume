@@ -75,7 +75,9 @@ A PDF page is rasterized at 2× on import; a multi-page PDF shows a page picker 
 - **Output:** export as PNG, JPEG, or lossy WebP (`Cmd+E`); copy to clipboard (`Cmd+Shift+C`);
   drag out as a PNG file.
 - **Tabs:** new tab (`Cmd+T`), close tab (`Cmd+W`), previous and next tab (`Opt+Cmd+←/→`).
-  Edit multiple images in separate tabs without losing work.
+  Edit multiple images in separate tabs without losing work. Close All Tabs (`Opt+Cmd+W`, or
+  `Opt`-click a tab's close button) brings each tab to the front in turn and asks about
+  unsaved changes before closing it.
 
 ## Agents and automation
 

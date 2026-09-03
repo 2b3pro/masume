@@ -29,24 +29,36 @@ extension CanvasNSView {
 
     /// Crop tool: grab a corner of an existing crop rect (drag resizes against
     /// the opposite corner), drag inside it to move it, or start a new rect.
+    /// The crop tool: a pending frame's handles resize it and its inside
+    /// moves it; with no frame, the canvas's own handles start one (drag
+    /// outward to grow the canvas, inward to trim); anywhere else rubber-
+    /// bands a fresh frame.
     func handleCropMouseDown(at p: CGPoint, viewPoint: CGPoint, info: DisplayInfo) {
-        if let crop = controller?.document?.crop, crop.width > 0, crop.height > 0 {
-            let handles = crop.cornerHandles()
-            for handle in handles {
-                let v = info.modelToView(handle.position)
-                if hypot(v.x - viewPoint.x, v.y - viewPoint.y) <= 8,
-                   let anchor = handles.first(where: { $0.role == handle.role.opposite }) {
-                    drag = .cropping(anchor: anchor.position)
-                    return
-                }
+        guard let controller, let doc = controller.document else { return }
+        if let crop = doc.crop, crop.width > 0, crop.height > 0 {
+            if let role = Self.frameHandle(of: crop, near: viewPoint, info: info) {
+                drag = .resizingCrop(role, base: crop)
+                return
             }
             if crop.contains(p) {
                 drag = .movingCrop(last: p)
                 return
             }
+        } else if let role = Self.frameHandle(of: doc.canvasRect, near: viewPoint, info: info) {
+            controller.document?.crop = doc.canvasRect
+            drag = .resizingCrop(role, base: doc.canvasRect)
+            return
         }
-        controller?.document?.crop = CGRect(corner: p, p)
+        controller.document?.crop = CGRect(corner: p, p)
         drag = .cropping(anchor: p)
+    }
+
+    /// The frame handle within 8 view points of `viewPoint`, if any.
+    private static func frameHandle(of rect: CGRect, near viewPoint: CGPoint, info: DisplayInfo) -> HandleRole? {
+        rect.frameHandles().first { handle in
+            let v = info.modelToView(handle.position)
+            return hypot(v.x - viewPoint.x, v.y - viewPoint.y) <= 8
+        }?.role
     }
 
     func createElement(tool: Tool, at p: CGPoint) {
@@ -178,6 +190,21 @@ extension CanvasNSView {
             dragModel(to: p, controller: controller)
         case .handle(let id, let role), .creating(let id, let role):
             controller.document?.mutate(id) { Self.moveHandle(&$0, role, to: p, snapping: snapping) }
+        case .cropping, .movingCrop, .resizingCrop:
+            dragFrame(to: p, controller: controller)
+        case .lining(let id, let anchor):
+            controller.document?.mutate(id) { Self.setStraightLine(&$0, from: anchor, to: p) }
+        case .placingCallout(let id):
+            controller.document?.mutate(id) { Self.placeCallout(&$0, centeredAt: p) }
+        case .none, .magnifierZoom, .panning:
+            break
+        }
+    }
+
+    /// The pending frame's drags: rubber band from `anchor`, move by the
+    /// pointer's delta, or one handle of `base`.
+    private func dragFrame(to p: CGPoint, controller: CanvasController) {
+        switch drag {
         case .cropping(let anchor):
             controller.document?.crop = CGRect(corner: anchor, p)
         case .movingCrop(let last):
@@ -185,11 +212,9 @@ extension CanvasNSView {
                 controller.document?.crop = crop.offsetBy(dx: p.x - last.x, dy: p.y - last.y)
             }
             drag = .movingCrop(last: p)
-        case .lining(let id, let anchor):
-            controller.document?.mutate(id) { Self.setStraightLine(&$0, from: anchor, to: p) }
-        case .placingCallout(let id):
-            controller.document?.mutate(id) { Self.placeCallout(&$0, centeredAt: p) }
-        case .none, .magnifierZoom, .panning:
+        case .resizingCrop(let role, let base):
+            controller.document?.crop = base.movingHandle(role, to: p)
+        default:
             break
         }
     }
@@ -204,9 +229,11 @@ extension CanvasNSView {
         case .creating(let id, _):
             guard let canvasSize = controller.document?.canvasSize else { return }
             controller.document?.mutate(id) { $0 = $0.applyingDefaultInitialSize(canvasSize: canvasSize) }
-        case .cropping, .movingCrop:
+        case .cropping, .movingCrop, .resizingCrop:
+            // A frame may reach outside the canvas (that is how the canvas
+            // grows); one that keeps none of the image, or has no area, is dropped.
             guard let doc = controller.document, let crop = doc.crop else { return }
-            controller.document?.crop = doc.clampedCrop(crop)
+            controller.document?.crop = doc.framedRect(crop)
         default:
             break
         }

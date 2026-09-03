@@ -4,6 +4,16 @@ All notable changes to Masume. The format follows [Keep a Changelog](https://kee
 and the project uses semantic versioning while pre-1.0: a minor bump for new tools, formats,
 or surfaces, a patch bump for fixes. Each release is tagged `vX.Y.Z` on `main`.
 
+## [Unreleased]
+
+### Changed
+
+- Grid axis labels are navy-on-gray chips spaced 10 points outside the canvas; fit mode
+  reserves the room, and zoomed in past an edge the chips ride along the inside of the window.
+- The Crop tool also resizes the canvas: handles on the canvas's corners and sides (and a
+  frame dragged past an edge) grow it with white on Apply Resize. The action bar shows the
+  frame's width and height as editable fields.
+
 ## [0.4.0] - 2026-09-02
 
 Counted and emoji stamps, an agent guide over MCP, and real CLI help.
@@ -103,6 +113,7 @@ grid as the common spatial language, and three ways in for automation.
 The Skitch-look fork as inherited from [2b3pro/kakico](https://github.com/2b3pro/kakico):
 drop shadows, text styles, stamps, pen and highlighter, and remembered tool state.
 
+[Unreleased]: https://github.com/2b3pro/masume/compare/v0.4.0...HEAD
 [0.4.0]: https://github.com/2b3pro/masume/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/2b3pro/masume/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/2b3pro/masume/compare/v0.1.0...v0.2.0

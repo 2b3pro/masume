@@ -539,10 +539,12 @@ final class CanvasController {
 
     // MARK: - Crop
 
-    /// Destructively applies the pending crop: trims the base image, shifts
-    /// elements into the new origin, and shrinks the canvas. Undoable; the
-    /// crop stays non-destructive (re-editable) until this is called.
-    /// Return key: applies a pending crop; false when there is none.
+    /// Destructively applies the pending frame: a frame inside the canvas
+    /// crops (trims the base image), one reaching outside expands it (new
+    /// white canvas around the image), and elements shift into the new
+    /// origin. Undoable; the frame stays non-destructive (re-editable) until
+    /// this is called.
+    /// Return key: applies a pending frame; false when there is none.
     @discardableResult
     func applyPendingCrop() -> Bool {
         guard document?.crop != nil else { return false }
@@ -550,10 +552,38 @@ final class CanvasController {
         return true
     }
 
+    /// True while the pending frame reaches outside the canvas, so applying
+    /// it grows the image rather than trimming it.
+    var pendingFrameExpands: Bool {
+        guard let doc = document, let frame = doc.integralFrame else { return false }
+        return !doc.canvasRect.contains(frame)
+    }
+
+    /// Width and height of the pending frame in pixels, editable from the
+    /// action bar: a new size keeps the frame's top-left corner.
+    var pendingFrameWidth: Int {
+        get { Int(document?.integralFrame?.width ?? 0) }
+        set { resizePendingFrame(width: newValue, height: nil) }
+    }
+
+    var pendingFrameHeight: Int {
+        get { Int(document?.integralFrame?.height ?? 0) }
+        set { resizePendingFrame(width: nil, height: newValue) }
+    }
+
+    private func resizePendingFrame(width: Int?, height: Int?) {
+        guard let doc = document, let frame = doc.integralFrame else { return }
+        let resized = CGRect(x: frame.minX, y: frame.minY,
+                             width: CGFloat(max(2, width ?? Int(frame.width))),
+                             height: CGFloat(max(2, height ?? Int(frame.height))))
+        guard resized != frame, let framed = doc.framedRect(resized) else { return }
+        document?.crop = framed
+    }
+
     func applyCrop() {
         guard let doc = document, let base = baseImage,
-              let clamped = doc.integralCrop,
-              let croppedBase = base.cropping(to: clamped) else { return }
+              let clamped = doc.integralFrame,
+              let croppedBase = Self.reframe(base, to: clamped) else { return }
 
         var newDoc = doc
         newDoc.crop = nil
@@ -571,6 +601,24 @@ final class CanvasController {
         baseImage = croppedBase
         document = newDoc
         didCommit(before: pre, after: newDoc)
+    }
+
+    /// The base image inside `frame` (model space, y-down): a plain crop
+    /// when the frame lies within the image, else a new white image of the
+    /// frame's size with the original composited where it falls.
+    static func reframe(_ base: CGImage, to frame: CGRect) -> CGImage? {
+        let imageRect = CGRect(x: 0, y: 0, width: base.width, height: base.height)
+        if imageRect.contains(frame) { return base.cropping(to: frame) }
+        guard let ctx = CGContext(data: nil, width: Int(frame.width), height: Int(frame.height),
+                                  bitsPerComponent: 8, bytesPerRow: 0,
+                                  space: CGColorSpace(name: CGColorSpace.sRGB)!,
+                                  bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return nil }
+        ctx.setFillColor(red: 1, green: 1, blue: 1, alpha: 1)
+        ctx.fill(CGRect(x: 0, y: 0, width: frame.width, height: frame.height))
+        // The context is y-up with its bottom at model y = frame.maxY.
+        ctx.draw(base, in: CGRect(x: -frame.minX, y: frame.maxY - imageRect.height,
+                                  width: imageRect.width, height: imageRect.height))
+        return ctx.makeImage()
     }
 
     /// Cancels the pending crop without touching the image.

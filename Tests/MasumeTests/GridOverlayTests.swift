@@ -16,6 +16,40 @@ final class GridOverlayTests: XCTestCase {
         XCTAssertNil(GridOverlayMath.labelStride(cellPoints: 5.9))
     }
 
+    func testFitModeReservesAGutterForTheLabelsOnlyWhileTheGridShows() {
+        let controller = CanvasController(preferencesStore: InMemoryToolPreferencesStore())
+        let ctx = CGContext(data: nil, width: 400, height: 300, bitsPerComponent: 8, bytesPerRow: 0,
+                            space: CGColorSpaceCreateDeviceRGB(),
+                            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
+        controller.loadImage(ctx.makeImage()!)
+        controller.zoomMode = .fit
+        let view = CanvasNSView(frame: NSRect(x: 0, y: 0, width: 400, height: 300))
+        view.controller = controller
+        controller.showsGrid = false
+        XCTAssertEqual(view.displayInfo.rect, CGRect(x: 0, y: 0, width: 400, height: 300))
+        controller.showsGrid = true
+        let gutter = GridOverlayMath.gutter
+        let rect = view.displayInfo.rect
+        XCTAssertGreaterThanOrEqual(rect.minX, gutter - 0.5, "room to the left for row numbers")
+        XCTAssertLessThanOrEqual(rect.maxY, 300 - gutter + 0.5, "room above for column letters (non-flipped view)")
+        XCTAssertLessThan(min(rect.minX - gutter, 300 - gutter - rect.maxY), 0.5, "fills the inset viewport on one axis")
+        XCTAssertLessThan(rect.width, 400)
+        XCTAssertEqual(rect.width / rect.height, 400.0 / 300.0, accuracy: 0.01, "aspect kept")
+    }
+
+    func testChipsSitBeyondTheEdgeOrPinInsideTheView() {
+        // Above the canvas edge at y=250 in a 300-tall view: starts at edge + gap.
+        XCTAssertEqual(GridOverlayMath.chipStart(beyond: 250, extent: 18, viewMax: 300), 260)
+        // Edge at the view's top: pinned inside, two points from the top.
+        XCTAssertEqual(GridOverlayMath.chipStart(beyond: 300, extent: 18, viewMax: 300), 280)
+        XCTAssertEqual(GridOverlayMath.chipStart(beyond: 340, extent: 18, viewMax: 300), 280, "edge scrolled off")
+        // Left of the canvas edge at x=60: ends gap before it.
+        XCTAssertEqual(GridOverlayMath.chipStart(before: 60, extent: 20, viewMin: 0), 30)
+        XCTAssertEqual(GridOverlayMath.chipStart(before: 0, extent: 20, viewMin: 0), 2, "pinned inside")
+        XCTAssertEqual(GridOverlayMath.chipStart(before: -40, extent: 20, viewMin: 0), 2)
+        XCTAssertEqual(GridOverlayMath.gutter, GridOverlayMath.chipSize + GridOverlayMath.labelGap + 4)
+    }
+
     func testShowsGridIsRememberedAcrossControllers() {
         let key = "showsGrid"
         let previous = UserDefaults.standard.object(forKey: key)

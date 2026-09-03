@@ -164,6 +164,34 @@ final class AnnotationModelTests: XCTestCase {
         XCTAssertTrue(json.contains("\"size\""))
     }
 
+    func testFramedRectMayOverflowTheCanvasButMustKeepSomeImage() {
+        let doc = Document(baseImage: .file(path: "/x.png"), canvasSize: CGSize(width: 100, height: 80))
+        XCTAssertEqual(doc.framedRect(CGRect(x: 10, y: 10, width: 50, height: 40)), CGRect(x: 10, y: 10, width: 50, height: 40))
+        XCTAssertEqual(doc.framedRect(CGRect(x: -20, y: -10, width: 200, height: 100)),
+                       CGRect(x: -20, y: -10, width: 200, height: 100), "reaching outside is how the canvas grows")
+        XCTAssertEqual(doc.framedRect(CGRect(x: 60, y: 50, width: -50, height: -40)),
+                       CGRect(x: 10, y: 10, width: 50, height: 40), "normalized")
+        XCTAssertNil(doc.framedRect(CGRect(x: 10, y: 10, width: 1, height: 40)), "no area")
+        XCTAssertNil(doc.framedRect(CGRect(x: 200, y: 200, width: 50, height: 50)), "none of the image")
+        XCTAssertEqual(doc.canvasRect, CGRect(x: 0, y: 0, width: 100, height: 80))
+    }
+
+    func testEdgeHandlesMoveOneSideAndCornersMoveTwo() {
+        let rect = CGRect(x: 10, y: 20, width: 100, height: 50)
+        let edges = rect.edgeHandles()
+        XCTAssertEqual(edges.map(\.role), [.top, .right, .bottom, .left])
+        XCTAssertEqual(edges[0].position, CGPoint(x: 60, y: 20))
+        XCTAssertEqual(edges[1].position, CGPoint(x: 110, y: 45))
+        XCTAssertEqual(rect.frameHandles().count, 8)
+        XCTAssertEqual(rect.movingHandle(.right, to: CGPoint(x: 200, y: 999)), CGRect(x: 10, y: 20, width: 190, height: 50))
+        XCTAssertEqual(rect.movingHandle(.top, to: CGPoint(x: 999, y: -30)), CGRect(x: 10, y: -30, width: 100, height: 100))
+        XCTAssertEqual(rect.movingHandle(.left, to: CGPoint(x: 150, y: 0)), CGRect(x: 110, y: 20, width: 40, height: 50),
+                       "crossing over stays normalized")
+        XCTAssertEqual(rect.movingHandle(.bottomRight, to: CGPoint(x: 20, y: 30)), CGRect(x: 10, y: 20, width: 10, height: 10))
+        XCTAssertEqual(HandleRole.top.opposite, .bottom)
+        XCTAssertEqual(HandleRole.left.opposite, .right)
+    }
+
     func testClampedCrop() {
         let doc = Document(baseImage: .file(path: "/x.png"), canvasSize: CGSize(width: 100, height: 80))
         // Fully inside: unchanged.

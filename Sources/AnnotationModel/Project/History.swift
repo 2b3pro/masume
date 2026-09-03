@@ -32,14 +32,19 @@ public struct HistoryEntry: Codable, Equatable, Sendable {
     public var cropChanged: Bool
     public var cropBefore: CGRect?
     public var cropAfter: CGRect?
+    /// Set when the grid density changed (a document action).
+    public var gridBefore: GridDefinition?
+    public var gridAfter: GridDefinition?
 
     public init(id: UUID = UUID(), actor: HistoryActor, timestamp: Date, revisionBefore: Int, revisionAfter: Int,
                 summary: String, affected: [ElementID], before: [Annotation], after: [Annotation],
-                cropChanged: Bool, cropBefore: CGRect?, cropAfter: CGRect?) {
+                cropChanged: Bool, cropBefore: CGRect?, cropAfter: CGRect?,
+                gridBefore: GridDefinition? = nil, gridAfter: GridDefinition? = nil) {
         self.id = id; self.actor = actor; self.timestamp = Dates.rounded(timestamp)
         self.revisionBefore = revisionBefore; self.revisionAfter = revisionAfter
         self.summary = summary; self.affected = affected; self.before = before; self.after = after
         self.cropChanged = cropChanged; self.cropBefore = cropBefore; self.cropAfter = cropAfter
+        self.gridBefore = gridBefore; self.gridAfter = gridAfter
     }
 
     /// The entry for the commit that turned `old` into `new`. An element is
@@ -59,9 +64,12 @@ public struct HistoryEntry: Codable, Equatable, Sendable {
         for element in new.elements where oldIndex[element.id] == nil { added.append(element) }
         let affectedSet = Set((deleted + changed + added).map(\.id))
         let cropChanged = old.crop != new.crop
-        let cropChange: HistorySummary.CropChange? = cropChanged ? (new.crop == nil ? .cleared : .changed) : nil
-        let summary = summaryOverride ?? HistorySummary.sentence(
-            actor: actor, changed: changed, added: added, deleted: deleted, crop: cropChange)
+        let gridChanged = old.grid != new.grid
+        let delta = HistorySummary.Delta(
+            changed: changed, added: added, deleted: deleted,
+            crop: cropChanged ? (new.crop == nil ? .cleared : .changed) : nil,
+            grid: gridChanged ? new.grid : nil)
+        let summary = summaryOverride ?? HistorySummary.sentence(actor: actor, delta: delta)
         return HistoryEntry(
             id: id, actor: actor, timestamp: timestamp,
             revisionBefore: revisionBefore, revisionAfter: revisionBefore + 1,
@@ -72,7 +80,9 @@ public struct HistoryEntry: Codable, Equatable, Sendable {
             after: new.elements.filter { affectedSet.contains($0.id) },
             cropChanged: cropChanged,
             cropBefore: cropChanged ? old.crop : nil,
-            cropAfter: cropChanged ? new.crop : nil)
+            cropAfter: cropChanged ? new.crop : nil,
+            gridBefore: gridChanged ? old.grid : nil,
+            gridAfter: gridChanged ? new.grid : nil)
     }
 }
 
@@ -81,17 +91,32 @@ public struct HistoryEntry: Codable, Equatable, Sendable {
 public enum HistorySummary {
     public enum CropChange { case changed, cleared }
 
-    public static func sentence(actor: HistoryActor, changed: [Annotation], added: [Annotation], deleted: [Annotation],
-                                crop: CropChange?) -> String {
+    /// What a commit did, for the sentence.
+    public struct Delta {
+        public var changed: [Annotation]
+        public var added: [Annotation]
+        public var deleted: [Annotation]
+        public var crop: CropChange?
+        /// The new grid when the density changed.
+        public var grid: GridDefinition?
+
+        public init(changed: [Annotation] = [], added: [Annotation] = [], deleted: [Annotation] = [],
+                    crop: CropChange? = nil, grid: GridDefinition? = nil) {
+            self.changed = changed; self.added = added; self.deleted = deleted; self.crop = crop; self.grid = grid
+        }
+    }
+
+    public static func sentence(actor: HistoryActor, delta: Delta) -> String {
         var parts: [String] = []
-        if let part = phrase("changed", changed) { parts.append(part) }
-        if let part = phrase("added", added) { parts.append(part) }
-        if let part = phrase("deleted", deleted) { parts.append(part) }
-        switch crop {
+        if let part = phrase("changed", delta.changed) { parts.append(part) }
+        if let part = phrase("added", delta.added) { parts.append(part) }
+        if let part = phrase("deleted", delta.deleted) { parts.append(part) }
+        switch delta.crop {
         case .changed?: parts.append("changed the crop")
         case .cleared?: parts.append("cleared the crop")
         case nil: break
         }
+        if let grid = delta.grid { parts.append("changed the grid to \(grid.columns)\u{00D7}\(grid.rows)") }
         guard !parts.isEmpty else { return "\(actor.name) made no change" }
         return "\(actor.name) \(join(parts))"
     }

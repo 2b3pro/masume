@@ -281,6 +281,24 @@ struct AppCommands: Commands {
             Button("Fit to Window") { workspace.active.zoomToFit() }
                 .keyboardShortcut("0", modifiers: .command)
                 .disabled(!workspace.active.hasDocument)
+            Divider()
+            Toggle("Show Grid", isOn: Binding(
+                get: { workspace.active.showsGrid },
+                set: { workspace.active.showsGrid = $0 }
+            ))
+            .keyboardShortcut("g", modifiers: .command)
+            .disabled(!workspace.active.hasDocument)
+            // Density is a document action (undoable, in the history); the
+            // check mark follows the document's stored grid.
+            Picker("Grid Density", selection: Binding(
+                get: { workspace.active.document.map { $0.grid.matchingPreset(for: $0.canvasSize) ?? 0 } ?? 0 },
+                set: { workspace.active.setGridPreset($0) }
+            )) {
+                ForEach(GridDefinition.presets, id: \.self) { n in
+                    Text("\(n) cells across").tag(n)
+                }
+            }
+            .disabled(!workspace.active.hasDocument)
         }
         // Lands in the Window menu, where Safari keeps its tab navigation.
         CommandGroup(before: .windowArrangement) {

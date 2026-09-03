@@ -52,7 +52,7 @@ extension CanvasController {
         }
         let manifest = contents.manifest
         let document = Document(baseImage: .pngData(Data()), canvasSize: manifest.canvasSize,
-                                elements: manifest.elements, crop: manifest.crop)
+                                elements: manifest.elements, crop: manifest.crop, grid: manifest.grid)
         install(image: image, document: document, sourceURL: sourceURL, session: session)
         autosave()
     }
@@ -60,5 +60,15 @@ extension CanvasController {
     /// A clean close: the recovery package is no longer needed.
     func discardRecovery() {
         project?.removeRecovery()
+    }
+
+    /// Changes the grid density to a preset (8, 12, 16, 24, or 32 cells
+    /// across the long side). A document action: undoable, in the history,
+    /// and it bumps the grid version so address-keyed caches go stale.
+    func setGridPreset(_ n: Int) {
+        guard let document, GridDefinition.presets.contains(n) else { return }
+        let next = GridDefinition.preset(n, for: document.canvasSize, version: document.grid.version + 1)
+        guard next.columns != document.grid.columns || next.rows != document.grid.rows else { return }
+        perform { $0.grid = next }
     }
 }

@@ -53,6 +53,12 @@ A PDF page is rasterized at 2× on import; a multi-page PDF shows a page picker 
 - **Navigation:** zoom in and out (`Cmd++` / `Cmd+-`), fit to window (`Cmd+0`), pinch to zoom,
   `Cmd`+scroll wheel to zoom about the pointer, and hold `Space` and drag to pan when zoomed
   in.
+- **Grid:** a spreadsheet grid over the image, the shared spatial language for people and
+  agents: `D5` is a cell, `D5:F14` a range. Toggle it with Show Grid (`Cmd+G`); it never
+  exports. The default density comes from the image's pixel size alone, so the same image
+  always gets the same addresses, and the counts are stored in the project so they never
+  drift. Pick a different density from View ▸ Grid Density; that is a document action, so
+  it is undoable and recorded.
 - **Projects:** Save (`Cmd+S`) writes an editable `.masume` package: the original image as
   PNG, the annotations, and an attributed history of every committed change. Save As
   (`Cmd+Shift+S`) makes a copy with a new identity. Open (`Cmd+O`) or double-click a

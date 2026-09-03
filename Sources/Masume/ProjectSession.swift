@@ -139,6 +139,7 @@ final class ProjectSession {
                                      sha256: ProjectPackage.sha256Hex(baseImagePNG),
                                      width: size?.width ?? Int(document.canvasSize.width),
                                      height: size?.height ?? Int(document.canvasSize.height)),
+            grid: document.grid,
             boundProjectPath: url?.path)
     }
 

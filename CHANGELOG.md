@@ -19,6 +19,8 @@ or surfaces, a patch bump for fixes. Each release is tagged `vX.Y.Z` on `main`.
 - An agent guide: the MCP handshake carries short server instructions and the `masume_guide`
   tool returns the full guide (session shape, grid grammar, element fields, error codes,
   token-saving habits). README gains directions for setting up MCP and working with an agent.
+- `masume help <subcommand>` and `<subcommand> --help`: what each subcommand takes, with the
+  keys every element type accepts and the grid address grammar. Help exits 0 on stdout.
 
 ### Fixed
 

@@ -166,6 +166,9 @@ public enum CLIRequest {
 }
 
 public enum CLIError: Error, Equatable {
+    /// A mistake on the command line: printed to stderr, exit 64.
     case usage(String)
+    /// Help the user asked for: printed to stdout, exit 0.
+    case help(String)
     case notRunning
 }

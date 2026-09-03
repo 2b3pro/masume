@@ -112,7 +112,8 @@ JSON commands and get the same `{ok, result}` or `{ok, error: {code, message}}` 
   `masume export file.masume out.png`, `masume resolve --file file.masume D5`, and
   `masume new shot.png file.masume [--page n]` for images and PDFs. Exit status mirrors the
   error code (2 conflict, 3 not found, 4 invalid address, 5 invalid argument, 6 unsupported,
-  7 io, 10 Masume not running, 64 usage). Install with `bash scripts/install-cli.sh`.
+  7 io, 10 Masume not running, 64 usage). `masume --help` is the one-screen usage and
+  `masume help add` lists every element key. Install with `bash scripts/install-cli.sh`.
 - **AppleScript and JXA.** `Application("Masume").activeDocument.revision()` and
   `Application("Masume").execute(json)`; see `Resources/Masume.sdef`.
   `scripts/ae-roundtrip.sh` drives the built app this way.

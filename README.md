@@ -59,6 +59,12 @@ A PDF page is rasterized at 2× on import; a multi-page PDF shows a page picker 
   always gets the same addresses, and the counts are stored in the project so they never
   drift. Pick a different density from View ▸ Grid Density; that is a document action, so
   it is undoable and recorded.
+- **Image layers:** pasting or dropping an image onto an open document adds it as a layer,
+  centered and scaled to fit half the canvas, not a replacement. Corner handles resize it
+  with the aspect kept. The image-layer control masks it as a rectangle, rounded rectangle,
+  or circle, and toggles a border (stroke color and width) and the drop shadow. The pixels
+  are saved in the project's `assets` folder. To swap the base image instead, use
+  File ▸ Replace Image from Clipboard.
 - **Tabs and names:** a tab says Untitled until you name it. Press and hold the tab title to
   rename in place; for a saved project that renames the package on disk. A dot on the tab
   means unsaved changes.

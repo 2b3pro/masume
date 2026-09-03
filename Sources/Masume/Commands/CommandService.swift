@@ -240,9 +240,30 @@ final class CommandService {
     }
 
     private func mutate(_ request: CommandRequest) throws -> JSONValue {
-        try commit(request) { doc in
-            try Self.applyMutation(request.command, params: request.parameters, to: &doc)
+        let prepared = try registerImageAsset(request)
+        return try commit(prepared) { doc in
+            try Self.applyMutation(prepared.command, params: prepared.parameters, to: &doc)
         }
+    }
+
+    /// `create_element` of type image: the file at `imagePath` joins the
+    /// asset store first, and the factory gets `assetId` and `naturalSize`.
+    private func registerImageAsset(_ request: CommandRequest) throws -> CommandRequest {
+        guard request.command == "create_element", case .object(var params)? = request.params,
+              case .string("image")? = params["type"] else { return request }
+        guard case .string(let path)? = params["imagePath"], path.hasPrefix("/") else {
+            throw CommandError.invalidArgument("image needs imagePath, an absolute path to a PNG or JPEG")
+        }
+        guard let data = FileManager.default.contents(atPath: path), let image = ImageLoader.cgImage(from: data),
+              let png = Renderer.encode(image, as: .png) else {
+            throw CommandError.io("\(path) is not an image Masume can read")
+        }
+        let assetID = try project.registerAsset(png: png, image: image)
+        params["assetId"] = .string(assetID.uuidString)
+        params["naturalSize"] = .size(CGSize(width: image.width, height: image.height))
+        var prepared = request
+        prepared.params = .object(params)
+        return prepared
     }
 
     /// The mutation vocabulary, shared by single commands and `batch`.

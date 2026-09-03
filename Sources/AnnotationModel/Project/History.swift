@@ -167,6 +167,7 @@ extension Annotation {
         case .stamp: return "stamp"
         case .pixelate: return "pixelation"
         case .magnifier: return "magnifier"
+        case .image: return "image"
         }
     }
 }

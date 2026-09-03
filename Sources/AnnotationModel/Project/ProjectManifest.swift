@@ -13,6 +13,8 @@ public enum ProjectError: Error, Equatable, Sendable, LocalizedError {
     /// The base image's pixel size disagrees with the manifest or canvas.
     case sizeMismatch
     case duplicateElementIDs
+    /// An image layer's asset is missing or does not match its checksum.
+    case badAsset(String)
     case io(String)
 
     public var errorDescription: String? {
@@ -29,6 +31,8 @@ public enum ProjectError: Error, Equatable, Sendable, LocalizedError {
             return "The project's base image is not the size the manifest expects."
         case .duplicateElementIDs:
             return "The project contains duplicate annotation IDs."
+        case .badAsset(let name):
+            return "The project's image asset \(name) is missing or altered."
         case .io(let detail):
             return detail
         }
@@ -104,6 +108,8 @@ public struct ProjectManifest: Equatable, Sendable {
     public var createdAt: Date
     public var updatedAt: Date
     public var baseImage: BaseImageInfo
+    /// Image layers' pixels, one file each under `assets/`.
+    public var assets: [AssetInfo]
     /// Stored grid counts; nil in packages written before grids existed, in
     /// which case the default for the canvas size applies.
     public var grid: GridDefinition?
@@ -118,12 +124,13 @@ public struct ProjectManifest: Equatable, Sendable {
 
     public init(formatVersion: Int = ProjectManifest.currentFormatVersion, id: UUID, revision: Int,
                 canvasSize: CGSize, crop: CGRect?, elements: [Annotation], createdAt: Date, updatedAt: Date,
-                baseImage: BaseImageInfo, grid: GridDefinition? = nil, workingName: String? = nil,
-                boundProjectPath: String? = nil, extra: [String: JSONValue] = [:]) {
+                baseImage: BaseImageInfo, assets: [AssetInfo] = [], grid: GridDefinition? = nil,
+                workingName: String? = nil, boundProjectPath: String? = nil, extra: [String: JSONValue] = [:]) {
         self.formatVersion = formatVersion; self.id = id; self.revision = revision
         self.canvasSize = canvasSize; self.crop = crop; self.elements = elements
         self.createdAt = Dates.rounded(createdAt); self.updatedAt = Dates.rounded(updatedAt); self.baseImage = baseImage
-        self.grid = grid; self.workingName = workingName; self.boundProjectPath = boundProjectPath; self.extra = extra
+        self.assets = assets; self.grid = grid; self.workingName = workingName
+        self.boundProjectPath = boundProjectPath; self.extra = extra
     }
 }
 
@@ -156,7 +163,7 @@ private struct RectJSON: Codable {
 extension ProjectManifest: Codable {
     private static let knownKeys: Set<String> = [
         "formatVersion", "id", "revision", "canvasSize", "crop", "elements",
-        "createdAt", "updatedAt", "baseImage", "grid", "workingName", "boundProjectPath",
+        "createdAt", "updatedAt", "baseImage", "assets", "grid", "workingName", "boundProjectPath",
     ]
 
     public init(from decoder: Decoder) throws {
@@ -174,6 +181,7 @@ extension ProjectManifest: Codable {
         createdAt = try c.decode(Date.self, forKey: .named("createdAt"))
         updatedAt = try c.decode(Date.self, forKey: .named("updatedAt"))
         baseImage = try c.decode(BaseImageInfo.self, forKey: .named("baseImage"))
+        assets = try c.decodeIfPresent([AssetInfo].self, forKey: .named("assets")) ?? []
         grid = try c.decodeIfPresent(GridDefinition.self, forKey: .named("grid"))
         workingName = try c.decodeIfPresent(String.self, forKey: .named("workingName"))
         boundProjectPath = try c.decodeIfPresent(String.self, forKey: .named("boundProjectPath"))
@@ -195,6 +203,7 @@ extension ProjectManifest: Codable {
         try c.encode(createdAt, forKey: .named("createdAt"))
         try c.encode(updatedAt, forKey: .named("updatedAt"))
         try c.encode(baseImage, forKey: .named("baseImage"))
+        if !assets.isEmpty { try c.encode(assets, forKey: .named("assets")) }
         try c.encodeIfPresent(grid, forKey: .named("grid"))
         try c.encodeIfPresent(workingName, forKey: .named("workingName"))
         try c.encodeIfPresent(boundProjectPath, forKey: .named("boundProjectPath"))

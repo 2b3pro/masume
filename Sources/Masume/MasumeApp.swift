@@ -91,7 +91,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // paste: down the AppKit responder chain, so intercept the key event
         // before menu dispatch instead.
         pasteKeyMonitor = commandKeyMonitor(for: "v") { [workspace] in
-            DispatchQueue.main.async { ExportService.confirmAndPasteImage(workspace.active) }
+            DispatchQueue.main.async { ExportService.pasteImage(workspace.active) }
             return true
         }
 
@@ -231,8 +231,10 @@ struct AppCommands: Commands {
                 .keyboardShortcut("o", modifiers: .command)
             // ⇧⌘V kept as an explicit alias; plain ⌘V is handled by the key
             // monitor in AppDelegate so it still reaches inline text editors.
-            Button("Paste Image") { ExportService.confirmAndPasteImage(workspace.active) }
+            Button("Paste Image") { ExportService.pasteImage(workspace.active) }
                 .keyboardShortcut("v", modifiers: [.command, .shift])
+            Button("Replace Image from Clipboard\u{2026}") { ExportService.confirmAndPasteImage(workspace.active) }
+                .disabled(!workspace.active.hasDocument)
         }
         CommandGroup(replacing: .saveItem) {
             // Replacing .saveItem removes the system Close item with it, so

@@ -64,7 +64,8 @@ public enum OfflineCommands {
             let out = URL(fileURLWithPath: output)
             let type = try utType(formatName ?? out.pathExtension)
             let bounds = try exportBounds(boundsName)
-            guard let image = Renderer.flatten(document, baseImage: base, scale: 1, bounds: bounds),
+            let assets = contents.assets.compactMapValues(decode)
+            guard let image = Renderer.flatten(document, baseImage: base, scale: 1, bounds: bounds, assets: assets),
                   let data = Renderer.encode(image, as: type) else {
                 throw CommandError.io("the document could not be flattened")
             }

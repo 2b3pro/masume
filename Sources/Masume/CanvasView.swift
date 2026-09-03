@@ -282,7 +282,7 @@ final class CanvasNSView: NSView {
             if flattened == nil || flattenedKey != displayDoc
                 || flattenedBase !== controller.baseImage || flattenedBounds != exportBounds {
                 flattened = Renderer.flatten(displayDoc, baseImage: controller.baseImage, scale: 1,
-                                            bounds: exportBounds)
+                                            bounds: exportBounds, assets: controller.project?.assetImages ?? [:])
                 flattenedKey = displayDoc
                 flattenedBase = controller.baseImage
                 flattenedBounds = exportBounds

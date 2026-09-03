@@ -12,7 +12,7 @@ enum ExportService {
     static func flatten(_ controller: CanvasController, scale: CGFloat = 1) -> CGImage? {
         guard let doc = controller.document else { return nil }
         return Renderer.flatten(doc, baseImage: controller.baseImage, scale: scale,
-                               bounds: controller.exportBounds)
+                               bounds: controller.exportBounds, assets: controller.project?.assetImages ?? [:])
     }
 
     /// Flattened document as PNG bytes (for clipboard / drag-out).
@@ -92,7 +92,8 @@ enum ExportService {
             throw ProjectError.io("\(format.displayName) supports at most \(limit) pixels per side.")
         }
         guard let cg = Renderer.flatten(doc, baseImage: controller.baseImage, scale: 1,
-                                        bounds: bounds ?? controller.exportBounds),
+                                        bounds: bounds ?? controller.exportBounds,
+                                        assets: controller.project?.assetImages ?? [:]),
               let data = Renderer.encode(cg, as: format.utType) else {
             throw ProjectError.io("The image could not be flattened.")
         }
@@ -164,6 +165,18 @@ enum ExportService {
         }
         // Commit inline text editing so the editor doesn't linger over the
         // new document.
+        commitPendingTextEditing()
+        return controller.pasteImage(replacing: true)
+    }
+
+    /// Plain paste: a layer on the open document, or a new document.
+    @discardableResult
+    static func pasteImage(_ controller: CanvasController) -> Bool {
+        let pb = NSPasteboard.general
+        guard pb.canReadObject(forClasses: [NSImage.self], options: nil) else {
+            NSSound.beep()
+            return false
+        }
         commitPendingTextEditing()
         return controller.pasteImage()
     }

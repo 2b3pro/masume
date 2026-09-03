@@ -42,6 +42,12 @@ extension CanvasController {
         return doc.elements[i].textStyle != nil && !doc.elements[i].isCallout
     }
 
+    /// True when an image layer is selected: mask, border, and shadow apply.
+    var editsImageLayer: Bool {
+        guard let sel = selection, let doc = document, let i = doc.index(of: sel) else { return false }
+        return doc.elements[i].imageMask != nil
+    }
+
     /// True when the alignment control applies: the text or callout tool is
     /// active or a text element (plain or callout) is selected.
     var editsTextAlignment: Bool {

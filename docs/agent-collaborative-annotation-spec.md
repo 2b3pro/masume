@@ -345,6 +345,8 @@ Version one is complete when all of the following are demonstrably true:
 
 ## 14. Deliberate future seams
 
+Image layers shipped 2026-09-02 through this seam: a pasted or dropped image is an `image` element referencing an immutable asset under the package's `assets/` folder, masked as a rectangle, rounded rectangle, or circle, with an optional border and shadow. The base image stays immutable and `view_base_image` never includes layers. Agents create one with `create_element` of type `image` and an absolute `imagePath`.
+
 The project model may later add multi-party collaboration or generated image-patch layers, but v1 should implement neither. Future patches can conform to the existing ordered-element model without changing the principle that the base image remains immutable and export is the only flattening boundary.
 
 ## 15. Apple Intelligence and on-device frameworks

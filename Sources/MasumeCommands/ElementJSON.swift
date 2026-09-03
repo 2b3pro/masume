@@ -51,6 +51,7 @@ public enum ElementJSON {
         case .stamp: return "stamp"
         case .pixelate: return "pixelate"
         case .magnifier: return "magnifier"
+        case .image: return "image"
         }
     }
 
@@ -81,6 +82,10 @@ public enum ElementJSON {
         case .magnifier(let e):
             fields["rect"] = .rect(e.rect); fields["shape"] = .string(e.shape.rawValue)
             fields["zoom"] = .number(e.zoom); fields["width"] = .number(e.width)
+        case .image(let e):
+            fields["rect"] = .rect(e.rect); fields["assetId"] = .string(e.assetID.uuidString)
+            fields["naturalSize"] = .size(e.naturalSize); fields["mask"] = .string(e.mask.rawValue)
+            fields["borderWidth"] = .number(e.borderWidth); fields["shadow"] = .bool(e.shadow)
         }
         return .object(fields)
     }
@@ -196,6 +201,7 @@ public enum ElementFactory {
         case "stamp": return try makeStamp(input)
         case "pixelate": return try makePixelate(input)
         case "magnifier": return try makeMagnifier(input)
+        case "image": return try makeImage(input)
         default: throw CommandError.unsupported("unknown element type \(type)")
         }
     }
@@ -258,6 +264,22 @@ public enum ElementFactory {
                                            width: try defaultWidth(DefaultStrokeWidth.shapeReferenceWidth, input)))
     }
 
+    /// An image layer. The command service registers the asset first and
+    /// passes `assetId` and `naturalSize`; a caller cannot invent them.
+    private static func makeImage(_ input: ElementInput) throws -> Annotation {
+        guard let id = try input.params.optionalString("assetId"), let assetID = UUID(uuidString: id),
+              let natural = try input.params.optionalObject("naturalSize") else {
+            throw CommandError.invalidArgument("image needs imagePath (the service turns it into assetId and naturalSize)")
+        }
+        let naturalSize = CGSize(width: try natural.double("width"), height: try natural.double("height"))
+        let rect = try input.box() ?? ImageElement.placement(naturalSize: naturalSize, in: input.document.canvasSize)
+        return .image(ImageElement(rect: rect, assetID: assetID, naturalSize: naturalSize,
+                                   mask: try input.enumValue("mask", ImageMask.self) ?? .rectangle,
+                                   borderColor: try input.color() ?? .white,
+                                   borderWidth: try input.width() ?? 0,
+                                   shadow: try input.params.optionalBool("shadow") ?? true))
+    }
+
     private static func makeText(_ input: ElementInput, callout: Bool) throws -> TextElement {
         let canvas = input.document.canvasSize
         let box = try input.box()
@@ -296,7 +318,14 @@ public enum ElementFactory {
         case .stamp(var e): try applyStamp(input, to: &e); element = .stamp(e)
         case .pixelate(var e): try applyPixelate(input, to: &e); element = .pixelate(e)
         case .magnifier(var e): try applyMagnifier(input, to: &e); element = .magnifier(e)
+        case .image(var e): try applyImage(input, to: &e); element = .image(e)
         }
+    }
+
+    private static func applyImage(_ input: ElementInput, to e: inout ImageElement) throws {
+        if let rect = try input.box() { e.rect = rect }
+        if let mask = try input.enumValue("mask", ImageMask.self) { e.mask = mask }
+        if let shadow = try input.params.optionalBool("shadow") { e.shadow = shadow }
     }
 
     private static func applyCommon(_ input: ElementInput, to element: inout Annotation) throws {

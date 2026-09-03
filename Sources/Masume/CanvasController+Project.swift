@@ -48,7 +48,7 @@ extension CanvasController {
     func saveProject(to url: URL, newIdentity: Bool) throws {
         guard let project, let document else { throw ProjectError.io("There is no document to save.") }
         ExportService.commitPendingTextEditing()
-        let preview = ProjectSession.previewPNG(document: document, baseImage: baseImage)
+        let preview = ProjectSession.previewPNG(document: document, baseImage: baseImage, assets: project.assetImages)
         try project.save(document: document, to: url, preview: preview, newIdentity: newIdentity)
         sourceURL = url
         // The recovery package now records the binding.

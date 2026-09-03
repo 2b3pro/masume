@@ -13,6 +13,7 @@ public enum Annotation: Codable, Equatable, Sendable, Identifiable {
     case stamp(StampElement)
     case pixelate(RedactionElement)
     case magnifier(MagnifierElement)
+    case image(ImageElement)
 
     public var id: ElementID { geometry.id }
 
@@ -28,6 +29,7 @@ public enum Annotation: Codable, Equatable, Sendable, Identifiable {
         case .stamp(let e): return e
         case .pixelate(let e): return e
         case .magnifier(let e): return e
+        case .image(let e): return e
         }
     }
 
@@ -44,6 +46,7 @@ public enum Annotation: Codable, Equatable, Sendable, Identifiable {
             case .rectangle(let e), .ellipse(let e): return e.width
             case .pen(let e): return e.width
             case .magnifier(let e): return e.width
+            case .image(let e): return e.borderWidth
             case .text, .stamp, .pixelate: return nil
             }
         }
@@ -56,6 +59,7 @@ public enum Annotation: Codable, Equatable, Sendable, Identifiable {
             case .ellipse(var e): e.width = width; self = .ellipse(e)
             case .pen(var e): e.width = width; self = .pen(e)
             case .magnifier(var e): e.width = width; self = .magnifier(e)
+            case .image(var e): e.borderWidth = width; self = .image(e)
             case .text, .stamp, .pixelate: break
             }
         }
@@ -163,6 +167,33 @@ public enum Annotation: Codable, Equatable, Sendable, Identifiable {
     /// True for a text element with a bubble.
     public var isCallout: Bool { calloutShape != nil }
 
+    /// Mask of an image layer; nil for other kinds. Setting is a no-op for
+    /// those kinds and for nil.
+    public var imageMask: ImageMask? {
+        get {
+            guard case .image(let e) = self else { return nil }
+            return e.mask
+        }
+        set {
+            guard case .image(var e) = self, let mask = newValue else { return }
+            e.mask = mask
+            self = .image(e)
+        }
+    }
+
+    /// Whether an image layer casts a shadow; nil for other kinds.
+    public var imageShadow: Bool? {
+        get {
+            guard case .image(let e) = self else { return nil }
+            return e.shadow
+        }
+        set {
+            guard case .image(var e) = self, let shadow = newValue else { return }
+            e.shadow = shadow
+            self = .image(e)
+        }
+    }
+
     /// Zoom factor of a magnifier; nil for other kinds. Setting clamps to
     /// `MagnifierElement.zoomRange` and is a no-op for other kinds and nil.
     public var magnifierZoom: CGFloat? {
@@ -202,6 +233,7 @@ public enum Annotation: Codable, Equatable, Sendable, Identifiable {
             case .text(let e): return e.color
             case .stamp(let e): return e.color
             case .magnifier(let e): return e.color
+            case .image(let e): return e.borderColor
             case .pixelate: return nil
             }
         }
@@ -216,6 +248,7 @@ public enum Annotation: Codable, Equatable, Sendable, Identifiable {
             case .text(var e): e.color = color; self = .text(e)
             case .stamp(var e): e.color = color; self = .stamp(e)
             case .magnifier(var e): e.color = color; self = .magnifier(e)
+            case .image(var e): e.borderColor = color; self = .image(e)
             case .pixelate: break
             }
         }
@@ -233,7 +266,7 @@ public enum Annotation: Codable, Equatable, Sendable, Identifiable {
         case .ellipse(let e):   return .ellipse(Self.defaultSized(e, canvasSize: canvasSize))
         case .pixelate(let e):  return .pixelate(Self.defaultSized(e, canvasSize: canvasSize))
         case .magnifier(let e): return .magnifier(Self.defaultSizedMagnifier(e, canvasSize: canvasSize))
-        case .text, .stamp:     return self   // already placed at a default size
+        case .text, .stamp, .image: return self   // already placed at a default size
         case .pen:              return self   // a plain click is a dot
         }
     }
@@ -284,6 +317,7 @@ public enum Annotation: Codable, Equatable, Sendable, Identifiable {
         case .stamp(var e): var g: AnnotationGeometry = e; body(&g); e = g as! StampElement; self = .stamp(e)
         case .pixelate(var e): var g: AnnotationGeometry = e; body(&g); e = g as! RedactionElement; self = .pixelate(e)
         case .magnifier(var e): var g: AnnotationGeometry = e; body(&g); e = g as! MagnifierElement; self = .magnifier(e)
+        case .image(var e): var g: AnnotationGeometry = e; body(&g); e = g as! ImageElement; self = .image(e)
         }
     }
 }

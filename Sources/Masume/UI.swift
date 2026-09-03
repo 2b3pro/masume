@@ -328,6 +328,7 @@ struct ToolPalette: View {
     @State private var showsColorPresets = false
     @State private var showsTextStyle = false
     @State private var showsTextLayout = false
+    @State private var showsImageLayer = false
     @State private var showsPenOpacity = false
 
     var body: some View {
@@ -486,6 +487,20 @@ struct ToolPalette: View {
                         }
                     }
                     .padding(12)
+                }
+            }
+
+            if controller.editsImageLayer {
+                Button {
+                    showsImageLayer.toggle()
+                } label: {
+                    tileIcon("photo", tint: MiroTheme.textSecondary(scheme))
+                }
+                .buttonStyle(MiroTileButtonStyle())
+                .help("Image layer: mask, border, shadow")
+                .popover(isPresented: $showsImageLayer, arrowEdge: .trailing) {
+                    ImageLayerPanel(controller: controller)
+                        .padding(12)
                 }
             }
 

@@ -1,5 +1,7 @@
 # Phase 3: Agent surfaces, implementation plan
 
+**Status:** shipped 2026-09-02 in five commits on `feat/agent-surfaces`, as laid out below.
+
 Companion to section 6 of `agent-collaborative-annotation-spec.md`. One command service in the
 app; MCP, the `masume` CLI, and AppleScript are thin clients of it. Five commits, each leaving
 the suite green.

@@ -166,6 +166,11 @@ final class CommandServiceTests: XCTestCase {
         XCTAssertEqual((element["rect"] as? [String: Any])?["width"] as? Double, 200, "geometry untouched")
         XCTAssertEqual(controller.document?.elements.last?.id.uuidString, firstID, "moved to front")
         XCTAssertEqual(controller.document?.elements.first?.id.uuidString, secondID)
+        let line = result(run("create_element", params: ["type": "line", "from": "A1", "to": "B1"]))
+        let lineID = try XCTUnwrap((line["element"] as? [String: Any])?["id"] as? String)
+        let moved = result(run("update_element", params: ["id": lineID, "end": ["x": 9, "y": 9]]))
+        XCTAssertEqual(point((moved["element"] as? [String: Any])?["end"]), CGPoint(x: 9, y: 9), "one end alone moves")
+        XCTAssertEqual(point((moved["element"] as? [String: Any])?["start"]), CGPoint(x: 50, y: 50), "the other stays")
         XCTAssertEqual(errorCode(run("update_element", params: ["id": UUID().uuidString, "color": "red"])), "not_found")
         XCTAssertEqual(errorCode(run("update_element", params: ["id": firstID, "color": "mauve"])), "invalid_argument")
     }

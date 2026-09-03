@@ -105,14 +105,16 @@ enum SaveService {
         url.pathExtension.lowercased() == ProjectPackage.pathExtension
     }
 
-    /// Routes a file to the right loader: projects open in an empty tab or a
-    /// new one; images and PDFs load into the active tab as before.
+    /// Routes a file to the right loader. Anything opened from Finder or the
+    /// panel takes the active tab if it is empty, else a new tab, so an open
+    /// never replaces work in progress.
     static func open(_ url: URL, in workspace: WorkspaceController) {
+        let target = workspace.active.hasDocument ? workspace.newTabController() : workspace.active
         guard isProject(url) else {
-            workspace.active.loadImage(at: url)
+            target.loadImage(at: url)
+            if target.hasDocument { workspace.activate(target) } else { workspace.closeEmpty(target) }
             return
         }
-        let target = workspace.active.hasDocument ? workspace.newTabController() : workspace.active
         do {
             try target.openProject(at: url)
             workspace.activate(target)

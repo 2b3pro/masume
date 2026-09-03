@@ -292,7 +292,9 @@ Implementation notes are in `phase-1-durable-document-plan.md`. The base image i
 
 `GridDefinition`, `GridCell`, `GridRange`, and the resolver live in `AnnotationModel/Grid/`; the manifest stores `grid`; density changes go through the commit funnel with their own history sentence; a destructive crop re-derives the grid for the new size at the same preset.
 
-### Phase 3: Agent surfaces
+### Phase 3: Agent surfaces (shipped 2026-09-02)
+
+Implementation notes are in `phase-3-agent-surfaces-plan.md`. `scripts/ae-roundtrip.sh` (JXA) and `scripts/roundtrip.sh` (the `masume` CLI, including a kill-and-recover step and a byte-identical offline export) are the integration tests; both pass against the built app.
 
 1. Extract document commands from `CanvasController` into a reusable command service with JSON-codable commands and results.
 2. Add the scripting definition, the read-only document properties, and the `execute` verb over that service, with document/revision assertions inside the handler.

@@ -118,9 +118,13 @@ public struct ElementInput {
 
     // Geometry, pixels or grid.
 
+    public func startPoint() throws -> CGPoint? { try params.optionalPoint("start") ?? (try cellCenter("from")) }
+    public func endPoint() throws -> CGPoint? { try params.optionalPoint("end") ?? (try cellCenter("to")) }
+
+    /// Both ends, for creation; nil when neither is given.
     public func segmentEnds() throws -> (start: CGPoint, end: CGPoint)? {
-        let start = try params.optionalPoint("start") ?? (try cellCenter("from"))
-        let end = try params.optionalPoint("end") ?? (try cellCenter("to"))
+        let start = try startPoint()
+        let end = try endPoint()
         switch (start, end) {
         case (nil, nil): return nil
         case (let s?, let e?): return (s, e)
@@ -300,8 +304,10 @@ public enum ElementFactory {
         if let width = try input.width() { element.strokeWidth = width }
     }
 
+    /// Either end may change on its own.
     private static func applySegment(_ input: ElementInput, to e: inout SegmentElement) throws {
-        if let ends = try input.segmentEnds() { e.start = ends.start; e.end = ends.end }
+        if let start = try input.startPoint() { e.start = start }
+        if let end = try input.endPoint() { e.end = end }
     }
 
     private static func applyShape(_ input: ElementInput, to e: inout ShapeElement) throws {

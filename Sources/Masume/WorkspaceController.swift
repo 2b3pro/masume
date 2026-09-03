@@ -50,9 +50,10 @@ final class WorkspaceController {
             let controller = CanvasController(recoveryStore: recoveryStore)
             return (try? controller.adoptRecovery(at: url)) != nil ? controller : nil
         }
-        let first = recovered.first ?? CanvasController(recoveryStore: recoveryStore)
-        tabs = recovered.isEmpty ? [first] : recovered
-        active = first
+        // The most recently edited document comes to the front.
+        let front = recovered.last ?? CanvasController(recoveryStore: recoveryStore)
+        tabs = recovered.isEmpty ? [front] : recovered
+        active = front
     }
 
     var openDocumentCount: Int { tabs.count { $0.hasDocument } }

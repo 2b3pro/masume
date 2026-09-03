@@ -29,11 +29,16 @@ extension GridDefinition {
         (0..<columns).contains(cell.column) && (0..<rows).contains(cell.row)
     }
 
-    /// The cell's pixel rectangle; the cell must lie on this grid.
+    /// The cell's (or quadrant's) pixel rectangle; the cell must lie on
+    /// this grid. Edges come from the unit rect the same way whole-cell
+    /// edges do, so a quadrant's outer edges coincide with its cell's.
     public func rect(of cell: GridCell, in canvasSize: CGSize) -> CGRect {
-        CGRect(x: edgeX(cell.column, in: canvasSize), y: edgeY(cell.row, in: canvasSize),
-               width: edgeX(cell.column + 1, in: canvasSize) - edgeX(cell.column, in: canvasSize),
-               height: edgeY(cell.row + 1, in: canvasSize) - edgeY(cell.row, in: canvasSize))
+        let unit = cell.unitRect
+        let minX = unit.minX * canvasSize.width / CGFloat(columns)
+        let minY = unit.minY * canvasSize.height / CGFloat(rows)
+        return CGRect(x: minX, y: minY,
+                      width: unit.maxX * canvasSize.width / CGFloat(columns) - minX,
+                      height: unit.maxY * canvasSize.height / CGFloat(rows) - minY)
     }
 
     /// From `first`'s upper-left edge through `last`'s lower-right edge.

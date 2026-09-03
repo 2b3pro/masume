@@ -104,20 +104,22 @@ Column letters are bijective base 26. Parsing accumulates `n = n * 26 + (letter 
 
 Rendering draws lines in image space at the edge formulas and passes them through the existing zoom and pan transform. When zoomed out, labels thin to every k-th label where `k = ceil(24 / cellScreenPoints)`, and lines hide entirely below roughly six screen points per cell.
 
-Known limit: a 4K capture at tier 24 has cells about 160 pixels wide, which is coarse for pointing at a small control. Exact normalized coordinates cover fine placement and the density presets cover the rest. If this bites in practice, sub-cell quadrant addressing such as `D5.3` fits the same resolver without changing stored counts.
+A 4K capture at tier 24 has cells about 160 pixels wide, which is coarse for pointing at a small control. Quadrant addressing refines a cell without changing the stored counts: `D5.3` is the lower-right quarter of `D5`, quadrants are numbered 1 to 4 clockwise from the upper left, and they nest, so `D5.3.1` is the upper-left quarter of that quarter, to a depth of four (about 10 pixels on that capture). Exact normalized coordinates remain available beyond that.
 
 ### Address semantics
 
 - A single cell such as `D5` resolves to the cell center when a point is required.
-- A cell range such as `D5:F14` resolves to the rectangle from `D5`'s upper-left edge through `F14`'s lower-right edge, inclusive.
+- A quadrant such as `D5.3` resolves like a cell a quarter the size: its center when a point is required, its rectangle otherwise. A quadrant's outer edges coincide with its cell's edges.
+- A cell range such as `D5:F14` resolves to the rectangle from `D5`'s upper-left edge through `F14`'s lower-right edge, inclusive. Either end may be a quadrant: `D5.3:F14` starts at the lower-right quarter of `D5`.
 - APIs also return the four corners and normalized coordinates for any cell or range.
 - Commands may use exact normalized coordinates for finer placement, but grid notation is the primary human-facing language.
-- Parsing is case-insensitive and rejects nonexistent or reversed ranges with a clear error; it never silently clamps an invalid address.
+- Parsing is case-insensitive and rejects nonexistent or reversed ranges, quadrant digits outside 1 to 4, and nesting deeper than four with a clear error; it never silently clamps an invalid address.
 
 Examples:
 
 - `create arrow from B3 to D6` uses the centers of `B3` and `D6`.
 - `create rectangle over D5:F14` uses the full inclusive bounding region.
+- `create stamp at D5.3` centers the stamp in the lower-right quarter of `D5`.
 - `inspect D5:F14` crops that region from the untouched base image.
 
 ## 5. Base-image observation

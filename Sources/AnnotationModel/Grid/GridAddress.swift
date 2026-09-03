@@ -1,4 +1,5 @@
 import Foundation
+import CoreGraphics
 
 public enum GridError: Error, Equatable, Sendable, LocalizedError {
     /// Not a cell or range at all.
@@ -11,7 +12,8 @@ public enum GridError: Error, Equatable, Sendable, LocalizedError {
     public var errorDescription: String? {
         switch self {
         case .malformed(let s):
-            return "\u{201C}\(s)\u{201D} is not a grid address. Use a cell like D5 or a range like D5:F14."
+            return "\u{201C}\(s)\u{201D} is not a grid address. Use a cell like D5, a quadrant like D5.3 " +
+                "(1 to 4 clockwise from the upper left, nesting as D5.3.1), or a range like D5:F14."
         case .outOfRange(let s, let columns, let rows):
             return "\u{201C}\(s)\u{201D} is outside the grid, which is \(GridCell.columnName(columns - 1))\(rows) at most."
         case .reversedRange(let s):
@@ -20,14 +22,36 @@ public enum GridError: Error, Equatable, Sendable, LocalizedError {
     }
 }
 
-/// One cell, zero-based. `D5` is column 3, row 4.
+/// One cell, zero-based. `D5` is column 3, row 4. `quadrants` refines it:
+/// `D5.3` is the cell's lower-right quarter (1 to 4 clockwise from the
+/// upper left), and each further digit quarters again, so `D5.3.1` is the
+/// upper-left quarter of that quarter. Empty means the whole cell.
 public struct GridCell: Equatable, Hashable, Sendable {
     public var column: Int
     public var row: Int
+    public var quadrants: [Int]
 
-    public init(column: Int, row: Int) {
+    /// Nesting stops here: a 160-pixel cell is 10 pixels at depth 4.
+    public static let maxQuadrantDepth = 4
+
+    public init(column: Int, row: Int, quadrants: [Int] = []) {
         self.column = column
         self.row = row
+        self.quadrants = quadrants
+    }
+
+    /// The addressed area in cell units: the whole cell is
+    /// `(column, row, 1, 1)`; each quadrant halves both sides. Exact in
+    /// binary, so `D5.3` sits on the same edges however it is computed.
+    public var unitRect: CGRect {
+        var rect = CGRect(x: CGFloat(column), y: CGFloat(row), width: 1, height: 1)
+        for q in quadrants {
+            rect.size.width /= 2
+            rect.size.height /= 2
+            if q == 2 || q == 3 { rect.origin.x += rect.width }
+            if q == 3 || q == 4 { rect.origin.y += rect.height }
+        }
+        return rect
     }
 
     /// `A` is 0, `Z` is 25, `AA` is 26, `AZ` is 51: bijective base 26.
@@ -53,25 +77,33 @@ public struct GridCell: Equatable, Hashable, Sendable {
         return String(letters.reversed())
     }
 
-    /// `D5` style, as an agent or a person would write it.
-    public var name: String { "\(Self.columnName(column))\(row + 1)" }
+    /// `D5` or `D5.3.1` style, as an agent or a person would write it.
+    public var name: String {
+        ([Self.columnName(column) + String(row + 1)] + quadrants.map(String.init)).joined(separator: ".")
+    }
 
-    /// Parses `D5` (case-insensitive, surrounding whitespace allowed)
-    /// without checking it against a grid; see `GridDefinition.cell(_:)`.
+    /// Parses `D5` or `D5.3.1` (case-insensitive, surrounding whitespace
+    /// allowed) without checking it against a grid; see `GridDefinition.cell(_:)`.
     public static func parse(_ text: String) throws -> GridCell {
-        let trimmed = text.trimmingCharacters(in: .whitespaces)
-        let letters = trimmed.prefix { $0.isLetter }
-        let digits = trimmed.dropFirst(letters.count)
+        let parts = text.trimmingCharacters(in: .whitespaces).split(separator: ".", omittingEmptySubsequences: false)
+        let letters = parts[0].prefix { $0.isLetter }
+        let digits = parts[0].dropFirst(letters.count)
         guard !letters.isEmpty, !digits.isEmpty, digits.allSatisfy(\.isNumber),
-              let column = columnIndex(letters), let row = Int(digits), row >= 1 else {
+              let column = columnIndex(letters), let row = Int(digits), row >= 1,
+              parts.count - 1 <= maxQuadrantDepth else {
             throw GridError.malformed(text)
         }
-        return GridCell(column: column, row: row - 1)
+        let quadrants = try parts.dropFirst().map { part -> Int in
+            guard part.count == 1, let q = Int(part), (1...4).contains(q) else { throw GridError.malformed(text) }
+            return q
+        }
+        return GridCell(column: column, row: row - 1, quadrants: quadrants)
     }
 }
 
 /// An inclusive rectangle of cells from `first` (upper-left) to `last`
-/// (lower-right).
+/// (lower-right). Either end may be a quadrant: `D5.3:F14` runs from the
+/// lower-right quarter of `D5`.
 public struct GridRange: Equatable, Hashable, Sendable {
     public var first: GridCell
     public var last: GridCell
@@ -93,7 +125,11 @@ public struct GridRange: Equatable, Hashable, Sendable {
         case 2:
             let first = try GridCell.parse(String(parts[0]))
             let last = try GridCell.parse(String(parts[1]))
-            guard last.column >= first.column, last.row >= first.row else { throw GridError.reversedRange(text) }
+            // The range runs from `first`'s upper-left edge to `last`'s
+            // lower-right edge; it must have area, which for whole cells is
+            // the usual "last at or right of and below first".
+            let a = first.unitRect, b = last.unitRect
+            guard b.maxX > a.minX, b.maxY > a.minY else { throw GridError.reversedRange(text) }
             return GridRange(first: first, last: last)
         default:
             throw GridError.malformed(text)

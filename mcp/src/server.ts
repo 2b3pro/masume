@@ -26,9 +26,9 @@ const rect = z.object({ x: z.number(), y: z.number(), width: z.number(), height:
 /** Geometry by grid address or pixels, plus style; see the element JSON in the spec. */
 const elementInput = z.object({
   type: z.enum(["arrow", "line", "rectangle", "ellipse", "pen", "text", "callout", "stamp", "pixelate", "magnifier"]),
-  from: z.string().optional().describe("Cell for an arrow's or line's start, e.g. B3."),
+  from: z.string().optional().describe("Cell for an arrow's or line's start, e.g. B3, or a quadrant of it, e.g. B3.3 (1 to 4 clockwise from the upper left; nests as B3.3.1)."),
   to: z.string().optional(),
-  over: z.string().optional().describe("Range for a box, e.g. D5:F14."),
+  over: z.string().optional().describe("Range for a box, e.g. D5:F14 or D5.3:F14."),
   at: z.string().optional().describe("Cell for a stamp's center or a text box's origin."),
   tail: z.string().optional().describe("Cell a callout's tail points at."),
   start: point.optional(), end: point.optional(), rect: rect.optional(), center: point.optional(),
@@ -82,7 +82,7 @@ export function createMasumeServer(actor: Actor): McpServer {
     inputSchema: { ...docShape, id: z.string() },
   }, call("masume_get_element"));
   server.registerTool("masume_resolve_grid", {
-    description: "A cell (D5) or range (D5:F14) to pixels: rect, center, corners, and normalized coordinates. Never clamps; a bad address is an error.",
+    description: "A cell (D5), a quadrant of it (D5.3: 1 to 4 clockwise from the upper left, nesting as D5.3.1), or a range (D5:F14) to pixels: rect, center, corners, and normalized coordinates. Never clamps; a bad address is an error.",
     inputSchema: { ...docShape, address: z.string() },
   }, call("masume_resolve_grid"));
   server.registerTool("masume_view_base_image", {

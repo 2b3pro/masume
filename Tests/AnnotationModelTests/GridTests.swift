@@ -89,6 +89,44 @@ final class GridTests: XCTestCase {
         }
     }
 
+    func testQuadrantsNumberClockwiseFromTheUpperLeftAndNest() throws {
+        XCTAssertEqual(try GridCell.parse("D5.3"), GridCell(column: 3, row: 4, quadrants: [3]))
+        XCTAssertEqual(try GridCell.parse(" d5.3.1 ").name, "D5.3.1")
+        XCTAssertEqual(GridCell(column: 3, row: 4).unitRect, CGRect(x: 3, y: 4, width: 1, height: 1))
+        XCTAssertEqual(GridCell(column: 3, row: 4, quadrants: [1]).unitRect, CGRect(x: 3, y: 4, width: 0.5, height: 0.5))
+        XCTAssertEqual(GridCell(column: 3, row: 4, quadrants: [2]).unitRect, CGRect(x: 3.5, y: 4, width: 0.5, height: 0.5))
+        XCTAssertEqual(GridCell(column: 3, row: 4, quadrants: [3]).unitRect, CGRect(x: 3.5, y: 4.5, width: 0.5, height: 0.5))
+        XCTAssertEqual(GridCell(column: 3, row: 4, quadrants: [4]).unitRect, CGRect(x: 3, y: 4.5, width: 0.5, height: 0.5))
+        XCTAssertEqual(GridCell(column: 3, row: 4, quadrants: [3, 1]).unitRect,
+                       CGRect(x: 3.5, y: 4.5, width: 0.25, height: 0.25), "the upper-left quarter of the lower-right quarter")
+        XCTAssertNoThrow(try GridCell.parse("D5.1.2.3.4"), "four levels deep is allowed")
+        for bad in ["D5.", "D5.0", "D5.5", "D5.a", "D5.13", "D5..3", ".3", "D5.1.2.3.4.1"] {
+            XCTAssertThrowsError(try GridCell.parse(bad), bad) { XCTAssertEqual($0 as? GridError, .malformed(bad)) }
+        }
+        XCTAssertTrue(GridError.malformed("x").localizedDescription.contains("D5.3"), "the message teaches the grammar")
+    }
+
+    func testQuadrantsResolveToTheirQuarterOfTheCell() throws {
+        let size = CGSize(width: 1200, height: 800)
+        let grid = GridDefinition(columns: 12, rows: 8)     // 100 × 100 cells; D5 is x 300..400, y 400..500
+        XCTAssertEqual(try grid.resolve("D5.3", in: size).rect, CGRect(x: 350, y: 450, width: 50, height: 50))
+        XCTAssertEqual(try grid.resolve("D5.3", in: size).center, CGPoint(x: 375, y: 475))
+        XCTAssertEqual(try grid.resolve("D5.3.1", in: size).rect, CGRect(x: 350, y: 450, width: 25, height: 25))
+        XCTAssertEqual(try grid.resolve("D5.1", in: size).rect.origin, try grid.resolve("D5", in: size).rect.origin,
+                       "a quadrant's outer edges are its cell's edges")
+        XCTAssertEqual(try grid.resolve("D5.3", in: size).rect.maxX, try grid.resolve("D5", in: size).rect.maxX)
+        XCTAssertEqual(try grid.resolve("D5.3:E5.4", in: size).rect, CGRect(x: 350, y: 450, width: 100, height: 50),
+                       "from the first's upper-left edge to the last's lower-right edge")
+        XCTAssertEqual(try grid.resolve("D5.3:E5", in: size).rect, CGRect(x: 350, y: 450, width: 150, height: 50))
+        XCTAssertEqual(try grid.range("d5.3:e5.4").name, "D5.3:E5.4")
+        for reversed in ["D5.3:D5.1", "D5.3:E5.1", "D5.2:D5.4"] {
+            XCTAssertThrowsError(try grid.range(reversed), reversed) {
+                XCTAssertEqual($0 as? GridError, .reversedRange(reversed), "no area between those edges")
+            }
+        }
+        XCTAssertThrowsError(try grid.range("M1.3")) { XCTAssertEqual($0 as? GridError, .outOfRange("M1.3", columns: 12, rows: 8)) }
+    }
+
     func testRangeParsingRejectsReversedRanges() throws {
         XCTAssertEqual(try GridRange.parse("D5:F14"), GridRange(first: GridCell(column: 3, row: 4),
                                                                 last: GridCell(column: 5, row: 13)))

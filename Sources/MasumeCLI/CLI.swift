@@ -14,7 +14,7 @@ public enum MasumeCLI {
           doc                         the active document: id, revision, canvas, grid
           elements                    every annotation
           element <id>                one annotation
-          resolve <address>           D5 or D5:F14 to pixels, center, corners, normalized
+          resolve <address>           D5, D5.3 (quadrant), or D5:F14 to pixels, center, corners, normalized
           view [range] --out <png>    crop of the untouched base image [--margin px]
           history [--limit n]         committed actions, oldest first
           add <type> key=value ...    create: from=B3 to=D6 | over=D5:F14 | at=C3 | text=... color=...

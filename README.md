@@ -55,7 +55,9 @@ A PDF page is rasterized at 2× on import; a multi-page PDF shows a page picker 
   `Cmd`+scroll wheel to zoom about the pointer, and hold `Space` and drag to pan when zoomed
   in.
 - **Grid:** a spreadsheet grid over the image, the shared spatial language for people and
-  agents: `D5` is a cell, `D5:F14` a range. Toggle it with Show Grid (`Cmd+G`); it never
+  agents: `D5` is a cell, `D5:F14` a range, and `D5.3` a quadrant of a cell (1 to 4 clockwise
+  from the upper left, so 3 is lower-right; quadrants nest, as in `D5.3.1`, for finer
+  pointing on large captures). Toggle it with Show Grid (`Cmd+G`); it never
   exports. The default density comes from the image's pixel size alone, so the same image
   always gets the same addresses, and the counts are stored in the project so they never
   drift. Pick a different density from View ▸ Grid Density; that is a document action, so

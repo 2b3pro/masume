@@ -118,7 +118,7 @@ Version one is complete when all ten acceptance criteria in the spec are demonst
 ## Open Questions and Further Inquiry
 
 - Bump the deployment target to macOS 26 for v1, or ship the command bar behind availability guards?
-- Sub-cell addressing such as `D5.3` is a known relief for coarse cells on 4K captures. Wait for it to bite, or design it into the resolver now?
+- Sub-cell addressing shipped 2026-09-02: `D5.3` is a quadrant (1 to 4 clockwise from the upper left) and quadrants nest to four levels, so a coarse cell on a 4K capture no longer forces pixel coordinates.
 - The Automation-grant helper question is settled by the CLI: `masume` is the signed, stably installed binary. Whether PAI's other tools should adopt the same pattern (a per-app CLI that MCP spawns) is a PAI question, not a Masume one.
 - A full scriptable object model (native `annotation` classes, `whose` filters) is deferred. What signal would justify building it?
 - A terminal database client on GitHub already uses the name masume in an unrelated domain. Revisit if Masume ever ships publicly.

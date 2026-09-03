@@ -75,6 +75,17 @@ final class WorkspaceController {
         return controller
     }
 
+    /// Option-drop: the file opens as a new document in a new tab instead of
+    /// landing on the active one. An unreadable drop leaves no empty tab.
+    func openDroppedInNewTab(_ items: [DroppedImage]) {
+        let target = active.hasDocument ? newTabController() : active
+        if target.loadDroppedImage(items) {
+            activate(target)
+        } else {
+            closeEmpty(target)
+        }
+    }
+
     /// Drops a tab that never got a document (a failed open), never the last.
     func closeEmpty(_ controller: CanvasController) {
         guard !controller.hasDocument, tabs.count > 1,

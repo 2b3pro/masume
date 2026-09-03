@@ -25,7 +25,7 @@ struct ContentView: View {
     var body: some View {
         VStack(spacing: 0) {
             TabBarView(workspace: workspace)
-            CanvasPane(controller: workspace.active)
+            CanvasPane(controller: workspace.active, openInNewTab: { workspace.openDroppedInNewTab($0) })
                 // Fresh view tree per tab: resets CanvasNSView pan/drag state,
                 // the inline text editor, and transient popover @State.
                 .id(workspace.active.id)
@@ -180,6 +180,8 @@ private struct TabItem: View {
 /// overlays, all bound to that tab's controller.
 private struct CanvasPane: View {
     var controller: CanvasController
+    /// Option-drop: open the payload in a new tab rather than on this one.
+    var openInNewTab: ([DroppedImage]) -> Void
     @Environment(\.colorScheme) private var scheme
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -206,9 +208,14 @@ private struct CanvasPane: View {
         }
         // Drop lives on the whole pane so it works before an image is loaded
         // (the empty state invites it) as well as over a loaded canvas, where
-        // a drop replaces the image.
+        // a drop adds a layer like paste does. Holding Option opens the drop
+        // in a new tab instead.
         .dropDestination(for: DroppedImage.self) { items, _ in
-            controller.loadDroppedImage(items)
+            if NSEvent.modifierFlags.contains(.option) {
+                openInNewTab(items)
+                return true
+            }
+            return controller.loadDroppedImage(items)
         }
         .overlay(alignment: .leading) {
             if controller.hasDocument {

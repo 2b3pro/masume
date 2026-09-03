@@ -188,3 +188,34 @@ final class ImageLayerRenderTests: XCTestCase {
         XCTAssertLessThan(pixel(shadowed, 100, 152).g, 240, "shadow darkens just below")
     }
 }
+
+@MainActor
+final class OptionDropTests: XCTestCase {
+    func testOptionDropOpensANewTabAndPlainDropLayers() throws {
+        let store = RecoveryStore(directory: FileManager.default.temporaryDirectory
+            .appendingPathComponent("masume-optdrop-\(UUID().uuidString)"))
+        defer { try? FileManager.default.removeItem(at: store.directory) }
+        let workspace = WorkspaceController(confirmDiscard: { _, _, _ in true }, confirmSave: { _ in .discard },
+                                            requestTermination: {}, recoveryStore: store)
+        let ctx = CGContext(data: nil, width: 300, height: 200, bitsPerComponent: 8, bytesPerRow: 0,
+                            space: CGColorSpaceCreateDeviceRGB(),
+                            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
+        let image = ctx.makeImage()!
+        let png = try XCTUnwrap(Renderer.encode(image, as: .png))
+        workspace.active.loadImage(image)
+        let first = workspace.active
+
+        workspace.openDroppedInNewTab([.data(png)])
+        XCTAssertEqual(workspace.tabs.count, 2)
+        XCTAssertTrue(workspace.active !== first)
+        XCTAssertEqual(workspace.active.document?.elements.count, 0, "a new document, not a layer")
+        XCTAssertEqual(first.document?.elements.count, 0, "the first tab was not touched")
+
+        XCTAssertTrue(workspace.active.loadDroppedImage([.data(png)]))
+        XCTAssertEqual(workspace.active.document?.elements.count, 1, "a plain drop is a layer")
+
+        workspace.openDroppedInNewTab([.data(Data([1, 2, 3]))])
+        XCTAssertEqual(workspace.tabs.count, 2, "an unreadable drop leaves no empty tab")
+        workspace.discardAllRecovery()
+    }
+}

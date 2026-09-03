@@ -22,6 +22,17 @@ struct MasumeApp: App {
                 .frame(minWidth: 720, minHeight: 520)
         }
         .commands { AppCommands(workspace: appDelegate.workspace) }
+        // The MCP server's menu bar item: control, status, connection details.
+        MenuBarExtra(isInserted: Binding(get: { appDelegate.mcp.showsMenuBarItem },
+                                         set: { appDelegate.mcp.showsMenuBarItem = $0 })) {
+            MCPMenu(server: appDelegate.mcp)
+        } label: {
+            Image(systemName: appDelegate.mcp.state.isRunning ? "bolt.horizontal.circle.fill" : "bolt.horizontal.circle")
+        }
+        .menuBarExtraStyle(.menu)
+        Settings {
+            MCPSettingsView(server: appDelegate.mcp)
+        }
     }
 }
 
@@ -32,6 +43,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private(set) static var current: AppDelegate?
 
     let workspace = WorkspaceController()
+    let mcp = MCPServerController()
     private var pasteKeyMonitor: Any?
     private var copyKeyMonitor: Any?
     private var toolKeyMonitor: Any?
@@ -85,8 +97,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
+    func applicationWillTerminate(_ notification: Notification) {
+        mcp.stop()
+    }
+
     func applicationDidFinishLaunching(_ notification: Notification) {
         Self.current = self
+        if mcp.startAtLaunch { mcp.start() }
         // SwiftUI's bridged Edit ▸ Paste item swallows ⌘V without dispatching
         // paste: down the AppKit responder chain, so intercept the key event
         // before menu dispatch instead.

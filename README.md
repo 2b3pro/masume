@@ -105,7 +105,11 @@ JSON commands and get the same `{ok, result}` or `{ok, error: {code, message}}` 
   `Application("Masume").execute(json)`; see `Resources/Masume.sdef`.
   `scripts/ae-roundtrip.sh` drives the built app this way.
 - **MCP.** The server in `mcp/` spawns the CLI for each tool call; stdio by default, Streamable
-  HTTP on request. See `mcp/README.md`.
+  HTTP on request. See `mcp/README.md`. The app bundles it: the menu bar item (a bolt) starts
+  and stops the server on loopback with a bearer token, shows its port and tool count, and
+  copies the server URL or a ready-to-paste JSON config for Claude Code and other hosts.
+  Settings ▸ MCP sets the port, token, Node path, the agent's name in the history, and whether
+  the server starts with the app.
 
 Every mutation carries the document id and expected revision and fails closed on a mismatch,
 and every agent edit lands in the same history and undo stack as yours, attributed and with

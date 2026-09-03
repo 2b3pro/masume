@@ -81,8 +81,11 @@ extension CanvasNSView {
             // click-drag swings the tail so it points the way you drag. A
             // plain click keeps the default (down) direction.
             let canvasSize = controller.document?.canvasSize ?? DefaultSizeScale.referenceCanvasSize
+            let kind = controller.stampKind
             let stamp = StampElement(center: p, radius: StampElement.defaultRadius(forCanvasSize: canvasSize),
-                                     kind: controller.stampKind, color: color)
+                                     kind: kind, color: color,
+                                     ordinal: controller.document?.nextStampOrdinal(for: kind) ?? 1,
+                                     emoji: controller.stampEmoji)
             controller.document?.add(.stamp(stamp))
             controller.selection = stamp.id
             drag = .creating(stamp.id, .end)
@@ -97,7 +100,13 @@ extension CanvasNSView {
 
     /// Moves a handle. Text wraps at its width, so its height is re-measured
     /// afterwards: a narrower box grows instead of clipping lines.
-    static func moveHandle(_ element: inout Annotation, _ role: HandleRole, to p: CGPoint) {
+    /// `snapping` (Shift held) aims a stamp's tail to the nearest 45°.
+    static func moveHandle(_ element: inout Annotation, _ role: HandleRole, to p: CGPoint, snapping: Bool = false) {
+        if snapping, role == .end, case .stamp(var stamp) = element {
+            stamp.aimTail(at: p, snapping: true)
+            element = .stamp(stamp)
+            return
+        }
         element.moveHandle(role, to: p)
         if case .text(var t) = element {
             t.size.height = Renderer.suggestedSize(for: t).height
@@ -152,7 +161,7 @@ extension CanvasNSView {
 extension CanvasNSView {
     /// Applies a model-space drag (`p` in image coordinates): element moves
     /// and handles, crop edits, the pen's straight line, and callout placement.
-    func dragModel(to p: CGPoint, controller: CanvasController) {
+    func dragModel(to p: CGPoint, controller: CanvasController, snapping: Bool = false) {
         switch drag {
         case .moving(let id, let last):
             let delta = CGVector(dx: p.x - last.x, dy: p.y - last.y)
@@ -168,7 +177,7 @@ extension CanvasNSView {
             drag = .moving(copy.id, last: last)
             dragModel(to: p, controller: controller)
         case .handle(let id, let role), .creating(let id, let role):
-            controller.document?.mutate(id) { Self.moveHandle(&$0, role, to: p) }
+            controller.document?.mutate(id) { Self.moveHandle(&$0, role, to: p, snapping: snapping) }
         case .cropping(let anchor):
             controller.document?.crop = CGRect(corner: anchor, p)
         case .movingCrop(let last):

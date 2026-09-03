@@ -125,10 +125,46 @@ final class CLITests: XCTestCase {
         XCTAssertTrue(inv.pretty)
         XCTAssertThrowsError(try MasumeCLI.parse([]))
         XCTAssertThrowsError(try MasumeCLI.parse(["--help"]))
+        XCTAssertEqual(MasumeCLI.run([], output: { _ in }, error: { _ in }, transport: { $0 }), 64, "no subcommand is a mistake")
         XCTAssertThrowsError(try MasumeCLI.parse(["doc", "--revision", "x"]))
         XCTAssertThrowsError(try MasumeCLI.parse(["doc", "--bogus", "1"]))
         XCTAssertEqual(MasumeCLI.run(["frobnicate"], output: { _ in }, error: { _ in }, transport: { $0 }), 64)
         XCTAssertEqual(MasumeCLI.run(["add"], output: { _ in }, error: { _ in }, transport: { $0 }), 64)
+    }
+
+    func testHelpPrintsToStdoutAndExitsZero() {
+        var out: [String] = [], err: [String] = []
+        let transport: (Data) throws -> Data = { _ in XCTFail("help never talks to the app"); return Data() }
+        XCTAssertEqual(MasumeCLI.run(["--help"], output: { out.append($0) }, error: { err.append($0) }, transport: transport), 0)
+        XCTAssertTrue(out.joined().hasPrefix("usage: masume"))
+        XCTAssertTrue(out.joined().contains("help add"), "the usage screen points at the topics")
+        XCTAssertTrue(err.isEmpty)
+
+        for arguments in [["help", "add"], ["add", "--help"], ["add", "stamp", "-h"], ["HELP", "ADD"]] {
+            out = []
+            let status = MasumeCLI.run(arguments, output: { out.append($0) }, error: { _ in }, transport: transport)
+            XCTAssertEqual(status, 0, "\(arguments)")
+            let text = out.joined()
+            for key in ["from=B3", "over=", "tail=", "points=", "kind=", "ordinal=", "emoji=", "zoom=", "amount=", "D5.3"] {
+                XCTAssertTrue(text.contains(key), "help add lists \(key)")
+            }
+        }
+        out = []
+        XCTAssertEqual(MasumeCLI.run(["help", "resolve"], output: { out.append($0) }, error: { _ in }, transport: transport), 0)
+        XCTAssertTrue(out.joined().contains("clockwise"), "the quadrant grammar is explained")
+        XCTAssertEqual(MasumeCLI.run(["help", "frobnicate"], output: { _ in }, error: { err.append($0) }, transport: transport), 64)
+        XCTAssertTrue(err.joined().contains("no help for frobnicate"))
+    }
+
+    func testEveryUsageSubcommandHasAHelpTopic() {
+        let listed = MasumeCLI.usage.split(separator: "\n")
+            .filter { $0.hasPrefix("  ") && !$0.hasPrefix("   ") }
+            .compactMap { $0.trimmingCharacters(in: .whitespaces).split(separator: " ").first }
+            .flatMap { String($0).split(separator: "|").map(String.init) }
+        XCTAssertFalse(listed.isEmpty)
+        for name in listed where !name.hasPrefix("<") {
+            XCTAssertNotNil(MasumeCLI.help(for: name), "help for \(name)")
+        }
     }
 
     // MARK: Live behaviour through a fake app

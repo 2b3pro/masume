@@ -34,6 +34,44 @@ final class CommandServiceTests: XCTestCase {
         try? FileManager.default.removeItem(at: scratch)
     }
 
+    // MARK: Numbered stamps
+
+    func testNumberedStampsCountUpAndTakeAnOrdinal() {
+        let first = result(run("create_element", params: ["type": "stamp", "kind": "number", "at": "B2"]))
+        XCTAssertEqual((first["element"] as? [String: Any])?["label"] as? String, "1")
+        let second = result(run("create_element", params: ["type": "stamp", "kind": "letter", "at": "C2"]))
+        XCTAssertEqual((second["element"] as? [String: Any])?["label"] as? String, "A", "letters count on their own")
+        let third = result(run("create_element", params: ["type": "stamp", "kind": "number", "at": "D2", "ordinal": 7]))
+        let thirdElement = third["element"] as? [String: Any]
+        XCTAssertEqual(thirdElement?["label"] as? String, "7")
+        XCTAssertEqual(thirdElement?["ordinal"] as? Int, 7)
+        let fourth = result(run("create_element", params: ["type": "stamp", "kind": "number", "at": "E2"]))
+        XCTAssertEqual((fourth["element"] as? [String: Any])?["label"] as? String, "8", "one past the highest")
+        let id = thirdElement?["id"] as? String ?? ""
+        let updated = result(run("update_element", params: ["id": id, "kind": "letter", "ordinal": 28]))
+        XCTAssertEqual((updated["element"] as? [String: Any])?["label"] as? String, "AB")
+        XCTAssertEqual(errorCode(run("update_element", params: ["id": id, "ordinal": 0])), "invalid_argument")
+        XCTAssertEqual(errorCode(run("create_element", params: ["type": "stamp", "kind": "number", "at": "F2", "ordinal": 1000])),
+                       "invalid_argument")
+        let plain = result(run("create_element", params: ["type": "stamp", "kind": "heart", "at": "G2"]))
+        XCTAssertNil((plain["element"] as? [String: Any])?["label"], "glyph stamps report no label")
+    }
+
+    func testEmojiStampsTakeAndReportTheirCharacter() {
+        let plain = result(run("create_element", params: ["type": "stamp", "kind": "emoji", "at": "B2"]))
+        XCTAssertEqual((plain["element"] as? [String: Any])?["emoji"] as? String, StampElement.defaultEmoji)
+        let fire = result(run("create_element", params: ["type": "stamp", "kind": "emoji", "at": "C2", "emoji": "\u{1F525}"]))
+        let element = fire["element"] as? [String: Any]
+        XCTAssertEqual(element?["emoji"] as? String, "\u{1F525}")
+        XCTAssertEqual(element?["label"] as? String, "\u{1F525}")
+        XCTAssertNil(element?["ordinal"], "an emoji stamp has no count")
+        let id = element?["id"] as? String ?? ""
+        let updated = result(run("update_element", params: ["id": id, "emoji": "\u{1F1EF}\u{1F1F5}"]))
+        XCTAssertEqual((updated["element"] as? [String: Any])?["emoji"] as? String, "\u{1F1EF}\u{1F1F5}", "a flag is one character")
+        XCTAssertEqual(errorCode(run("update_element", params: ["id": id, "emoji": "ab"])), "invalid_argument")
+        XCTAssertEqual(errorCode(run("update_element", params: ["id": id, "emoji": ""])), "invalid_argument")
+    }
+
     // MARK: Helpers
 
     private var docID: String { controller.project!.id.uuidString }

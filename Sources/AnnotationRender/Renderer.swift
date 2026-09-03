@@ -469,8 +469,37 @@ public enum Renderer {
         ctx.setLineWidth(r * 0.07)
         ctx.strokeEllipse(in: e.diskRect.insetBy(dx: r * 0.28, dy: r * 0.28))
         ctx.setFillColor(red: 1, green: 1, blue: 1, alpha: 1)
-        ctx.addPath(StampPaths.path(for: e.kind, in: e.diskRect.insetBy(dx: r * 0.5, dy: r * 0.5)))
-        ctx.fillPath()
+        if let label = e.label {
+            drawStampLabel(label, for: e, in: ctx)
+        } else {
+            ctx.addPath(StampPaths.path(for: e.kind, in: e.diskRect.insetBy(dx: r * 0.5, dy: r * 0.5)))
+            ctx.fillPath()
+        }
+    }
+
+    /// The count of a numbered or lettered stamp, bold and white, centered
+    /// on the disk and shrunk for longer labels so three digits still fit
+    /// inside the ring; or an emoji stamp's character in Apple Color Emoji.
+    private static func drawStampLabel(_ label: String, for e: StampElement, in ctx: CGContext) {
+        let isEmoji = e.kind == .emoji
+        let scale: CGFloat = isEmoji ? 1.1 : label.count <= 1 ? 1.3 : label.count == 2 ? 1.05 : 0.8
+        let font = CTFontCreateWithName((isEmoji ? "AppleColorEmoji" : "HelveticaNeue-Bold") as CFString,
+                                        e.radius * scale, nil)
+        let attributed = NSAttributedString(string: label, attributes: [
+            NSAttributedString.Key(kCTFontAttributeName as String): font,
+            NSAttributedString.Key(kCTForegroundColorAttributeName as String): CGColor(red: 1, green: 1, blue: 1, alpha: 1),
+        ])
+        let line = CTLineCreateWithAttributedString(attributed)
+        var ascent: CGFloat = 0, descent: CGFloat = 0
+        let width = CGFloat(CTLineGetTypographicBounds(line, &ascent, &descent, nil))
+        // Digits and capitals have no descenders, so their cap height is
+        // what to center; an emoji fills its ascent-to-descent box.
+        let height = isEmoji ? ascent - descent : CTFontGetCapHeight(font)
+        withYFlip(around: e.diskRect, in: ctx) {
+            // Flipped, the disk's y range is unchanged.
+            ctx.textPosition = CGPoint(x: e.center.x - width / 2, y: e.center.y - height / 2)
+            CTLineDraw(line, ctx)
+        }
     }
 
     private static func drawRedaction(_ rect: CGRect, amount: CGFloat,

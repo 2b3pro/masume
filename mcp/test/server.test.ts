@@ -7,6 +7,8 @@ import { IncomingMessage } from "node:http";
 import { Socket } from "node:net";
 import { executeRequest } from "../src/masume.js";
 import { checkHttpRequest, toolResult } from "../src/server.js";
+import { GUIDE, INSTRUCTIONS } from "../src/guide.js";
+import { fileURLToPath } from "node:url";
 
 async function fakeCli(script: string): Promise<string> {
   const dir = await mkdtemp(join(tmpdir(), "masume-mcp-"));
@@ -52,4 +54,14 @@ test("HTTP requests need the bearer token and a local origin", () => {
   const wrong = checkHttpRequest(request({ authorization: "Bearer nope" }), "T");
   assert.equal((wrong as any).status, 401);
   assert.equal((checkHttpRequest(request({}), "T") as any).status, 401);
+});
+
+test("the guide names every tool the server registers, and stays cheap", async () => {
+  const source = await readFile(join(fileURLToPath(import.meta.url), "..", "..", "..", "src", "server.ts"), "utf8");
+  const tools = [...source.matchAll(/registerTool\("(masume_[a-z_]+)"/g)].map((m) => m[1]);
+  assert.ok(tools.length >= 17);
+  for (const tool of tools) if (tool !== "masume_guide") assert.ok(GUIDE.includes(tool), `guide mentions ${tool}`);
+  assert.ok(GUIDE.length < 5000, "the guide is a few hundred tokens, not a manual");
+  assert.ok(INSTRUCTIONS.includes("masume_guide") && INSTRUCTIONS.length < 600);
+  for (const term of ["D5.3", "expectedRevision", "conflict", "masume_batch", "emoji"]) assert.ok(GUIDE.includes(term));
 });

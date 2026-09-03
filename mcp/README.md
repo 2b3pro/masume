@@ -22,7 +22,11 @@ Streamable HTTP binds to loopback only, requires `Authorization: Bearer <token>`
 start or given with `--token`), and rejects a non-local `Origin`, so the objections to an
 in-app port do not apply. The app itself opens no port.
 
-Tools: `masume_get_active_document`, `masume_list_elements`, `masume_get_element`,
+The handshake carries short server instructions, and `masume_guide` returns the agent's guide
+(session shape, grid grammar, element fields, error codes, token-saving habits); both live in
+`src/guide.ts`. An agent should read the guide once per session.
+
+Tools: `masume_guide`, `masume_get_active_document`, `masume_list_elements`, `masume_get_element`,
 `masume_resolve_grid`, `masume_view_base_image` (returns the PNG as image content),
 `masume_get_history`, `masume_create_element`, `masume_update_element`,
 `masume_delete_elements`, `masume_set_crop`, `masume_set_grid_density`, `masume_undo`,

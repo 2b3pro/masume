@@ -1,5 +1,7 @@
 # Masume
 
+![Masume — one human, one agent, one grid](docs/masume-hero.png)
+
 Masume is a native **Apple Silicon (arm64)** annotation workspace for macOS, written in Swift
 (SwiftUI shell + AppKit canvas, Core Graphics / Core Image rendering). One human and one agent
 mark up the same image: the human through a Skitch-like interface, the agent through MCP, the
@@ -32,9 +34,15 @@ A PDF page is rasterized at 2× on import; a multi-page PDF shows a page picker 
   re-aim it; a tip inside the bubble hides the tail. Pick speech or thought from the row
   beside the Callout tool. A plain text box becomes a callout (and back) from the **Bubble**
   row in the alignment control.
-- **Stamps:** check, cross, exclamation, question, and heart as Skitch-style pins. Click to
-  place; drag while placing to aim the tail; drag the tail later to re-aim; drag the disk edge
-  to resize. Pick the glyph from the row that appears beside the Stamp tool.
+- **Stamps:** check, cross, exclamation, question, and heart as Skitch-style pins, plus
+  numbered (`#`) and lettered (`A`) flags that count up as you place them: the first is 1
+  or A, the next is one past the highest on the canvas. With a flag selected, `+` and `-`
+  change its count, and `Tab` (or the other flag kind in the row) switches it between digits
+  and letters without losing its place. Click to place; drag while placing to aim the tail,
+  holding `Shift` to snap it to 45°; drag the tail later to re-aim; drag the disk edge to
+  resize. Pick the glyph from the row that appears beside the Stamp tool. The last glyph is
+  an emoji of your choosing: type or paste one into the field that appears, or use the
+  keyboard button to open Emoji & Symbols. It applies to the selected emoji stamp too.
 - **Magnifier:** a loupe that shows the image under it enlarged. Press where the loupe should
   center and drag outward to size it (a plain click gives a default size); corner handles
   reshape it afterwards, so a circle can become an oval. Drag the slider under a selected
@@ -104,7 +112,8 @@ JSON commands and get the same `{ok, result}` or `{ok, error: {code, message}}` 
   `masume export file.masume out.png`, `masume resolve --file file.masume D5`, and
   `masume new shot.png file.masume [--page n]` for images and PDFs. Exit status mirrors the
   error code (2 conflict, 3 not found, 4 invalid address, 5 invalid argument, 6 unsupported,
-  7 io, 10 Masume not running, 64 usage). Install with `bash scripts/install-cli.sh`.
+  7 io, 10 Masume not running, 64 usage). `masume --help` is the one-screen usage and
+  `masume help add` lists every element key. Install with `bash scripts/install-cli.sh`.
 - **AppleScript and JXA.** `Application("Masume").activeDocument.revision()` and
   `Application("Masume").execute(json)`; see `Resources/Masume.sdef`.
   `scripts/ae-roundtrip.sh` drives the built app this way.
@@ -119,6 +128,36 @@ Every mutation carries the document id and expected revision and fails closed on
 and every agent edit lands in the same history and undo stack as yours, attributed and with
 the reason the agent gave.
 
+### Setting up MCP
+
+1. Build the app (`bash scripts/build-app.sh`); the bundle carries the CLI and the server, and
+   needs Node on the Mac (`brew install node`).
+2. Pick a transport. **In-app server** (recommended): click the bolt in the menu bar and
+   choose Start Server, or turn on "Start the server when Masume opens" in Settings ▸ MCP.
+   The menu shows the port and tool count. **Spawned by the host**: nothing to start; the
+   host runs the server on stdio for each session.
+3. Register it with your host. From the bolt menu, Copy Server JSON Config (HTTP with the
+   bearer token) or Copy stdio JSON Config, then paste into the host's MCP settings. For
+   Claude Code:
+
+   ```sh
+   claude mcp add-json masume '<paste the copied JSON's "masume" object here>'
+   ```
+
+   or drop the whole object into `.mcp.json` in a project. Regenerating the token in
+   Settings ▸ MCP invalidates old HTTP configs.
+4. Check: ask the agent to call `masume_guide`. It answers without the app running.
+
+### Working with an agent
+
+Open or paste an image, then ask in plain words: "put a red arrow on the Save button and say
+why", "pixelate the email address", "number the three fields left to right". The agent reads
+the document, looks at the base image by grid range, and edits with grid addresses. Its
+changes appear as it makes them, attributed in the history with the reason it gave, and
+`Cmd+Z` undoes them like your own. The agent gets a guide through the server's instructions
+and the `masume_guide` tool (`mcp/src/guide.ts`): the session shape, the address grammar,
+every element's fields, the error codes, and habits that keep its token use low.
+
 ## Install
 
 Masume is not distributed as a binary; build it from source (below).
@@ -132,6 +171,7 @@ history is in [CHANGELOG.md](CHANGELOG.md).
 
 | Version | Highlights |
 |---|---|
+| 0.4.0 | Numbered, lettered, and emoji stamps with `+`/`-`, `Tab`, and Shift-snapped tails; the agent guide (`masume_guide` and server instructions) with MCP setup directions; `masume help <subcommand>` with every element key; the CLI addresses the app by process id. |
 | 0.3.0 | The shared document: `.masume` projects with attributed history and crash recovery, the grid with quadrant addresses, the command service behind MCP, the `masume` CLI, and AppleScript, an in-app MCP server with a menu bar item, image layers, Option-drag duplicates, tab naming and Close All. |
 | 0.2.0 | Callouts (speech and thought) with text alignment, one-shot tools with a lock, the magnifier loupe with a zoom slider, PDF import at 2× with a page picker. |
 | 0.1.0 | The Skitch-look fork as inherited from kakico: shadows, text styles, stamps, pen and highlighter, remembered tool state. |

@@ -4,6 +4,32 @@ All notable changes to Masume. The format follows [Keep a Changelog](https://kee
 and the project uses semantic versioning while pre-1.0: a minor bump for new tools, formats,
 or surfaces, a patch bump for fixes. Each release is tagged `vX.Y.Z` on `main`.
 
+## [0.4.0] - 2026-09-02
+
+Counted and emoji stamps, an agent guide over MCP, and real CLI help.
+
+### Added
+
+- Numbered and lettered stamps: `#` flags count 1, 2, 3 and `A` flags A, B, C, each new one
+  taking the count past the highest of its kind. With one selected, `+` and `-` change the
+  count and `Tab` (or the stamp row) switches between digits and letters. Through the command service,
+  stamps of kind `number` or `letter` accept and report `ordinal` and report `label`.
+- Emoji stamps: the stamp row's last glyph shows any character you type, paste, or pick
+  from Emoji & Symbols; the choice is remembered and edits a selected emoji stamp. Through
+  the command service, stamps of kind `emoji` accept and report `emoji`.
+- Shift while dragging a stamp's tail snaps it to 45° steps.
+- An agent guide: the MCP handshake carries short server instructions and the `masume_guide`
+  tool returns the full guide (session shape, grid grammar, element fields, error codes,
+  token-saving habits). README gains directions for setting up MCP and working with an agent.
+- `masume help <subcommand>` and `<subcommand> --help`: what each subcommand takes, with the
+  keys every element type accepts and the grid address grammar. Help exits 0 on stdout.
+
+### Fixed
+
+- The `masume` CLI addresses the running app by process id. Addressing it by bundle
+  identifier could hand the Apple Event to a stale Launch Services registration, where it
+  timed out (-1712) while the app sat idle.
+
 ## [0.3.0] - 2026-09-02
 
 The release where a person and an agent share the document: an editable project format, a
@@ -77,6 +103,7 @@ grid as the common spatial language, and three ways in for automation.
 The Skitch-look fork as inherited from [2b3pro/kakico](https://github.com/2b3pro/kakico):
 drop shadows, text styles, stamps, pen and highlighter, and remembered tool state.
 
+[0.4.0]: https://github.com/2b3pro/masume/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/2b3pro/masume/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/2b3pro/masume/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/2b3pro/masume/releases/tag/v0.1.0

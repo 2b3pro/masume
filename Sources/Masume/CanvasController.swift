@@ -91,6 +91,13 @@ final class CanvasController {
             persistPreferences()
         }
     }
+    /// Character for new emoji stamps; edits the selected emoji stamp.
+    var stampEmoji: String = StampElement.defaultEmoji {
+        didSet {
+            applyStampEmojiToSelection()
+            persistPreferences()
+        }
+    }
 
     /// Halo/outline color for new text (white or black); edits the selected
     /// text element when one is selected.
@@ -198,6 +205,7 @@ final class CanvasController {
         textStyle = prefs.textStyle
         textOutlineColor = prefs.textOutlineColor
         stampKind = prefs.stampKind
+        stampEmoji = prefs.stampEmoji
         textAlignment = prefs.textAlignment
         calloutShape = prefs.calloutShape
         magnifierShape = prefs.magnifierShape
@@ -232,6 +240,7 @@ final class CanvasController {
         prefs.textStyle = textStyle
         prefs.textOutlineColor = textOutlineColor
         prefs.stampKind = stampKind
+        prefs.stampEmoji = stampEmoji
         prefs.textAlignment = textAlignment
         prefs.calloutShape = calloutShape
         prefs.magnifierShape = magnifierShape
@@ -533,6 +542,14 @@ final class CanvasController {
     /// Destructively applies the pending crop: trims the base image, shifts
     /// elements into the new origin, and shrinks the canvas. Undoable; the
     /// crop stays non-destructive (re-editable) until this is called.
+    /// Return key: applies a pending crop; false when there is none.
+    @discardableResult
+    func applyPendingCrop() -> Bool {
+        guard document?.crop != nil else { return false }
+        applyCrop()
+        return true
+    }
+
     func applyCrop() {
         guard let doc = document, let base = baseImage,
               let clamped = doc.integralCrop,

@@ -33,8 +33,8 @@ extension CanvasController {
     }
 
     func syncStyles(from element: Annotation) {
+        syncStampStyles(from: element)
         if let style = element.textStyle, style != textStyle { textStyle = style }
-        if let kind = element.stampKind, kind != stampKind { stampKind = kind }
         if let outline = element.textOutlineColor, outline != textOutlineColor { textOutlineColor = outline }
         if let alignment = element.textAlignment, alignment != textAlignment { textAlignment = alignment }
         if let shape = element.calloutShape, shape != calloutShape { calloutShape = shape }
@@ -43,6 +43,11 @@ extension CanvasController {
         if let mask = element.imageMask, mask != imageMask { imageMask = mask }
         if let shadow = element.imageShadow, shadow != imageShadow { imageShadow = shadow }
         if case .image(let e) = element, (e.borderWidth > 0) != imageBorder { imageBorder = e.borderWidth > 0 }
+    }
+
+    private func syncStampStyles(from element: Annotation) {
+        if let kind = element.stampKind, kind != stampKind { stampKind = kind }
+        if let emoji = element.stampEmoji, emoji != stampEmoji { stampEmoji = emoji }
     }
 
     /// Border on: the layer takes the shared shape width; off: zero.
@@ -144,7 +149,50 @@ extension CanvasController {
         guard let sel = selection, let doc = document, let i = doc.index(of: sel),
               let current = doc.elements[i].stampKind, current != stampKind else { return }
         let kind = stampKind
-        perform { $0.elements[i].stampKind = kind }
+        // A glyph stamp that becomes a counted one joins the sequence at
+        // the end; a counted stamp switching between digits and letters
+        // keeps its place.
+        let ordinal = current.isOrdinal ? nil : doc.nextStampOrdinal(for: kind)
+        perform { document in
+            document.elements[i].stampKind = kind
+            if let ordinal, case .stamp(var e) = document.elements[i] {
+                e.ordinal = ordinal
+                document.elements[i] = .stamp(e)
+            }
+        }
+    }
+
+    /// Applies the chosen emoji to the selected emoji stamp as one undo step.
+    func applyStampEmojiToSelection() {
+        guard !isSyncing else { return }
+        guard let sel = selection, let doc = document, let i = doc.index(of: sel),
+              let current = doc.elements[i].stampEmoji, current != stampEmoji else { return }
+        let emoji = stampEmoji
+        perform { $0.elements[i].stampEmoji = emoji }
+    }
+
+    /// Switches the selected flag between digits and letters, keeping its
+    /// count. Goes through `stampKind` so the palette follows. False when
+    /// the selection is not a flag.
+    @discardableResult
+    func toggleSelectedStampLettering() -> Bool {
+        guard let sel = selection, let doc = document, let i = doc.index(of: sel),
+              let kind = doc.elements[i].stampKind, kind.isOrdinal else { return false }
+        stampKind = kind == .number ? .letter : .number
+        return true
+    }
+
+    /// Counts the selected numbered or lettered stamp up or down as one
+    /// undo step. False when the selection is not such a stamp or the count
+    /// is already at its limit.
+    @discardableResult
+    func stepSelectedStamp(by delta: Int) -> Bool {
+        guard let sel = selection, let doc = document, let i = doc.index(of: sel),
+              case .stamp(var e) = doc.elements[i], e.kind.isOrdinal else { return false }
+        e.step(by: delta)
+        guard e.ordinal != (doc.elements[i].stampOrdinal ?? e.ordinal) else { return false }
+        perform { $0.elements[i] = .stamp(e) }
+        return true
     }
 
     /// Applies the global pen opacity to the selected stroke. Undo boundaries

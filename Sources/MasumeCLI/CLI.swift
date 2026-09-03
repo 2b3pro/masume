@@ -36,6 +36,7 @@ public enum MasumeCLI {
         Options: --doc <id> --revision <n> --actor <id> --actor-name <name> --reason <text> --pretty
         Exit: 0 ok, 2 conflict, 3 not_found, 4 invalid_address, 5 invalid_argument,
               6 unsupported, 7 io, 10 Masume not running, 64 usage
+        Help: masume help <subcommand> (or <subcommand> --help); "help add" lists every element key
         """
 
     public static let notRunningExit: Int32 = 10
@@ -66,9 +67,16 @@ public enum MasumeCLI {
         "doc", "revision", "actor", "actor-name", "reason", "out", "margin", "limit", "format", "bounds", "page", "file",
     ]
 
+    static let helpWords: Set<String> = ["-h", "--help", "help"]
+
     public static func parse(_ arguments: [String]) throws -> Invocation {
-        guard let first = arguments.first, !["-h", "--help", "help"].contains(first) else {
-            throw CLIError.usage(usage)
+        guard let first = arguments.first else { throw CLIError.usage(usage) }
+        if helpWords.contains(first.lowercased()) {
+            guard let topic = arguments.dropFirst().first else { throw CLIError.help(usage) }
+            throw try helpError(for: topic)
+        }
+        if arguments.dropFirst().contains(where: { $0 == "-h" || $0 == "--help" }) {
+            throw try helpError(for: first)
         }
         var invocation = Invocation(subcommand: first)
         var rest = arguments.dropFirst()[...]
@@ -82,6 +90,12 @@ public enum MasumeCLI {
             try apply(option: name, value: value, to: &invocation)
         }
         return invocation
+    }
+
+    /// `help <topic>`: the topic's text, or a usage error naming it.
+    private static func helpError(for topic: String) throws -> CLIError {
+        guard let text = help(for: topic) else { throw CLIError.usage("no help for \(topic)\n\n\(usage)") }
+        return .help(text)
     }
 
     private static func apply(option name: String, value: String, to invocation: inout Invocation) throws {
@@ -114,6 +128,9 @@ public enum MasumeCLI {
         } catch CLIError.usage(let message) {
             error(message)
             return usageExit
+        } catch CLIError.help(let text) {
+            output(text)
+            return 0
         } catch {
             output(String(data: AppleEventClient.envelope(code: "io", message: "Masume is not running"), encoding: .utf8) ?? "")
             return notRunningExit

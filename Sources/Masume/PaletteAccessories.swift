@@ -58,7 +58,10 @@ struct ToolFlyout: View {
     var body: some View {
         switch tool {
         case .stamp:
-            ChoicePanel(choices: StampKind.allCases, selected: controller.stampKind) { controller.stampKind = $0 }
+            HStack(spacing: 8) {
+                ChoicePanel(choices: StampKind.allCases, selected: controller.stampKind) { controller.stampKind = $0 }
+                if controller.stampKind == .emoji { EmojiField(controller: controller) }
+            }
         case .callout:
             ChoicePanel(choices: CalloutShape.allCases, selected: controller.calloutShape) { controller.calloutShape = $0 }
         case .magnifier:
@@ -134,6 +137,9 @@ extension StampKind {
         case .exclaim: return "Exclamation"
         case .question: return "Question"
         case .heart: return "Heart"
+        case .number: return "Number"
+        case .letter: return "Letter"
+        case .emoji: return "Emoji"
         }
     }
 
@@ -145,6 +151,46 @@ extension StampKind {
         case .exclaim: return "exclamationmark.circle.fill"
         case .question: return "questionmark.circle.fill"
         case .heart: return "heart.circle.fill"
+        case .number: return "number.circle.fill"
+        case .letter: return "a.circle.fill"
+        case .emoji: return "face.smiling.inverse"
+        }
+    }
+}
+
+/// The emoji an emoji stamp shows: a one-character field that keeps the
+/// last character typed or pasted, and a button that opens the system
+/// Character Viewer, which inserts into the focused field.
+struct EmojiField: View {
+    @Bindable var controller: CanvasController
+    @State private var draft = ""
+    @FocusState private var focused: Bool
+
+    var body: some View {
+        HStack(spacing: 4) {
+            TextField("", text: $draft)
+                .textFieldStyle(.roundedBorder)
+                .font(.system(size: 18))
+                .multilineTextAlignment(.center)
+                .frame(width: 44)
+                .focused($focused)
+                .onAppear { draft = controller.stampEmoji }
+                .onChange(of: controller.stampEmoji) { _, emoji in if draft != emoji { draft = emoji } }
+                .onChange(of: draft) { _, text in
+                    guard let emoji = StampElement.normalizedEmoji(text) else { return }
+                    if draft != emoji { draft = emoji }
+                    if controller.stampEmoji != emoji { controller.stampEmoji = emoji }
+                }
+                .help("The emoji for new stamps (or the selected one); type or paste one")
+            Button {
+                focused = true
+                NSApp.orderFrontCharacterPalette(nil)
+            } label: {
+                Image(systemName: "keyboard")
+                    .font(.system(size: 14))
+            }
+            .buttonStyle(.plain)
+            .help("Choose from Emoji & Symbols")
         }
     }
 }

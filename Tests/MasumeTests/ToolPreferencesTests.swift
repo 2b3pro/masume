@@ -27,6 +27,7 @@ final class ToolPreferencesTests: XCTestCase {
         first.textStyle = .outline
         first.textOutlineColor = .black
         first.stampKind = .heart
+        first.stampEmoji = "\u{1F525}"
         first.tool = .pen
 
         let second = CanvasController(preferencesStore: store)
@@ -38,6 +39,7 @@ final class ToolPreferencesTests: XCTestCase {
         XCTAssertEqual(second.textStyle, .outline)
         XCTAssertEqual(second.textOutlineColor, .black)
         XCTAssertEqual(second.stampKind, .heart)
+        XCTAssertEqual(second.stampEmoji, "\u{1F525}")
         second.tool = .arrow
         XCTAssertEqual(second.strokeWidth, DefaultStrokeWidth.segmentReferenceWidth, "untouched groups keep defaults")
     }

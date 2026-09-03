@@ -2,9 +2,10 @@
 
 Masume is a native **Apple Silicon (arm64)** annotation workspace for macOS, written in Swift
 (SwiftUI shell + AppKit canvas, Core Graphics / Core Image rendering). One human and one agent
-mark up the same image: the human through a Skitch-like interface, the agent through MCP, both
-speaking a spreadsheet-style grid (`D5`, `D5:F14`) as a shared spatial language. The editable
-project is the source of truth; PNG, JPEG, WebP, and PDF are flattened exports.
+mark up the same image: the human through a Skitch-like interface, the agent through MCP, the
+`masume` command line, or AppleScript, both speaking a spreadsheet-style grid (`D5`, `D5:F14`,
+`D5.3`) as a shared spatial language. The editable project is the source of truth; PNG, JPEG,
+and WebP are flattened exports.
 
 Masume grew out of [2b3pro/kakico](https://github.com/2b3pro/kakico), a Skitch-look fork of
 [tk3fftk/kakico](https://github.com/tk3fftk/kakico). That fork continues separately as a plain
@@ -46,19 +47,32 @@ A PDF page is rasterized at 2× on import; a multi-page PDF shows a page picker 
   next canvas click deselects instead of creating another. Click the active tool (or press
   its key) again to lock it; a "+" badge appears and it keeps creating until you click it
   again. The pen is always sticky. Locks last for the session.
-- **Editing:** select, move, and resize via handles; Undo (`Cmd+Z`), Redo (`Cmd+Shift+Z`),
-  Delete. Stroke color, width, pixel size, opacity, text style, alignment, bubble shape, loupe
+- **Editing:** select, move, and resize via handles; hold `Option` while dragging an
+  annotation to drag off a copy and leave the original in place. Undo (`Cmd+Z`), Redo
+  (`Cmd+Shift+Z`), Delete. Stroke color, width, pixel size, opacity, text style, alignment, bubble shape, loupe
   shape and zoom, and stamp glyph are remembered across launches, with sizes scaled to each
   image so they look the same on any screenshot.
 - **Navigation:** zoom in and out (`Cmd++` / `Cmd+-`), fit to window (`Cmd+0`), pinch to zoom,
   `Cmd`+scroll wheel to zoom about the pointer, and hold `Space` and drag to pan when zoomed
   in.
 - **Grid:** a spreadsheet grid over the image, the shared spatial language for people and
-  agents: `D5` is a cell, `D5:F14` a range. Toggle it with Show Grid (`Cmd+G`); it never
+  agents: `D5` is a cell, `D5:F14` a range, and `D5.3` a quadrant of a cell (1 to 4 clockwise
+  from the upper left, so 3 is lower-right; quadrants nest, as in `D5.3.1`, for finer
+  pointing on large captures). Toggle it with Show Grid (`Cmd+G`); it never
   exports. The default density comes from the image's pixel size alone, so the same image
   always gets the same addresses, and the counts are stored in the project so they never
   drift. Pick a different density from View ▸ Grid Density; that is a document action, so
   it is undoable and recorded.
+- **Image layers:** pasting or dropping an image onto an open document adds it as a layer,
+  centered and scaled to fit half the canvas, not a replacement. Hold `Option` while dropping
+  to open the file in a new tab instead. Corner handles resize it
+  with the aspect kept. The image-layer control masks it as a rectangle, rounded rectangle,
+  or circle, and toggles a border (stroke color and width) and the drop shadow. The pixels
+  are saved in the project's `assets` folder. To swap the base image instead, use
+  File ▸ Replace Image from Clipboard.
+- **Tabs and names:** a tab says Untitled until you name it. Press and hold the tab title to
+  rename in place; for a saved project that renames the package on disk. A dot on the tab
+  means unsaved changes.
 - **Projects:** Save (`Cmd+S`) writes an editable `.masume` package: the original image as
   PNG, the annotations, and an attributed history of every committed change. Save As
   (`Cmd+Shift+S`) makes a copy with a new identity. Open (`Cmd+O`) or double-click a
@@ -72,7 +86,38 @@ A PDF page is rasterized at 2× on import; a multi-page PDF shows a page picker 
 - **Output:** export as PNG, JPEG, or lossy WebP (`Cmd+E`); copy to clipboard (`Cmd+Shift+C`);
   drag out as a PNG file.
 - **Tabs:** new tab (`Cmd+T`), close tab (`Cmd+W`), previous and next tab (`Opt+Cmd+←/→`).
-  Edit multiple images in separate tabs without losing work.
+  Edit multiple images in separate tabs without losing work. Close All Tabs (`Opt+Cmd+W`, or
+  `Opt`-click a tab's close button) brings each tab to the front in turn and asks about
+  unsaved changes before closing it.
+
+## Agents and automation
+
+Masume has one command service inside the app and three ways in, all of which speak the same
+JSON commands and get the same `{ok, result}` or `{ok, error: {code, message}}` envelope:
+
+- **`masume` command line.** Live subcommands send one Apple Event each to the running app:
+  `masume doc`, `masume resolve D5:F14`, `masume add arrow from=B3 to=D6 --reason "…"`,
+  `masume view D5:F14 --out crop.png`, `masume undo`, `masume save ~/Shots/Login.masume`,
+  `masume export out.png`, and `masume exec '<json>'` for anything by name. Mutations default
+  to the active document at its current revision and say so on stderr; pass `--doc` and
+  `--revision` to pin them. Offline subcommands need no app: `masume info file.masume`,
+  `masume export file.masume out.png`, `masume resolve --file file.masume D5`, and
+  `masume new shot.png file.masume [--page n]` for images and PDFs. Exit status mirrors the
+  error code (2 conflict, 3 not found, 4 invalid address, 5 invalid argument, 6 unsupported,
+  7 io, 10 Masume not running, 64 usage). Install with `bash scripts/install-cli.sh`.
+- **AppleScript and JXA.** `Application("Masume").activeDocument.revision()` and
+  `Application("Masume").execute(json)`; see `Resources/Masume.sdef`.
+  `scripts/ae-roundtrip.sh` drives the built app this way.
+- **MCP.** The server in `mcp/` spawns the CLI for each tool call; stdio by default, Streamable
+  HTTP on request. See `mcp/README.md`. The app bundles it: the menu bar item (a bolt) starts
+  and stops the server on loopback with a bearer token, shows its port and tool count, and
+  copies the server URL or a ready-to-paste JSON config for Claude Code and other hosts.
+  Settings ▸ MCP sets the port, token, Node path, the agent's name in the history, and whether
+  the server starts with the app.
+
+Every mutation carries the document id and expected revision and fails closed on a mismatch,
+and every agent edit lands in the same history and undo stack as yours, attributed and with
+the reason the agent gave.
 
 ## Install
 
@@ -82,10 +127,12 @@ Masume is not distributed as a binary; build it from source (below).
 
 The current version lives in [`VERSION`](VERSION) and follows semantic versioning while the
 app is pre-1.0: a minor bump for new tools or formats, a patch bump for fixes. The build
-script stamps it into the bundle, and each release is tagged `vX.Y.Z` on `main`.
+script stamps it into the bundle, and each release is tagged `vX.Y.Z` on `main`. The full
+history is in [CHANGELOG.md](CHANGELOG.md).
 
 | Version | Highlights |
 |---|---|
+| 0.3.0 | The shared document: `.masume` projects with attributed history and crash recovery, the grid with quadrant addresses, the command service behind MCP, the `masume` CLI, and AppleScript, an in-app MCP server with a menu bar item, image layers, Option-drag duplicates, tab naming and Close All. |
 | 0.2.0 | Callouts (speech and thought) with text alignment, one-shot tools with a lock, the magnifier loupe with a zoom slider, PDF import at 2× with a page picker. |
 | 0.1.0 | The Skitch-look fork as inherited from kakico: shadows, text styles, stamps, pen and highlighter, remembered tool state. |
 
@@ -107,11 +154,19 @@ ad-hoc-signed bundle (no Apple Developer account required). The repository's lin
 - `Sources/AnnotationRender/` — Core Graphics rendering of a `Document` into a `CGImage`,
   including the Skitch shadow, text styles, callout bubbles, stamp pins, loupes, and pen
   strokes.
-- `Sources/Masume/` — the app: tabs, canvas, palette, PDF import, export, and tool-state
-  persistence.
-- `Tests/` — unit tests for all three, including pixel checks on rendered output and
-  synthetic-event tests that drive the canvas view directly for gestures such as the
-  callout and loupe drags, Shift-click lines, space-drag panning, and `Cmd`+scroll.
+- `Sources/MasumeCommands/` — the agent-facing command vocabulary: request and response
+  envelopes, element JSON, and grid-address resolution shared by the app and the CLI.
+- `Sources/Masume/` — the app: tabs, canvas, palette, projects and recovery, the grid
+  overlay, the command service, Apple Events, the MCP server controller and menu bar item,
+  PDF import, export, and tool-state persistence.
+- `Sources/MasumeCLI/` and `Sources/MasumeTool/` — the `masume` command line as a library
+  and its executable.
+- `mcp/` — the MCP server (TypeScript) that spawns the CLI; see `mcp/README.md`.
+- `scripts/` — the app build, CLI install, and the two round-trip integration scripts.
+- `Tests/` — unit tests for the model, renderer, commands, CLI, and app, including pixel
+  checks on rendered output and synthetic-event tests that drive the canvas view directly
+  for gestures such as the callout and loupe drags, Option-drag duplication, Shift-click
+  lines, space-drag panning, and `Cmd`+scroll.
 
 ## License
 

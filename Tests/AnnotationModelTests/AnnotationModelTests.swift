@@ -46,6 +46,18 @@ final class AnnotationModelTests: XCTestCase {
         }
     }
 
+    func testDuplicatedKeepsEverythingButTheIdentity() {
+        let text = TextElement(origin: CGPoint(x: 10, y: 20), string: "hi", color: .blue)
+        let copy = Annotation.text(text).duplicated()
+        guard case .text(let c) = copy else { return XCTFail("kind preserved") }
+        XCTAssertNotEqual(c.id, text.id)
+        var relabeled = c
+        relabeled.id = text.id
+        XCTAssertEqual(relabeled, text, "only the id differs")
+        let named = Annotation.text(text).duplicated(id: text.id)
+        XCTAssertEqual(named, .text(text))
+    }
+
     func testTranslatePreservesKind() {
         var ann = Annotation.arrow(SegmentElement(start: .zero, end: CGPoint(x: 10, y: 0)))
         ann.translate(by: CGVector(dx: 5, dy: 5))

@@ -23,10 +23,14 @@ final class WorkspaceController {
     /// which owns the (single) quit confirmation.
     @ObservationIgnored
     private let requestTermination: () -> Void
-    /// Save / Don't Save / Cancel for a dirty saved project, injected like
-    /// `confirmDiscard`. Returning `.save` runs Save before closing.
+    /// Save / Don't Save / Cancel for a document with unsaved work, injected
+    /// like `confirmDiscard`. Returning `.save` saves before closing.
     @ObservationIgnored
     private let confirmSave: (_ name: String) -> SaveChoice
+    /// Save As for a never-saved document that the user chose to save on
+    /// close; returns false when the panel was cancelled or the save failed.
+    @ObservationIgnored
+    private let saveAs: (CanvasController) -> Bool
     @ObservationIgnored
     private let recoveryStore: RecoveryStore
 
@@ -37,11 +41,13 @@ final class WorkspaceController {
             ExportService.confirmDiscard(message: $0, info: $1, confirmTitle: $2)
         },
         confirmSave: @escaping (String) -> SaveChoice = { ExportService.confirmSave(name: $0) },
+        saveAs: @escaping (CanvasController) -> Bool = { SaveService.saveAsModal($0) },
         requestTermination: @escaping () -> Void = { NSApp.terminate(nil) },
         recoveryStore: RecoveryStore = .default
     ) {
         self.confirmDiscard = confirmDiscard
         self.confirmSave = confirmSave
+        self.saveAs = saveAs
         self.requestTermination = requestTermination
         self.recoveryStore = recoveryStore
         // Whatever the last run left in recovery comes back where it was,
@@ -50,9 +56,10 @@ final class WorkspaceController {
             let controller = CanvasController(recoveryStore: recoveryStore)
             return (try? controller.adoptRecovery(at: url)) != nil ? controller : nil
         }
-        let first = recovered.first ?? CanvasController(recoveryStore: recoveryStore)
-        tabs = recovered.isEmpty ? [first] : recovered
-        active = first
+        // The most recently edited document comes to the front.
+        let front = recovered.last ?? CanvasController(recoveryStore: recoveryStore)
+        tabs = recovered.isEmpty ? [front] : recovered
+        active = front
     }
 
     var openDocumentCount: Int { tabs.count { $0.hasDocument } }
@@ -72,6 +79,17 @@ final class WorkspaceController {
         let controller = CanvasController(recoveryStore: recoveryStore)
         tabs.append(controller)
         return controller
+    }
+
+    /// Option-drop: the file opens as a new document in a new tab instead of
+    /// landing on the active one. An unreadable drop leaves no empty tab.
+    func openDroppedInNewTab(_ items: [DroppedImage]) {
+        let target = active.hasDocument ? newTabController() : active
+        if target.loadDroppedImage(items) {
+            activate(target)
+        } else {
+            closeEmpty(target)
+        }
     }
 
     /// Drops a tab that never got a document (a failed open), never the last.
@@ -108,26 +126,53 @@ final class WorkspaceController {
 
     func closeActiveTab() { close(active) }
 
-    /// Asks before losing work: a dirty saved project offers Save; anything
-    /// else with a document keeps the discard confirmation. Returns true when
-    /// closing may proceed (after saving, if chosen).
-    private func mayClose(_ controller: CanvasController) -> Bool {
-        guard controller.hasDocument else { return true }
-        if let url = controller.project?.projectURL {
-            guard controller.isDirty else { return true }
-            switch confirmSave(controller.documentTitle) {
-            case .cancel: return false
-            case .discard: return true
-            case .save:
-                do { try controller.saveProject(to: url, newIdentity: false) } catch { return false }
-                return true
+    /// Closes every tab, bringing each to the front in turn so its Save
+    /// prompt is about the document on screen. Stops at the first Cancel,
+    /// leaving the rest open. Ends with one fresh empty tab rather than
+    /// quitting: the user asked to clear the workspace, not leave.
+    func closeAll() {
+        for controller in tabs {
+            activate(controller)
+            guard mayClose(controller) else { return }
+            controller.discardRecovery()
+            guard let index = tabs.firstIndex(where: { $0 === controller }) else { continue }
+            tabs.remove(at: index)
+            if tabs.isEmpty {
+                let fresh = CanvasController(recoveryStore: recoveryStore)
+                tabs = [fresh]
+                active = fresh
+            } else {
+                active = tabs[min(index, tabs.count - 1)]
             }
         }
-        return confirmDiscard(
-            "Close this tab?",
-            "Closing will discard the image you are editing. Unsaved annotations will be lost.",
-            "Close Tab"
-        )
+    }
+
+    /// Inline tab rename. Failures (a sibling with that name, an empty name)
+    /// are shown; the tab keeps its title.
+    func rename(_ controller: CanvasController, to name: String) {
+        guard controller.hasDocument else { return }
+        do {
+            try controller.renameDocument(to: name)
+        } catch {
+            NSAlert(error: error).runModal()
+        }
+    }
+
+    /// Asks before losing work, with Save / Don't Save / Cancel: a dirty
+    /// saved project saves in place, a never-saved document runs Save As. A
+    /// tab holding nothing but an imported image (no committed change) closes
+    /// without asking. Returns true when closing may proceed.
+    private func mayClose(_ controller: CanvasController) -> Bool {
+        guard controller.hasDocument, let project = controller.project else { return true }
+        guard controller.isDirty, project.revision > 0 || project.projectURL != nil else { return true }
+        switch confirmSave(controller.documentTitle) {
+        case .cancel: return false
+        case .discard: return true
+        case .save:
+            guard let url = project.projectURL else { return saveAs(controller) }
+            do { try controller.saveProject(to: url, newIdentity: false) } catch { return false }
+            return true
+        }
     }
 
     func close(_ controller: CanvasController) {

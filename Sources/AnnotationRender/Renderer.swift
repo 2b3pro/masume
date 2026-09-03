@@ -29,7 +29,7 @@ public enum Renderer {
     /// Draws the base image plus every annotation into `ctx`. The context must
     /// already be set up so that model coordinates (top-left origin, y-down)
     /// map directly — see `flatten` / the canvas view for the CTM setup.
-    public static func draw(_ doc: Document, baseImage: CGImage?, in ctx: CGContext) {
+    public static func draw(_ doc: Document, baseImage: CGImage?, assets: [UUID: CGImage] = [:], in ctx: CGContext) {
         let canvas = CGRect(origin: .zero, size: doc.canvasSize)
         if let baseImage {
             drawImage(baseImage, in: canvas, ctx: ctx)
@@ -40,15 +40,25 @@ public enum Renderer {
             if case .pixelate(let r) = element { return r }
             return nil
         }
+        let scene = Scene(base: baseImage, redactions: redactions, assets: assets, canvasSize: doc.canvasSize)
         for element in doc.elements {
-            draw(element, base: baseImage, redactions: redactions, canvasSize: doc.canvasSize, in: ctx)
+            draw(element, in: scene, ctx: ctx)
         }
+    }
+
+    /// What every element may draw against besides itself.
+    private struct Scene {
+        let base: CGImage?
+        let redactions: [RedactionElement]
+        let assets: [UUID: CGImage]
+        let canvasSize: CGSize
     }
 
     /// Renders the document to a `CGImage`, honoring the crop rect, at `scale`.
     public static func flatten(_ doc: Document, baseImage: CGImage?,
                                scale: CGFloat = 1,
-                               bounds: ExportBounds = .clipToImage) -> CGImage? {
+                               bounds: ExportBounds = .clipToImage,
+                               assets: [UUID: CGImage] = [:]) -> CGImage? {
         let out = doc.outputRect(for: bounds)
         let pixelW = Int((out.width * scale).rounded())
         let pixelH = Int((out.height * scale).rounded())
@@ -73,7 +83,7 @@ public enum Renderer {
             ctx.fill(out)
         }
 
-        draw(doc, baseImage: baseImage, in: ctx)
+        draw(doc, baseImage: baseImage, assets: assets, in: ctx)
         return ctx.makeImage()
     }
 
@@ -96,8 +106,7 @@ public enum Renderer {
 
     // MARK: - Per-element drawing
 
-    private static func draw(_ element: Annotation, base: CGImage?, redactions: [RedactionElement],
-                             canvasSize: CGSize, in ctx: CGContext) {
+    private static func draw(_ element: Annotation, in scene: Scene, ctx: CGContext) {
         switch element {
         case .arrow(let e): drawArrow(e, in: ctx)
         case .line(let e): drawLine(e, in: ctx)
@@ -106,8 +115,49 @@ public enum Renderer {
         case .pen(let e): drawPen(e, in: ctx)
         case .text(let e): drawText(e, in: ctx)
         case .stamp(let e): drawStamp(e, in: ctx)
-        case .pixelate(let e): drawRedaction(e.rect, amount: e.amount, base: base, canvasSize: canvasSize, in: ctx)
-        case .magnifier(let e): drawMagnifier(e, base: base, redactions: redactions, canvasSize: canvasSize, in: ctx)
+        case .pixelate(let e): drawRedaction(e.rect, amount: e.amount, base: scene.base, canvasSize: scene.canvasSize, in: ctx)
+        case .magnifier(let e):
+            drawMagnifier(e, base: scene.base, redactions: scene.redactions, canvasSize: scene.canvasSize, in: ctx)
+        case .image(let e): drawImageLayer(e, image: scene.assets[e.assetID], in: ctx)
+        }
+    }
+
+    private static func imageMaskPath(_ e: ImageElement) -> CGPath {
+        switch e.mask {
+        case .rectangle: return CGPath(rect: e.rect, transform: nil)
+        case .rounded: return CGPath(roundedRect: e.rect, cornerWidth: e.cornerRadius, cornerHeight: e.cornerRadius, transform: nil)
+        case .circle: return CGPath(ellipseIn: e.rect, transform: nil)
+        }
+    }
+
+    /// A pasted image layer: the asset scaled into its rect, clipped to the
+    /// mask, with an optional border tracing the mask and an optional
+    /// shadow under the whole thing. A missing asset draws a gray block so
+    /// the document still reads.
+    private static func drawImageLayer(_ e: ImageElement, image: CGImage?, in ctx: CGContext) {
+        let path = imageMaskPath(e)
+        let body = {
+            ctx.saveGState()
+            ctx.addPath(path)
+            ctx.clip()
+            if let image {
+                ctx.interpolationQuality = .high
+                drawImage(image, in: e.rect, ctx: ctx)
+            } else {
+                ctx.setFillColor(red: 0.6, green: 0.6, blue: 0.6, alpha: 1)
+                ctx.fill(e.rect)
+            }
+            ctx.restoreGState()
+            if e.borderWidth > 0 {
+                setStroke(ctx, e.borderColor, e.borderWidth)
+                ctx.addPath(path)
+                ctx.strokePath()
+            }
+        }
+        if e.shadow {
+            withShadow(forStrokeWidth: max(e.borderWidth, 4), in: ctx, body)
+        } else {
+            body()
         }
     }
 

@@ -21,13 +21,22 @@ public enum ProjectPackage {
     public static let baseImageName = "base-image.png"
     public static let previewName = "preview.png"
     public static let historyName = "history.jsonl"
+    public static let assetsDirectoryName = "assets"
 
     /// Everything a verified package holds.
     public struct Contents: Equatable, Sendable {
         public var manifest: ProjectManifest
         public var baseImagePNG: Data
         public var history: [HistoryEntry]
+        /// Image layers' pixels by asset id.
+        public var assets: [UUID: Data]
+
+        public init(manifest: ProjectManifest, baseImagePNG: Data, history: [HistoryEntry], assets: [UUID: Data] = [:]) {
+            self.manifest = manifest; self.baseImagePNG = baseImagePNG; self.history = history; self.assets = assets
+        }
     }
+
+    public static func assetFileName(for id: UUID) -> String { "\(id.uuidString).png" }
 
     // MARK: Encoding
 
@@ -129,7 +138,7 @@ public enum ProjectPackage {
     /// The files land in a hidden temporary directory beside `url` first and
     /// are moved into place in one step.
     public static func create(at url: URL, manifest: ProjectManifest, baseImagePNG: Data,
-                              preview: Data?, history: [HistoryEntry]) throws {
+                              preview: Data?, history: [HistoryEntry], assets: [UUID: Data] = [:]) throws {
         let fm = FileManager.default
         let parent = url.deletingLastPathComponent()
         let temp = parent.appendingPathComponent(".\(url.lastPathComponent).tmp-\(UUID().uuidString)", isDirectory: true)
@@ -139,6 +148,7 @@ public enum ProjectPackage {
             try baseImagePNG.write(to: temp.appendingPathComponent(manifest.baseImage.fileName))
             if let preview { try preview.write(to: temp.appendingPathComponent(previewName)) }
             try encodeHistoryLines(history).write(to: temp.appendingPathComponent(historyName))
+            try writeAssets(manifest.assets, assets, in: temp)
             if fm.fileExists(atPath: url.path) {
                 _ = try fm.replaceItemAt(url, withItemAt: temp)
             } else {
@@ -155,8 +165,9 @@ public enum ProjectPackage {
     /// Replaces the manifest (and preview, when given) atomically and appends
     /// `entries` to the history. The base image is left alone.
     public static func update(at url: URL, manifest: ProjectManifest, preview: Data?,
-                              appending entries: [HistoryEntry]) throws {
+                              appending entries: [HistoryEntry], assets: [UUID: Data] = [:]) throws {
         do {
+            try writeAssets(manifest.assets, assets, in: url)
             try replaceFile(at: url.appendingPathComponent(manifestName), with: encodeManifest(manifest))
             if let preview {
                 try replaceFile(at: url.appendingPathComponent(previewName), with: preview)
@@ -166,6 +177,20 @@ public enum ProjectPackage {
             throw error
         } catch {
             throw ProjectError.io("Could not update the project: \(error.localizedDescription)")
+        }
+    }
+
+    /// Writes the listed assets that are not on disk yet. Assets are
+    /// immutable, so an existing file is never rewritten.
+    private static func writeAssets(_ infos: [AssetInfo], _ data: [UUID: Data], in package: URL) throws {
+        guard !infos.isEmpty else { return }
+        let directory = package.appendingPathComponent(assetsDirectoryName, isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        for info in infos {
+            let file = directory.appendingPathComponent((info.fileName as NSString).lastPathComponent)
+            guard !FileManager.default.fileExists(atPath: file.path) else { continue }
+            guard let bytes = data[info.id] else { throw ProjectError.badAsset(info.fileName) }
+            try bytes.write(to: file)
         }
     }
 
@@ -226,7 +251,15 @@ public enum ProjectPackage {
         guard Set(manifest.elements.map(\.id)).count == manifest.elements.count else {
             throw ProjectError.duplicateElementIDs
         }
+        var assets: [UUID: Data] = [:]
+        for info in manifest.assets {
+            let file = url.appendingPathComponent(assetsDirectoryName).appendingPathComponent((info.fileName as NSString).lastPathComponent)
+            guard let bytes = fm.contents(atPath: file.path), sha256Hex(bytes) == info.sha256.lowercased() else {
+                throw ProjectError.badAsset(info.fileName)
+            }
+            assets[info.id] = bytes
+        }
         let history = try fm.contents(atPath: url.appendingPathComponent(historyName).path).map(decodeHistory) ?? []
-        return Contents(manifest: manifest, baseImagePNG: image, history: history)
+        return Contents(manifest: manifest, baseImagePNG: image, history: history, assets: assets)
     }
 }

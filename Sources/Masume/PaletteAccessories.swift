@@ -87,6 +87,44 @@ extension MagnifierShape: PaletteChoice {
     }
 }
 extension LineAlignment: PaletteChoice {}
+extension ImageMask: PaletteChoice {
+    var label: String {
+        switch self {
+        case .rectangle: return "Rectangle"
+        case .rounded: return "Rounded rectangle"
+        case .circle: return "Circle"
+        }
+    }
+
+    var symbol: String {
+        switch self {
+        case .rectangle: return "rectangle"
+        case .rounded: return "rectangle.roundedtop"
+        case .circle: return "circle"
+        }
+    }
+}
+
+/// Mask, border, and shadow for the selected image layer.
+struct ImageLayerPanel: View {
+    @Bindable var controller: CanvasController
+    @Environment(\.colorScheme) private var scheme
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Mask")
+                .font(.miroCaption)
+                .foregroundStyle(MiroTheme.textSecondary(scheme))
+            ChoicePanel(choices: ImageMask.allCases, selected: controller.imageMask, iconSize: 18) {
+                controller.imageMask = $0
+            }
+            Toggle("Border (stroke color and width)", isOn: $controller.imageBorder)
+                .font(.miroCaption)
+            Toggle("Shadow", isOn: $controller.imageShadow)
+                .font(.miroCaption)
+        }
+    }
+}
 
 extension StampKind {
     var label: String {

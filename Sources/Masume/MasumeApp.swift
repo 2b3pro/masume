@@ -22,12 +22,28 @@ struct MasumeApp: App {
                 .frame(minWidth: 720, minHeight: 520)
         }
         .commands { AppCommands(workspace: appDelegate.workspace) }
+        // The MCP server's menu bar item: control, status, connection details.
+        MenuBarExtra(isInserted: Binding(get: { appDelegate.mcp.showsMenuBarItem },
+                                         set: { appDelegate.mcp.showsMenuBarItem = $0 })) {
+            MCPMenu(server: appDelegate.mcp)
+        } label: {
+            Image(systemName: appDelegate.mcp.state.isRunning ? "bolt.horizontal.circle.fill" : "bolt.horizontal.circle")
+        }
+        .menuBarExtraStyle(.menu)
+        Settings {
+            MCPSettingsView(server: appDelegate.mcp)
+        }
     }
 }
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
+    /// The live delegate. SwiftUI's adaptor wraps it, so `NSApp.delegate`
+    /// is not this object; scripting reaches the workspace through here.
+    private(set) static var current: AppDelegate?
+
     let workspace = WorkspaceController()
+    let mcp = MCPServerController()
     private var pasteKeyMonitor: Any?
     private var copyKeyMonitor: Any?
     private var toolKeyMonitor: Any?
@@ -81,12 +97,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
+    func applicationWillTerminate(_ notification: Notification) {
+        mcp.stop()
+    }
+
     func applicationDidFinishLaunching(_ notification: Notification) {
+        Self.current = self
+        if mcp.startAtLaunch { mcp.start() }
         // SwiftUI's bridged Edit ▸ Paste item swallows ⌘V without dispatching
         // paste: down the AppKit responder chain, so intercept the key event
         // before menu dispatch instead.
         pasteKeyMonitor = commandKeyMonitor(for: "v") { [workspace] in
-            DispatchQueue.main.async { ExportService.confirmAndPasteImage(workspace.active) }
+            DispatchQueue.main.async { ExportService.pasteImage(workspace.active) }
             return true
         }
 
@@ -226,8 +248,10 @@ struct AppCommands: Commands {
                 .keyboardShortcut("o", modifiers: .command)
             // ⇧⌘V kept as an explicit alias; plain ⌘V is handled by the key
             // monitor in AppDelegate so it still reaches inline text editors.
-            Button("Paste Image") { ExportService.confirmAndPasteImage(workspace.active) }
+            Button("Paste Image") { ExportService.pasteImage(workspace.active) }
                 .keyboardShortcut("v", modifiers: [.command, .shift])
+            Button("Replace Image from Clipboard\u{2026}") { ExportService.confirmAndPasteImage(workspace.active) }
+                .disabled(!workspace.active.hasDocument)
         }
         CommandGroup(replacing: .saveItem) {
             // Replacing .saveItem removes the system Close item with it, so
@@ -235,6 +259,9 @@ struct AppCommands: Commands {
             // and the quit confirmation, like the red close button.
             Button("Close Tab") { workspace.closeActiveTab() }
                 .keyboardShortcut("w", modifiers: .command)
+            Button("Close All Tabs") { workspace.closeAll() }
+                .keyboardShortcut("w", modifiers: [.command, .option])
+                .disabled(workspace.openDocumentCount == 0)
             Divider()
             Button("Save") { SaveService.save(workspace.active) }
                 .keyboardShortcut("s", modifiers: .command)

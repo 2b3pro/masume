@@ -10,11 +10,37 @@ import AnnotationRender
 extension CanvasController {
     var isDirty: Bool { project?.isDirty ?? false }
 
-    /// Tab and window title: the project name, else the imported file's
-    /// name, else "Untitled".
+    /// Tab and window title: the saved project's name, else the name the
+    /// user gave the tab, else "Untitled". An imported file's name is kept
+    /// for export naming only; the tab says Untitled until it is named.
     var documentTitle: String {
-        if let url = project?.projectURL { return url.deletingPathExtension().lastPathComponent }
-        return sourceURL?.lastPathComponent ?? "Untitled"
+        project?.name ?? "Untitled"
+    }
+
+    /// Names the document. Unsaved: sets the working name (also the Save As
+    /// default). Saved: renames the package on disk beside itself and
+    /// rebinds to it. Empty names and names with slashes are refused, as is
+    /// a name a sibling project already has.
+    func renameDocument(to name: String) throws {
+        guard let project else { return }
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, !trimmed.contains("/"), !trimmed.contains(":") else {
+            throw ProjectError.io("A name cannot be empty or contain / or :.")
+        }
+        if let url = project.projectURL {
+            let destination = url.deletingLastPathComponent()
+                .appendingPathComponent(trimmed).appendingPathExtension(ProjectPackage.pathExtension)
+            guard destination.path != url.path else { return }
+            guard !FileManager.default.fileExists(atPath: destination.path) else {
+                throw ProjectError.io("A project named \u{201C}\(trimmed)\u{201D} already exists there.")
+            }
+            try FileManager.default.moveItem(at: url, to: destination)
+            project.rebind(to: destination)
+            sourceURL = destination
+        } else {
+            project.workingName = trimmed
+        }
+        autosave()
     }
 
     /// Writes the project to `url` and binds the document to it. Save As
@@ -22,7 +48,7 @@ extension CanvasController {
     func saveProject(to url: URL, newIdentity: Bool) throws {
         guard let project, let document else { throw ProjectError.io("There is no document to save.") }
         ExportService.commitPendingTextEditing()
-        let preview = ProjectSession.previewPNG(document: document, baseImage: baseImage)
+        let preview = ProjectSession.previewPNG(document: document, baseImage: baseImage, assets: project.assetImages)
         try project.save(document: document, to: url, preview: preview, newIdentity: newIdentity)
         sourceURL = url
         // The recovery package now records the binding.

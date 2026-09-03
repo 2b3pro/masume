@@ -158,6 +158,15 @@ extension CanvasNSView {
             let delta = CGVector(dx: p.x - last.x, dy: p.y - last.y)
             controller.document?.mutate(id) { $0.translate(by: delta) }
             drag = .moving(id, last: p)
+        case .cloning(let id, let last):
+            // The copy goes on top and takes the selection; the original
+            // stays where it is and the drag moves the copy from here on.
+            guard let original = controller.document?.elements.first(where: { $0.id == id }) else { return }
+            let copy = original.duplicated()
+            controller.document?.add(copy)
+            controller.selection = copy.id
+            drag = .moving(copy.id, last: last)
+            dragModel(to: p, controller: controller)
         case .handle(let id, let role), .creating(let id, let role):
             controller.document?.mutate(id) { Self.moveHandle(&$0, role, to: p) }
         case .cropping(let anchor):

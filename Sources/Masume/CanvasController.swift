@@ -132,6 +132,26 @@ final class CanvasController {
             persistPreferences()
         }
     }
+    /// Mask, border, and shadow for new image layers; each edits the selected
+    /// image layer when one is selected.
+    var imageMask: ImageMask = .rectangle {
+        didSet {
+            applyToSelection(\.imageMask, imageMask)
+            persistPreferences()
+        }
+    }
+    var imageBorder: Bool = false {
+        didSet {
+            applyImageBorderToSelection()
+            persistPreferences()
+        }
+    }
+    var imageShadow: Bool = true {
+        didSet {
+            applyToSelection(\.imageShadow, imageShadow)
+            persistPreferences()
+        }
+    }
     var strokeWidth: CGFloat = DefaultStrokeWidth.segmentReferenceWidth {
         didSet {
             rememberStrokeWidth()
@@ -159,6 +179,10 @@ final class CanvasController {
     /// The document's durable identity, history, and recovery shadow; nil
     /// until an image is loaded.
     private(set) var project: ProjectSession?
+    /// Who the next commits are attributed to when something other than the
+    /// human is driving (the command service sets this around each call).
+    /// Nil means the human user.
+    @ObservationIgnored var commitAttribution: (actor: HistoryActor, reason: String?)?
 
     init(preferencesStore: ToolPreferencesStore = UserDefaultsToolPreferencesStore(),
          recoveryStore: RecoveryStore = .default) {
@@ -178,6 +202,9 @@ final class CanvasController {
         calloutShape = prefs.calloutShape
         magnifierShape = prefs.magnifierShape
         magnifierZoom = prefs.magnifierZoom
+        imageMask = prefs.imageMask
+        imageBorder = prefs.imageBorder
+        imageShadow = prefs.imageShadow
         pixelateAmount = prefs.referencePixelateAmount
         strokeWidth = groupWidths[prefs.tool.strokeWidthGroup ?? .segment] ?? DefaultStrokeWidth.segmentReferenceWidth
     }
@@ -209,6 +236,9 @@ final class CanvasController {
         prefs.calloutShape = calloutShape
         prefs.magnifierShape = magnifierShape
         prefs.magnifierZoom = magnifierZoom
+        prefs.imageMask = imageMask
+        prefs.imageBorder = imageBorder
+        prefs.imageShadow = imageShadow
         return prefs
     }
 
@@ -262,7 +292,7 @@ final class CanvasController {
 
     /// True while `syncToolStateFromSelection()` writes the tool state, so the
     /// setters' `didSet` apply hooks don't re-fire back into the document.
-    @ObservationIgnored private var isSyncing = false
+    @ObservationIgnored var isSyncing = false
 
     private var undoStack: [State] = []
     private var redoStack: [State] = []
@@ -278,6 +308,9 @@ final class CanvasController {
     /// A multi-page PDF awaiting a page choice; the canvas pane shows the
     /// page picker while this is set.
     var pendingPDF: PDFPageSource?
+    /// Set by Replace Image so the chosen page replaces the document instead
+    /// of landing on it as a layer.
+    @ObservationIgnored var pendingPDFReplaces = false
 
     /// A freshly imported image: a new document with a new project session,
     /// shadowed into recovery at once.
@@ -323,7 +356,8 @@ final class CanvasController {
         if let image = baseImage, before.image !== image, let png = Renderer.encode(image, as: .png) {
             project.replaceBaseImage(png)
         }
-        project.record(before: before.document, after: after)
+        project.record(before: before.document, after: after,
+                       actor: commitAttribution?.actor, reason: commitAttribution?.reason)
         autosave()
     }
 
@@ -332,7 +366,8 @@ final class CanvasController {
     func autosave() {
         guard let project, let document else { return }
         let base = baseImage
-        project.autosave(document: document) { ProjectSession.previewPNG(document: document, baseImage: base) }
+        let assets = project.assetImages
+        project.autosave(document: document) { ProjectSession.previewPNG(document: document, baseImage: base, assets: assets) }
         if let error = project.autosaveError { flashToast("Recovery autosave failed: \(error)") }
     }
 
@@ -436,7 +471,7 @@ final class CanvasController {
 
     /// The single write path into `groupWidths`; also records the width
     /// relative to the reference canvas and persists it.
-    private func rememberWidth(_ width: CGFloat, for group: StrokeWidthGroup?) {
+    func rememberWidth(_ width: CGFloat, for group: StrokeWidthGroup?) {
         guard let group else { return }
         groupWidths[group] = width
         referenceWidths[group] = width / canvasFactor
@@ -450,156 +485,6 @@ final class CanvasController {
         guard !isSyncing else { return }
         referencePixelateAmount = pixelateAmount / canvasFactor
         persistPreferences()
-    }
-
-    /// Adopts the selected element's values so the controls start from the
-    /// current ones (and new elements of its group inherit them).
-    private func syncToolStateFromSelection() {
-        guard let sel = selection, let doc = document, let i = doc.index(of: sel) else { return }
-        isSyncing = true
-        defer { isSyncing = false }
-        let element = doc.elements[i]
-        syncSizeAndColor(from: element)
-        syncStyles(from: element)
-    }
-
-    private func syncSizeAndColor(from element: Annotation) {
-        if case .text(let t) = element {
-            let width = FontSpec.strokeWidth(forPointSize: t.font.pointSize)
-            if width != strokeWidth { strokeWidth = width }
-        } else if let width = element.strokeWidth, width != strokeWidth {
-            strokeWidth = width
-        }
-        rememberWidth(strokeWidth, for: element.strokeWidthGroup)
-        if let color = element.color, color != strokeColor { strokeColor = color }
-        if let amount = element.pixelateAmount, amount != pixelateAmount { pixelateAmount = amount }
-        if let opacity = element.opacity, opacity != penOpacity { penOpacity = opacity }
-    }
-
-    private func syncStyles(from element: Annotation) {
-        if let style = element.textStyle, style != textStyle { textStyle = style }
-        if let kind = element.stampKind, kind != stampKind { stampKind = kind }
-        if let outline = element.textOutlineColor, outline != textOutlineColor { textOutlineColor = outline }
-        if let alignment = element.textAlignment, alignment != textAlignment { textAlignment = alignment }
-        if let shape = element.calloutShape, shape != calloutShape { calloutShape = shape }
-        if let shape = element.magnifierShape, shape != magnifierShape { magnifierShape = shape }
-        if let zoom = element.magnifierZoom, zoom != magnifierZoom { magnifierZoom = zoom }
-    }
-
-    /// Shared `didSet` hook for the tool-state properties (stroke width /
-    /// pixelate amount / color): writes `value` into the selected element
-    /// through `keyPath`, returning whether a write happened. No-op while
-    /// syncing (breaks the sync → apply feedback loop), without a selection,
-    /// when the element lacks the property (`nil` current), or when the value
-    /// is unchanged. `beforeWrite` runs after the guards pass and before the
-    /// document write (the color path opens its undo snapshot there).
-    @discardableResult
-    private func applyToSelection<Value: Equatable>(_ keyPath: WritableKeyPath<Annotation, Value?>,
-                                                    _ value: Value,
-                                                    beforeWrite: () -> Void = {}) -> Bool {
-        guard !isSyncing else { return false }
-        guard let sel = selection, let doc = document, let i = doc.index(of: sel),
-              let current = doc.elements[i][keyPath: keyPath],
-              current != value else { return false }
-        beforeWrite()
-        document?.elements[i][keyPath: keyPath] = value
-        return true
-    }
-
-    /// Applies the global stroke width to the selected element. For text the
-    /// width maps to the font point size (same mapping as creation) and the
-    /// box height is re-measured so wrapped text doesn't get clipped. Undo
-    /// boundaries are the caller's job (the slider wraps drags in
-    /// begin/commitInteraction).
-    private func applyStrokeWidthToSelection() {
-        guard !isSyncing else { return }
-        guard let sel = selection, let doc = document, let i = doc.index(of: sel) else { return }
-        if case .text(var t) = doc.elements[i] {
-            let pointSize = FontSpec.suggestedPointSize(forStrokeWidth: strokeWidth)
-            guard t.font.pointSize != pointSize else { return }
-            t.font.pointSize = pointSize
-            t.size = Renderer.suggestedSize(for: t)
-            document?.elements[i] = .text(t)
-        } else {
-            applyToSelection(\.strokeWidth, strokeWidth)
-        }
-    }
-
-    /// Applies the global text style to the selected text element as one undo
-    /// step; the picker is discrete, so there is no drag to coalesce.
-    private func applyTextStyleToSelection() {
-        guard !isSyncing else { return }
-        guard let sel = selection, let doc = document, let i = doc.index(of: sel),
-              let current = doc.elements[i].textStyle, current != textStyle else { return }
-        let style = textStyle
-        perform { $0.elements[i].textStyle = style }
-    }
-
-    /// Applies the global alignment to the selected text element as one undo
-    /// step.
-    private func applyTextAlignmentToSelection() {
-        guard !isSyncing else { return }
-        guard let sel = selection, let doc = document, let i = doc.index(of: sel),
-              let current = doc.elements[i].textAlignment, current != textAlignment else { return }
-        let alignment = textAlignment
-        perform { $0.elements[i].textAlignment = alignment }
-    }
-
-    /// Applies the global bubble shape to the selected callout as one undo
-    /// step; plain text has no shape and is left alone.
-    private func applyCalloutShapeToSelection() {
-        guard !isSyncing else { return }
-        guard let sel = selection, let doc = document, let i = doc.index(of: sel),
-              let current = doc.elements[i].calloutShape, current != calloutShape else { return }
-        let shape = calloutShape
-        perform { $0.elements[i].calloutShape = shape }
-    }
-
-    /// Applies the global loupe shape to the selected loupe as one undo step.
-    private func applyMagnifierShapeToSelection() {
-        guard !isSyncing else { return }
-        guard let sel = selection, let doc = document, let i = doc.index(of: sel),
-              let current = doc.elements[i].magnifierShape, current != magnifierShape else { return }
-        let shape = magnifierShape
-        perform { $0.elements[i].magnifierShape = shape }
-    }
-
-    /// Applies the global loupe zoom to the selected loupe. Undo boundaries
-    /// are the caller's job (the canvas slider wraps drags).
-    private func applyMagnifierZoomToSelection() {
-        applyToSelection(\.magnifierZoom, magnifierZoom)
-    }
-
-    /// Applies the global stamp kind to the selected stamp as one undo step.
-    private func applyStampKindToSelection() {
-        guard !isSyncing else { return }
-        guard let sel = selection, let doc = document, let i = doc.index(of: sel),
-              let current = doc.elements[i].stampKind, current != stampKind else { return }
-        let kind = stampKind
-        perform { $0.elements[i].stampKind = kind }
-    }
-
-    /// Applies the global pen opacity to the selected stroke. Undo boundaries
-    /// are the caller's job (the slider wraps drags in begin/commitInteraction).
-    private func applyPenOpacityToSelection() {
-        applyToSelection(\.opacity, penOpacity)
-    }
-
-    /// Applies the global text outline color to the selected text element as
-    /// one undo step.
-    private func applyTextOutlineColorToSelection() {
-        guard !isSyncing else { return }
-        guard let sel = selection, let doc = document, let i = doc.index(of: sel),
-              let current = doc.elements[i].textOutlineColor, current != textOutlineColor else { return }
-        let color = textOutlineColor
-        perform { $0.elements[i].textOutlineColor = color }
-    }
-
-    /// Applies the global pixelate amount to the selected element. Undo
-    /// boundaries are the caller's job (the slider wraps drags in
-    /// begin/commitInteraction).
-    private func applyPixelateAmountToSelection() {
-        applyToSelection(\.pixelateAmount, pixelateAmount)
     }
 
     /// Applies the global stroke color to the selected element. The color

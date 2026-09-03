@@ -10,7 +10,14 @@ import AnnotationRender
 struct RecoveryStore: Sendable {
     let directory: URL
 
+    /// Under XCTest this is a throwaway directory per test process, so no
+    /// test can ever leave packages in the user's Application Support (which
+    /// the app would reopen as tabs at the next launch).
     static let `default`: RecoveryStore = {
+        if ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil || NSClassFromString("XCTestCase") != nil {
+            return RecoveryStore(directory: FileManager.default.temporaryDirectory
+                .appendingPathComponent("masume-test-recovery-\(ProcessInfo.processInfo.processIdentifier)", isDirectory: true))
+        }
         let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
             ?? FileManager.default.temporaryDirectory
         return RecoveryStore(directory: base.appendingPathComponent("Masume/Recovery", isDirectory: true))
@@ -50,8 +57,15 @@ final class ProjectSession {
     /// Revision last written to `projectURL`; nil until the first save.
     private(set) var lastSavedRevision: Int?
     private(set) var projectURL: URL?
+    /// The user's name for an unsaved document; the tab title and the Save
+    /// As default. Ignored once the document is saved (the file name rules).
+    var workingName: String?
     private(set) var history: [HistoryEntry]
     private(set) var baseImagePNG: Data
+    /// Image layers' pixels, as stored (PNG) and as decoded for drawing.
+    private(set) var assets: [UUID: Data] = [:]
+    private(set) var assetImages: [UUID: CGImage] = [:]
+    private(set) var assetInfos: [AssetInfo] = []
     let createdAt: Date
     let actor: HistoryActor
     /// The last autosave failure, cleared by the next success. The controller
@@ -93,6 +107,10 @@ final class ProjectSession {
         self.actor = actor
         self.recovery = recovery
         self.projectURL = projectURL
+        workingName = contents.manifest.workingName
+        assets = contents.assets
+        assetInfos = contents.manifest.assets
+        assetImages = contents.assets.compactMapValues(ImageLoader.cgImage(from:))
         // A project opened from disk is clean; a recovered one is not (its
         // recovery package may be ahead of the saved project, if any).
         lastSavedRevision = isRecovered ? nil : contents.manifest.revision
@@ -104,9 +122,15 @@ final class ProjectSession {
 
     var recoveryURL: URL { recovery.url(for: id) }
 
-    /// Display name: the project's file name, else "Untitled".
+    /// Display name: the project's file name, else the working name, else
+    /// "Untitled".
     var name: String {
-        projectURL?.deletingPathExtension().lastPathComponent ?? "Untitled"
+        projectURL?.deletingPathExtension().lastPathComponent ?? workingName ?? "Untitled"
+    }
+
+    /// The saved project moved on disk (a rename): follow it.
+    func rebind(to url: URL) {
+        projectURL = url
     }
 
     // MARK: Commits
@@ -114,11 +138,23 @@ final class ProjectSession {
     /// Records a committed change: bumps the revision and appends the history
     /// entry. Returns the entry. The caller autosaves next.
     @discardableResult
-    func record(before: Document, after: Document) -> HistoryEntry {
-        let entry = HistoryEntry.diff(from: before, to: after, actor: actor, revisionBefore: revision)
+    func record(before: Document, after: Document, actor: HistoryActor? = nil, reason: String? = nil) -> HistoryEntry {
+        let entry = HistoryEntry.diff(from: before, to: after, actor: actor ?? self.actor,
+                                      revisionBefore: revision, reason: reason)
         revision = entry.revisionAfter
         history.append(entry)
         return entry
+    }
+
+    /// Adds a pasted image to the asset store and returns its id. Assets are
+    /// immutable and never pruned, so undo and history stay reversible.
+    func registerAsset(png: Data, image: CGImage) -> UUID {
+        let id = UUID()
+        assets[id] = png
+        assetImages[id] = image
+        assetInfos.append(AssetInfo(id: id, fileName: ProjectPackage.assetFileName(for: id),
+                                    sha256: ProjectPackage.sha256Hex(png), width: image.width, height: image.height))
+        return id
     }
 
     /// The base image changed (destructive crop or its undo): remember the
@@ -139,7 +175,9 @@ final class ProjectSession {
                                      sha256: ProjectPackage.sha256Hex(baseImagePNG),
                                      width: size?.width ?? Int(document.canvasSize.width),
                                      height: size?.height ?? Int(document.canvasSize.height)),
+            assets: assetInfos,
             grid: document.grid,
+            workingName: workingName,
             boundProjectPath: url?.path)
     }
 
@@ -155,12 +193,12 @@ final class ProjectSession {
             let manifest = manifest(for: document, boundTo: projectURL)
             if !recoveryWritten || baseImageChanged {
                 try ProjectPackage.create(at: recoveryURL, manifest: manifest, baseImagePNG: baseImagePNG,
-                                          preview: nil, history: history)
+                                          preview: nil, history: history, assets: assets)
                 recoveryWritten = true
                 baseImageChanged = false
             } else {
                 try ProjectPackage.update(at: recoveryURL, manifest: manifest, preview: nil,
-                                          appending: Array(history[historyWritten...]))
+                                          appending: Array(history[historyWritten...]), assets: assets)
             }
             historyWritten = history.count
             autosaveError = nil
@@ -181,10 +219,10 @@ final class ProjectSession {
     }
 
     /// Flattened at most `previewLongSide` on the long side.
-    static func previewPNG(document: Document, baseImage: CGImage?) -> Data? {
+    static func previewPNG(document: Document, baseImage: CGImage?, assets: [UUID: CGImage] = [:]) -> Data? {
         let longSide = max(document.canvasSize.width, document.canvasSize.height)
         let scale = longSide > previewLongSide ? previewLongSide / longSide : 1
-        guard let image = Renderer.flatten(document, baseImage: baseImage, scale: scale) else { return nil }
+        guard let image = Renderer.flatten(document, baseImage: baseImage, scale: scale, assets: assets) else { return nil }
         return Renderer.encode(image, as: .png)
     }
 
@@ -205,7 +243,7 @@ final class ProjectSession {
         let manifest = manifest(for: document, boundTo: nil)
         do {
             try ProjectPackage.create(at: url, manifest: manifest, baseImagePNG: baseImagePNG,
-                                      preview: preview, history: history)
+                                      preview: preview, history: history, assets: assets)
         } catch {
             id = previousID
             throw error

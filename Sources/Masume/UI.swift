@@ -25,7 +25,7 @@ struct ContentView: View {
     var body: some View {
         VStack(spacing: 0) {
             TabBarView(workspace: workspace)
-            CanvasPane(controller: workspace.active)
+            CanvasPane(controller: workspace.active, openInNewTab: { workspace.openDroppedInNewTab($0) })
                 // Fresh view tree per tab: resets CanvasNSView pan/drag state,
                 // the inline text editor, and transient popover @State.
                 .id(workspace.active.id)
@@ -48,8 +48,11 @@ struct TabBarView: View {
                     title: WorkspaceController.title(for: tab),
                     isDirty: tab.isDirty,
                     isActive: tab === workspace.active,
+                    canRename: tab.hasDocument,
                     select: { workspace.activate(tab) },
-                    close: { workspace.close(tab) }
+                    close: { workspace.close(tab) },
+                    closeAll: { workspace.closeAll() },
+                    rename: { workspace.rename(tab, to: $0) }
                 )
                 Rectangle().fill(Color.miroDivider).frame(width: 1)
             }
@@ -71,14 +74,24 @@ struct TabBarView: View {
     }
 }
 
+/// One tab: title with an unsaved dot, a close button on hover, tap to
+/// select, and press-and-hold on the title to rename it in place.
 private struct TabItem: View {
     let title: String
     let isDirty: Bool
     let isActive: Bool
+    let canRename: Bool
     let select: () -> Void
     let close: () -> Void
+    /// Option-click on the close button: every tab, each brought to the
+    /// front for its own Save prompt.
+    let closeAll: () -> Void
+    let rename: (String) -> Void
     @Environment(\.colorScheme) private var scheme
     @State private var hovering = false
+    @State private var editing = false
+    @State private var draft = ""
+    @FocusState private var fieldFocused: Bool
 
     private var backgroundColor: Color {
         if isActive {
@@ -90,19 +103,60 @@ private struct TabItem: View {
         }
     }
 
-    var body: some View {
-        Text(isDirty ? "\u{2022} \(title)" : title)
+    private var label: some View {
+        HStack(spacing: 5) {
+            if isDirty {
+                Circle()
+                    .fill(Color.miroBlue)
+                    .frame(width: 6, height: 6)
+                    .help("Unsaved changes")
+            }
+            Text(title)
+                .lineLimit(1)
+                .truncationMode(.tail)
+        }
+        .font(.miroCaption)
+        .foregroundStyle(isActive ? MiroTheme.textPrimary(scheme) : MiroTheme.textSecondary(scheme))
+    }
+
+    private var editor: some View {
+        TextField("Name", text: $draft)
+            .textFieldStyle(.plain)
             .font(.miroCaption)
-            .lineLimit(1)
-            .truncationMode(.tail)
-            .foregroundStyle(isActive ? MiroTheme.textPrimary(scheme)
-                                      : MiroTheme.textSecondary(scheme))
+            .focused($fieldFocused)
+            .onSubmit { commit() }
+            .onExitCommand { editing = false }
+            .onChange(of: fieldFocused) { _, focused in
+                if !focused { commit() }
+            }
+    }
+
+    private func beginEditing() {
+        guard canRename else { return }
+        draft = title
+        editing = true
+        fieldFocused = true
+    }
+
+    private func commit() {
+        guard editing else { return }
+        editing = false
+        let name = draft.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !name.isEmpty, name != title { rename(name) }
+    }
+
+    var body: some View {
+        Group {
+            if editing { editor } else { label }
+        }
             .padding(.horizontal, 28) // symmetric room for the close button
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(backgroundColor)
             .overlay(alignment: .leading) {
                 if hovering || isActive {
-                    Button(action: close) {
+                    Button {
+                        if NSEvent.modifierFlags.contains(.option) { closeAll() } else { close() }
+                    } label: {
                         Image(systemName: "xmark")
                             .font(.system(size: 9, weight: .bold))
                             .foregroundStyle(MiroTheme.textSecondary(scheme))
@@ -111,13 +165,14 @@ private struct TabItem: View {
                     }
                     .buttonStyle(MiroTileButtonStyle())
                     .padding(.leading, 6)
-                    .help("Close Tab (⌘W)")
+                    .help("Close Tab (\u{2318}W). \u{2325}-click closes all tabs.")
                 }
             }
             .contentShape(.rect)
             .onTapGesture(perform: select)
+            .gesture(LongPressGesture(minimumDuration: 0.4).onEnded { _ in beginEditing() })
             .onHover { hovering = $0 }
-            .help(title)
+            .help(canRename ? "\(title). Press and hold to rename." : title)
     }
 }
 
@@ -125,6 +180,8 @@ private struct TabItem: View {
 /// overlays, all bound to that tab's controller.
 private struct CanvasPane: View {
     var controller: CanvasController
+    /// Option-drop: open the payload in a new tab rather than on this one.
+    var openInNewTab: ([DroppedImage]) -> Void
     @Environment(\.colorScheme) private var scheme
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -151,9 +208,14 @@ private struct CanvasPane: View {
         }
         // Drop lives on the whole pane so it works before an image is loaded
         // (the empty state invites it) as well as over a loaded canvas, where
-        // a drop replaces the image.
+        // a drop adds a layer like paste does. Holding Option opens the drop
+        // in a new tab instead.
         .dropDestination(for: DroppedImage.self) { items, _ in
-            controller.loadDroppedImage(items)
+            if NSEvent.modifierFlags.contains(.option) {
+                openInNewTab(items)
+                return true
+            }
+            return controller.loadDroppedImage(items)
         }
         .overlay(alignment: .leading) {
             if controller.hasDocument {
@@ -273,6 +335,7 @@ struct ToolPalette: View {
     @State private var showsColorPresets = false
     @State private var showsTextStyle = false
     @State private var showsTextLayout = false
+    @State private var showsImageLayer = false
     @State private var showsPenOpacity = false
 
     var body: some View {
@@ -431,6 +494,20 @@ struct ToolPalette: View {
                         }
                     }
                     .padding(12)
+                }
+            }
+
+            if controller.editsImageLayer {
+                Button {
+                    showsImageLayer.toggle()
+                } label: {
+                    tileIcon("photo", tint: MiroTheme.textSecondary(scheme))
+                }
+                .buttonStyle(MiroTileButtonStyle())
+                .help("Image layer: mask, border, shadow")
+                .popover(isPresented: $showsImageLayer, arrowEdge: .trailing) {
+                    ImageLayerPanel(controller: controller)
+                        .padding(12)
                 }
             }
 

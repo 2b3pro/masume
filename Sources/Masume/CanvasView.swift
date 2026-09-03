@@ -34,6 +34,10 @@ final class CanvasNSView: NSView {
     enum Drag {
         case none
         case moving(ElementID, last: CGPoint)
+        /// Option was held on the mouse-down over an element: the first
+        /// movement duplicates it and the drag moves the copy (`moving`).
+        /// A plain Option-click leaves the document alone.
+        case cloning(ElementID, last: CGPoint)
         case handle(ElementID, HandleRole)
         case creating(ElementID, HandleRole)
         case cropping(anchor: CGPoint)
@@ -282,7 +286,7 @@ final class CanvasNSView: NSView {
             if flattened == nil || flattenedKey != displayDoc
                 || flattenedBase !== controller.baseImage || flattenedBounds != exportBounds {
                 flattened = Renderer.flatten(displayDoc, baseImage: controller.baseImage, scale: 1,
-                                            bounds: exportBounds)
+                                            bounds: exportBounds, assets: controller.project?.assetImages ?? [:])
                 flattenedKey = displayDoc
                 flattenedBase = controller.baseImage
                 flattenedBounds = exportBounds
@@ -426,11 +430,11 @@ final class CanvasNSView: NSView {
             penLineAnchor = nil
             switch controller.tool {
             case .select:
-                handlePointerMouseDown(at: p, creationTool: nil, info: info)
+                handlePointerMouseDown(at: p, creationTool: nil, info: info, event: event)
             case .crop:
                 handleCropMouseDown(at: p, viewPoint: viewPoint, info: info)
             default:
-                handlePointerMouseDown(at: p, creationTool: controller.tool, info: info)
+                handlePointerMouseDown(at: p, creationTool: controller.tool, info: info, event: event)
             }
         }
         // Only actual drags freeze the mapping; click paths (text creation,
@@ -443,10 +447,11 @@ final class CanvasNSView: NSView {
     }
 
     /// Shared pointer handling for `select` and creation tools. A handle on the
-    /// current selection resizes; a body hit selects and moves. On empty space
-    /// `select` clears the selection, while a creation tool creates a new element.
-    /// The active tool is never changed.
-    private func handlePointerMouseDown(at p: CGPoint, creationTool: Tool?, info: DisplayInfo) {
+    /// current selection resizes; a body hit selects and moves, or with Option
+    /// held duplicates and moves the copy. On empty space `select` clears the
+    /// selection, while a creation tool creates a new element. The active tool
+    /// is never changed.
+    private func handlePointerMouseDown(at p: CGPoint, creationTool: Tool?, info: DisplayInfo, event: NSEvent) {
         guard let controller, let doc = controller.document else { return }
         switch doc.resolvePointer(at: p, selection: controller.selection,
                                   bodyTolerance: info.modelTolerance, handleTolerance: info.modelTolerance) {
@@ -454,7 +459,7 @@ final class CanvasNSView: NSView {
             drag = .handle(id, role)
         case .body(let id):
             controller.selection = id
-            drag = .moving(id, last: p)
+            drag = event.modifierFlags.contains(.option) ? .cloning(id, last: p) : .moving(id, last: p)
         case .empty:
             guard let tool = creationTool else {
                 controller.selection = nil

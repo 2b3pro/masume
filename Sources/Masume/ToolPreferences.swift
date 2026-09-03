@@ -20,6 +20,9 @@ struct ToolPreferences: Codable, Equatable {
     var calloutShape: CalloutShape = .speech
     var magnifierShape: MagnifierShape = .circle
     var magnifierZoom: CGFloat = MagnifierElement.defaultZoom
+    var imageMask: ImageMask = .rectangle
+    var imageBorder: Bool = false
+    var imageShadow: Bool = true
 
     static let defaultReferenceWidths: [StrokeWidthGroup: CGFloat] = [
         .segment: DefaultStrokeWidth.segmentReferenceWidth,
@@ -51,6 +54,9 @@ struct ToolPreferences: Codable, Equatable {
         magnifierShape = try c.decodeIfPresent(MagnifierShape.self, forKey: .magnifierShape) ?? defaults.magnifierShape
         magnifierZoom = MagnifierElement.clampedZoom(
             try c.decodeIfPresent(CGFloat.self, forKey: .magnifierZoom) ?? defaults.magnifierZoom)
+        imageMask = try c.decodeIfPresent(ImageMask.self, forKey: .imageMask) ?? defaults.imageMask
+        imageBorder = try c.decodeIfPresent(Bool.self, forKey: .imageBorder) ?? defaults.imageBorder
+        imageShadow = try c.decodeIfPresent(Bool.self, forKey: .imageShadow) ?? defaults.imageShadow
     }
 }
 

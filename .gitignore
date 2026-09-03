@@ -11,3 +11,13 @@ build/
 
 # Written into the cwd by the LiveDoc MCP channel watcher, not part of Masume
 channel.log
+
+# MCP server build output and dependencies
+mcp/node_modules/
+mcp/dist/
+
+# Compiler intermediates that a misconfigured build can drop into the root
+/*.d
+/*.dia
+/*.swiftdeps
+/*.swiftmodule

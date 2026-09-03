@@ -30,6 +30,12 @@
     <string>AppIcon</string>
     <key>LSApplicationCategoryType</key>
     <string>public.app-category.graphics-design</string>
+    <key>NSAppleScriptEnabled</key>
+    <true/>
+    <key>OSAScriptingDefinition</key>
+    <string>Masume.sdef</string>
+    <key>NSAppleEventsUsageDescription</key>
+    <string>Masume responds to Apple Events so scripts, the masume command-line tool, and agents can annotate the open document.</string>
     <key>CFBundleDocumentTypes</key>
     <array>
         <dict>

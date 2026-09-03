@@ -4,6 +4,7 @@
 // (opt-in, loopback only, bearer token, Origin checked).
 
 import { readFile, unlink } from "node:fs/promises";
+import { createRequire } from "node:module";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { randomBytes } from "node:crypto";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
@@ -65,7 +66,9 @@ async function cropResult(envelope: Envelope) {
 }
 
 export function createMasumeServer(actor: Actor): McpServer {
-  const server = new McpServer({ name: "masume", version: "0.1.0" });
+  // The version is the package's (dist/src/ sits two levels under it).
+  const { version } = createRequire(import.meta.url)("../../package.json") as { version: string };
+  const server = new McpServer({ name: "masume", version });
   const call = (tool: string) => async (args: Record<string, unknown>) =>
     toolResult(await executeRequest(buildRequest(tool, args, actor)));
 

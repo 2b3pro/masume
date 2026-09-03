@@ -127,6 +127,36 @@ Every mutation carries the document id and expected revision and fails closed on
 and every agent edit lands in the same history and undo stack as yours, attributed and with
 the reason the agent gave.
 
+### Setting up MCP
+
+1. Build the app (`bash scripts/build-app.sh`); the bundle carries the CLI and the server, and
+   needs Node on the Mac (`brew install node`).
+2. Pick a transport. **In-app server** (recommended): click the bolt in the menu bar and
+   choose Start Server, or turn on "Start the server when Masume opens" in Settings ▸ MCP.
+   The menu shows the port and tool count. **Spawned by the host**: nothing to start; the
+   host runs the server on stdio for each session.
+3. Register it with your host. From the bolt menu, Copy Server JSON Config (HTTP with the
+   bearer token) or Copy stdio JSON Config, then paste into the host's MCP settings. For
+   Claude Code:
+
+   ```sh
+   claude mcp add-json masume '<paste the copied JSON's "masume" object here>'
+   ```
+
+   or drop the whole object into `.mcp.json` in a project. Regenerating the token in
+   Settings ▸ MCP invalidates old HTTP configs.
+4. Check: ask the agent to call `masume_guide`. It answers without the app running.
+
+### Working with an agent
+
+Open or paste an image, then ask in plain words: "put a red arrow on the Save button and say
+why", "pixelate the email address", "number the three fields left to right". The agent reads
+the document, looks at the base image by grid range, and edits with grid addresses. Its
+changes appear as it makes them, attributed in the history with the reason it gave, and
+`Cmd+Z` undoes them like your own. The agent gets a guide through the server's instructions
+and the `masume_guide` tool (`mcp/src/guide.ts`): the session shape, the address grammar,
+every element's fields, the error codes, and habits that keep its token use low.
+
 ## Install
 
 Masume is not distributed as a binary; build it from source (below).

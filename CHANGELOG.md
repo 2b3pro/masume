@@ -16,6 +16,9 @@ or surfaces, a patch bump for fixes. Each release is tagged `vX.Y.Z` on `main`.
   from Emoji & Symbols; the choice is remembered and edits a selected emoji stamp. Through
   the command service, stamps of kind `emoji` accept and report `emoji`.
 - Shift while dragging a stamp's tail snaps it to 45° steps.
+- An agent guide: the MCP handshake carries short server instructions and the `masume_guide`
+  tool returns the full guide (session shape, grid grammar, element fields, error codes,
+  token-saving habits). README gains directions for setting up MCP and working with an agent.
 
 ### Fixed
 

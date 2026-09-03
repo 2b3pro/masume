@@ -11,6 +11,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { z } from "zod";
+import { GUIDE, INSTRUCTIONS } from "./guide.js";
 import { buildRequest, type Actor } from "./request.js";
 import { executeRequest, type Envelope } from "./masume.js";
 
@@ -71,10 +72,14 @@ async function cropResult(envelope: Envelope) {
 export function createMasumeServer(actor: Actor): McpServer {
   // The version is the package's (dist/src/ sits two levels under it).
   const { version } = createRequire(import.meta.url)("../../package.json") as { version: string };
-  const server = new McpServer({ name: "masume", version });
+  const server = new McpServer({ name: "masume", version }, { instructions: INSTRUCTIONS });
   const call = (tool: string) => async (args: Record<string, unknown>) =>
     toolResult(await executeRequest(buildRequest(tool, args, actor)));
 
+  server.registerTool("masume_guide", {
+    description: "How to work with Masume: the session shape, grid address grammar, element types and fields, error codes, and token-saving habits. Read once per session; it needs no running app.",
+    inputSchema: {},
+  }, async () => ({ content: [{ type: "text" as const, text: GUIDE }] }));
   server.registerTool("masume_get_active_document", {
     description: "The active document: id, revision, canvas size, grid, crop, selection, dirty state, and counts. Read this first; mutations need its id and revision.",
     inputSchema: docShape,

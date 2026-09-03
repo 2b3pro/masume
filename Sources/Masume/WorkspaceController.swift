@@ -23,30 +23,69 @@ final class WorkspaceController {
     /// which owns the (single) quit confirmation.
     @ObservationIgnored
     private let requestTermination: () -> Void
+    /// Save / Don't Save / Cancel for a dirty saved project, injected like
+    /// `confirmDiscard`. Returning `.save` runs Save before closing.
+    @ObservationIgnored
+    private let confirmSave: (_ name: String) -> SaveChoice
+    @ObservationIgnored
+    private let recoveryStore: RecoveryStore
+
+    enum SaveChoice { case save, discard, cancel }
 
     init(
         confirmDiscard: @escaping (String, String, String) -> Bool = {
             ExportService.confirmDiscard(message: $0, info: $1, confirmTitle: $2)
         },
-        requestTermination: @escaping () -> Void = { NSApp.terminate(nil) }
+        confirmSave: @escaping (String) -> SaveChoice = { ExportService.confirmSave(name: $0) },
+        requestTermination: @escaping () -> Void = { NSApp.terminate(nil) },
+        recoveryStore: RecoveryStore = .default
     ) {
         self.confirmDiscard = confirmDiscard
+        self.confirmSave = confirmSave
         self.requestTermination = requestTermination
-        let first = CanvasController()
-        tabs = [first]
+        self.recoveryStore = recoveryStore
+        // Whatever the last run left in recovery comes back where it was,
+        // unsaved. Packages that no longer read are left for inspection.
+        let recovered: [CanvasController] = recoveryStore.packages().compactMap { url in
+            let controller = CanvasController(recoveryStore: recoveryStore)
+            return (try? controller.adoptRecovery(at: url)) != nil ? controller : nil
+        }
+        let first = recovered.first ?? CanvasController(recoveryStore: recoveryStore)
+        tabs = recovered.isEmpty ? [first] : recovered
         active = first
     }
 
     var openDocumentCount: Int { tabs.count { $0.hasDocument } }
 
     static func title(for controller: CanvasController) -> String {
-        controller.sourceURL?.lastPathComponent ?? "Untitled"
+        controller.documentTitle
     }
 
     func newTab() {
-        let controller = CanvasController()
+        activate(newTabController())
+    }
+
+    /// Appends an empty tab without activating it (project open fills it
+    /// first, then activates).
+    @discardableResult
+    func newTabController() -> CanvasController {
+        let controller = CanvasController(recoveryStore: recoveryStore)
         tabs.append(controller)
-        activate(controller)
+        return controller
+    }
+
+    /// Drops a tab that never got a document (a failed open), never the last.
+    func closeEmpty(_ controller: CanvasController) {
+        guard !controller.hasDocument, tabs.count > 1,
+              let index = tabs.firstIndex(where: { $0 === controller }) else { return }
+        tabs.remove(at: index)
+        if controller === active { active = tabs[min(index, tabs.count - 1)] }
+    }
+
+    /// Recovery packages of every open tab are dropped: called when the app
+    /// quits after the user confirmed, so nothing stale reopens next launch.
+    func discardAllRecovery() {
+        for tab in tabs { tab.discardRecovery() }
     }
 
     func activate(_ controller: CanvasController) {
@@ -69,6 +108,28 @@ final class WorkspaceController {
 
     func closeActiveTab() { close(active) }
 
+    /// Asks before losing work: a dirty saved project offers Save; anything
+    /// else with a document keeps the discard confirmation. Returns true when
+    /// closing may proceed (after saving, if chosen).
+    private func mayClose(_ controller: CanvasController) -> Bool {
+        guard controller.hasDocument else { return true }
+        if let url = controller.project?.projectURL {
+            guard controller.isDirty else { return true }
+            switch confirmSave(controller.documentTitle) {
+            case .cancel: return false
+            case .discard: return true
+            case .save:
+                do { try controller.saveProject(to: url, newIdentity: false) } catch { return false }
+                return true
+            }
+        }
+        return confirmDiscard(
+            "Close this tab?",
+            "Closing will discard the image you are editing. Unsaved annotations will be lost.",
+            "Close Tab"
+        )
+    }
+
     func close(_ controller: CanvasController) {
         guard let index = tabs.firstIndex(where: { $0 === controller }) else { return }
         // Last tab: closing quits. Defer the confirmation to the termination
@@ -77,13 +138,8 @@ final class WorkspaceController {
             requestTermination()
             return
         }
-        if controller.hasDocument {
-            guard confirmDiscard(
-                "Close this tab?",
-                "Closing will discard the image you are editing. Unsaved annotations will be lost.",
-                "Close Tab"
-            ) else { return }
-        }
+        guard mayClose(controller) else { return }
+        controller.discardRecovery()
         tabs.remove(at: index)
         if controller === active {
             // Finder behavior: activate the right neighbor, or the new last

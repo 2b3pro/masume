@@ -37,6 +37,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { true }
 
+    /// Finder double-click, drag onto the Dock icon, `open -a Masume`.
+    func application(_ application: NSApplication, open urls: [URL]) {
+        for url in urls { SaveService.open(url, in: workspace) }
+    }
+
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
         let openCount = workspace.openDocumentCount
         guard openCount > 0 else { return .terminateNow }
@@ -47,7 +52,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             message: "Quit Masume?",
             info: info,
             confirmTitle: "Quit"
-        ) { return .terminateNow }
+        ) {
+            // The user chose to lose the unsaved work; leaving recovery
+            // packages behind would resurrect it on the next launch.
+            workspace.discardAllRecovery()
+            return .terminateNow
+        }
         // Safety net: if a close path ever slipped past the windowShouldClose
         // proxy, the window is already gone — bring it back so cancelling
         // never strands a windowless app.
@@ -212,7 +222,7 @@ struct AppCommands: Commands {
             Button("New Tab") { workspace.newTab() }
                 .keyboardShortcut("t", modifiers: .command)
             Divider()
-            Button("Open Image…") { ExportService.openPanel(workspace.active) }
+            Button("Open…") { SaveService.openPanel(workspace) }
                 .keyboardShortcut("o", modifiers: .command)
             // ⇧⌘V kept as an explicit alias; plain ⌘V is handled by the key
             // monitor in AppDelegate so it still reaches inline text editors.
@@ -226,8 +236,17 @@ struct AppCommands: Commands {
             Button("Close Tab") { workspace.closeActiveTab() }
                 .keyboardShortcut("w", modifiers: .command)
             Divider()
-            Button("Export Image…") { ExportService.exportPanel(workspace.active) }
+            Button("Save") { SaveService.save(workspace.active) }
+                .keyboardShortcut("s", modifiers: .command)
+                .disabled(!workspace.active.hasDocument)
+            Button("Save As…") { SaveService.saveAs(workspace.active) }
+                .keyboardShortcut("s", modifiers: [.command, .shift])
+                .disabled(!workspace.active.hasDocument)
+            Divider()
+            Button("Export Flattened Image…") { ExportService.exportPanel(workspace.active) }
                 .keyboardShortcut("e", modifiers: .command)
+                .disabled(!workspace.active.hasDocument)
+            Button("Create Share-Safe Copy…") { SaveService.createShareSafeCopy(workspace.active) }
                 .disabled(!workspace.active.hasDocument)
             Button("Copy Image to Clipboard") { ExportService.copyToClipboard(workspace.active) }
                 .keyboardShortcut("c", modifiers: [.command, .shift])

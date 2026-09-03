@@ -53,6 +53,16 @@ A PDF page is rasterized at 2× on import; a multi-page PDF shows a page picker 
 - **Navigation:** zoom in and out (`Cmd++` / `Cmd+-`), fit to window (`Cmd+0`), pinch to zoom,
   `Cmd`+scroll wheel to zoom about the pointer, and hold `Space` and drag to pan when zoomed
   in.
+- **Projects:** Save (`Cmd+S`) writes an editable `.masume` package: the original image as
+  PNG, the annotations, and an attributed history of every committed change. Save As
+  (`Cmd+Shift+S`) makes a copy with a new identity. Open (`Cmd+O`) or double-click a
+  package to keep editing. Every committed action is also shadowed into a recovery package
+  under Application Support, so after a crash the app reopens what you had, unsaved and
+  marked with a dot in its tab.
+- **Redaction and sharing:** a project keeps the unredacted original, and the first save of
+  each document says so (with a "Don't show this again" option). To share a pixelated
+  result use **Create Share-Safe Copy…**, which writes only the flattened pixels, or
+  **Export Flattened Image…**.
 - **Output:** export as PNG, JPEG, or lossy WebP (`Cmd+E`); copy to clipboard (`Cmd+Shift+C`);
   drag out as a PNG file.
 - **Tabs:** new tab (`Cmd+T`), close tab (`Cmd+W`), previous and next tab (`Opt+Cmd+←/→`).

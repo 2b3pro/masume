@@ -18,9 +18,13 @@ final class WorkspaceControllerTests: XCTestCase {
             self.confirmAnswer = confirmAnswer
             var recordConfirm: (() -> Bool)!
             var recordTermination: (() -> Void)!
+            // An empty, private recovery store: never the user's real one.
+            let store = RecoveryStore(directory: FileManager.default.temporaryDirectory
+                .appendingPathComponent("masume-ws-\(UUID().uuidString)", isDirectory: true))
             workspace = WorkspaceController(
                 confirmDiscard: { _, _, _ in recordConfirm() },
-                requestTermination: { recordTermination() }
+                requestTermination: { recordTermination() },
+                recoveryStore: store
             )
             recordConfirm = { [unowned self] in
                 confirmCount += 1

@@ -276,11 +276,13 @@ Current-session style memory resets when the application quits. It applies to ne
 
 ## 11. Delivery sequence
 
-### Phase 1: Durable document
+### Phase 1: Durable document (shipped 2026-09-02)
 
 1. Introduce a versioned project-package codec and validation.
 2. Add dirty tracking, Save/Save As/Open, atomic writes, and recovery autosave.
 3. Restore projects across launch and add the redaction disclosure and share-safe export path.
+
+Implementation notes are in `phase-1-durable-document-plan.md`. The base image is stored as PNG; history entries carry the affected elements' before and after objects; recovery packages reopen automatically; the disclosure shows once per document with a global opt-out.
 
 ### Phase 2: Shared spatial language
 

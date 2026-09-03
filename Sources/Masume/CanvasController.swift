@@ -155,9 +155,15 @@ final class CanvasController {
     private var referenceWidths: [StrokeWidthGroup: CGFloat]
     private var referencePixelateAmount: CGFloat
     @ObservationIgnored private let preferencesStore: ToolPreferencesStore
+    @ObservationIgnored let recoveryStore: RecoveryStore
+    /// The document's durable identity, history, and recovery shadow; nil
+    /// until an image is loaded.
+    private(set) var project: ProjectSession?
 
-    init(preferencesStore: ToolPreferencesStore = UserDefaultsToolPreferencesStore()) {
+    init(preferencesStore: ToolPreferencesStore = UserDefaultsToolPreferencesStore(),
+         recoveryStore: RecoveryStore = .default) {
         self.preferencesStore = preferencesStore
+        self.recoveryStore = recoveryStore
         let prefs = preferencesStore.load() ?? ToolPreferences()
         referenceWidths = prefs.referenceWidths
         referencePixelateAmount = prefs.referencePixelateAmount
@@ -217,7 +223,7 @@ final class CanvasController {
             UserDefaults.standard.set(exportBounds.rawValue, forKey: Self.exportBoundsKey)
         }
     }
-    private(set) var sourceURL: URL?
+    var sourceURL: URL?
 
     /// Transient view state — deliberately outside the undo stack.
     var zoomMode: ZoomMode = .fit
@@ -263,80 +269,26 @@ final class CanvasController {
 
     // MARK: - Loading
 
-    func loadImage(at url: URL) {
-        if PDFPageSource.isPDF(url) {
-            guard let source = PDFPageSource(url: url) else {
-                NSSound.beep()
-                return
-            }
-            loadPDF(source)
-            return
-        }
-        guard let image = ImageLoader.cgImage(from: url) else {
-            NSSound.beep()
-            return
-        }
-        load(image: image, sourceURL: url)
-    }
-
-    // MARK: PDF import
-
     /// A multi-page PDF awaiting a page choice; the canvas pane shows the
     /// page picker while this is set.
     var pendingPDF: PDFPageSource?
 
-    /// Imports a one-page PDF straight away; a longer one waits for a page.
-    func loadPDF(_ source: PDFPageSource) {
-        if source.pageCount == 1 {
-            choosePDFPage(1, from: source)
-        } else {
-            pendingPDF = source
-        }
-    }
-
-    /// Rasterizes `page` of `source` (or of the pending PDF) at the import
-    /// scale and makes it the base image. Beeps and keeps the current
-    /// document when the page cannot be rendered.
-    func choosePDFPage(_ page: Int, from source: PDFPageSource? = nil) {
-        guard let source = source ?? pendingPDF else { return }
-        pendingPDF = nil
-        guard let image = source.render(page: page) else {
-            NSSound.beep()
-            return
-        }
-        load(image: image, sourceURL: source.sourceURL)
-    }
-
-    func cancelPDFImport() {
-        pendingPDF = nil
-    }
-
-    func loadImage(_ image: CGImage, sourceURL: URL? = nil) {
-        load(image: image, sourceURL: sourceURL)
-    }
-
-    /// Loads the first readable image among dropped payloads; beeps if none.
-    @discardableResult
-    func loadDroppedImage(_ items: [DroppedImage]) -> Bool {
-        for item in items {
-            if let pdf = item.pdfSource {
-                loadPDF(pdf)
-                return true
-            }
-            guard let image = item.cgImage else { continue }
-            load(image: image, sourceURL: item.sourceURL)
-            return true
-        }
-        NSSound.beep()
-        return false
-    }
-
-    private func load(image: CGImage, sourceURL: URL?) {
+    /// A freshly imported image: a new document with a new project session,
+    /// shadowed into recovery at once.
+    func load(image: CGImage, sourceURL: URL?) {
         let size = CGSize(width: image.width, height: image.height)
-        let ref: ImageRef
-        if let sourceURL { ref = .file(path: sourceURL.path) } else { ref = .pngData(Data()) }
+        let ref: ImageRef = sourceURL.map { .file(path: $0.path) } ?? .pngData(Data())
+        let session = ProjectSession(baseImagePNG: Renderer.encode(image, as: .png) ?? Data(), recovery: recoveryStore)
+        install(image: image, document: Document(baseImage: ref, canvasSize: size), sourceURL: sourceURL, session: session)
+        autosave()
+    }
+
+    /// Makes `document` the open document: resets selection, tool sizing,
+    /// undo, and zoom for the new canvas. Shared by import, open, and recovery.
+    func install(image: CGImage, document: Document, sourceURL: URL?, session: ProjectSession) {
+        let size = document.canvasSize
         baseImage = image
-        document = Document(baseImage: ref, canvasSize: size)
+        self.document = document
         self.sourceURL = sourceURL
         selection = nil
         groupWidths = Self.scaledWidths(referenceWidths, forCanvasSize: size)
@@ -353,6 +305,29 @@ final class CanvasController {
         pendingCommitTask = nil
         interactionSnapshot = nil
         zoomMode = .fit
+        project = session
+    }
+
+    // MARK: - Project commits
+
+    /// The one place a committed change becomes durable: revision, history
+    /// entry, recovery autosave. Every path that registers undo ends here.
+    private func didCommit(before: State, after: Document) {
+        guard let project else { return }
+        if let image = baseImage, before.image !== image, let png = Renderer.encode(image, as: .png) {
+            project.replaceBaseImage(png)
+        }
+        project.record(before: before.document, after: after)
+        autosave()
+    }
+
+    /// Writes the recovery package. A failure is shown in the toast; the
+    /// document is dirty either way, so nothing is reported as saved.
+    func autosave() {
+        guard let project, let document else { return }
+        let base = baseImage
+        project.autosave(document: document) { ProjectSession.previewPNG(document: document, baseImage: base) }
+        if let error = project.autosaveError { flashToast("Recovery autosave failed: \(error)") }
     }
 
     // MARK: - Zoom
@@ -369,24 +344,6 @@ final class CanvasController {
         effectiveZoomScale = scale
     }
 
-    /// Loads an image from the pasteboard, if present. PDF data is imported
-    /// through the page path (2×, page picker) rather than as a blurry
-    /// first-page NSImage.
-    @discardableResult
-    func pasteImage(from pb: NSPasteboard = .general) -> Bool {
-        if let data = pb.data(forType: .pdf), let source = PDFPageSource(data: data) {
-            loadPDF(source)
-            return true
-        }
-        if let objs = pb.readObjects(forClasses: [NSImage.self], options: nil) as? [NSImage],
-           let nsImage = objs.first,
-           let cg = nsImage.cgImage(forProposedRect: nil, context: nil, hints: nil) {
-            load(image: cg, sourceURL: nil)
-            return true
-        }
-        return false
-    }
-
     // MARK: - Undo
 
     /// Capture state at the start of an interaction (e.g. mouseDown).
@@ -399,9 +356,10 @@ final class CanvasController {
     /// Commit an interaction; pushes the pre-state if the document changed.
     func commitInteraction() {
         defer { interactionSnapshot = nil }
-        guard let pre = interactionSnapshot, pre.document != document else { return }
+        guard let pre = interactionSnapshot, let document, pre.document != document else { return }
         undoStack.append(pre)
         redoStack.removeAll()
+        didCommit(before: pre, after: document)
     }
 
     /// One-shot mutation with undo registration.
@@ -414,24 +372,29 @@ final class CanvasController {
         undoStack.append(pre)
         redoStack.removeAll()
         document = doc
+        didCommit(before: pre, after: doc)
     }
 
     func undo() {
         flushPendingCommit()
         guard let pre = undoStack.popLast(), let current = document else { return }
-        redoStack.append(State(document: current, image: baseImage))
+        let now = State(document: current, image: baseImage)
+        redoStack.append(now)
         document = pre.document
         baseImage = pre.image
         clampSelection()
+        didCommit(before: now, after: pre.document)
     }
 
     func redo() {
         flushPendingCommit()
         guard let next = redoStack.popLast(), let current = document else { return }
-        undoStack.append(State(document: current, image: baseImage))
+        let now = State(document: current, image: baseImage)
+        undoStack.append(now)
         document = next.document
         baseImage = next.image
         clampSelection()
+        didCommit(before: now, after: next.document)
     }
 
     private func clampSelection() {
@@ -690,10 +653,12 @@ final class CanvasController {
         let delta = CGVector(dx: -clamped.minX, dy: -clamped.minY)
         for i in newDoc.elements.indices { newDoc.elements[i].translate(by: delta) }
 
-        undoStack.append(State(document: doc, image: base))
+        let pre = State(document: doc, image: base)
+        undoStack.append(pre)
         redoStack.removeAll()
         baseImage = croppedBase
         document = newDoc
+        didCommit(before: pre, after: newDoc)
     }
 
     /// Cancels the pending crop without touching the image.

@@ -34,13 +34,48 @@
     <array>
         <dict>
             <key>CFBundleTypeName</key>
+            <string>Masume Project</string>
+            <key>CFBundleTypeRole</key>
+            <string>Editor</string>
+            <key>LSTypeIsPackage</key>
+            <true/>
+            <key>LSHandlerRank</key>
+            <string>Owner</string>
+            <key>LSItemContentTypes</key>
+            <array>
+                <string>com.2b3pro.masume.project</string>
+            </array>
+        </dict>
+        <dict>
+            <key>CFBundleTypeName</key>
             <string>Image</string>
             <key>CFBundleTypeRole</key>
             <string>Editor</string>
             <key>LSItemContentTypes</key>
             <array>
                 <string>public.image</string>
+                <string>com.adobe.pdf</string>
             </array>
+        </dict>
+    </array>
+    <key>UTExportedTypeDeclarations</key>
+    <array>
+        <dict>
+            <key>UTTypeIdentifier</key>
+            <string>com.2b3pro.masume.project</string>
+            <key>UTTypeDescription</key>
+            <string>Masume Project (editable; contains the original image)</string>
+            <key>UTTypeConformsTo</key>
+            <array>
+                <string>com.apple.package</string>
+            </array>
+            <key>UTTypeTagSpecification</key>
+            <dict>
+                <key>public.filename-extension</key>
+                <array>
+                    <string>masume</string>
+                </array>
+            </dict>
         </dict>
     </array>
 </dict>

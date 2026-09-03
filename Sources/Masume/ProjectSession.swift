@@ -114,8 +114,9 @@ final class ProjectSession {
     /// Records a committed change: bumps the revision and appends the history
     /// entry. Returns the entry. The caller autosaves next.
     @discardableResult
-    func record(before: Document, after: Document) -> HistoryEntry {
-        let entry = HistoryEntry.diff(from: before, to: after, actor: actor, revisionBefore: revision)
+    func record(before: Document, after: Document, actor: HistoryActor? = nil, reason: String? = nil) -> HistoryEntry {
+        let entry = HistoryEntry.diff(from: before, to: after, actor: actor ?? self.actor,
+                                      revisionBefore: revision, reason: reason)
         revision = entry.revisionAfter
         history.append(entry)
         return entry

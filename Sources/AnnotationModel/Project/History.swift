@@ -24,6 +24,8 @@ public struct HistoryEntry: Codable, Equatable, Sendable {
     public var revisionAfter: Int
     /// The history panel's sentence, e.g. "Ian added arrow 4F2A".
     public var summary: String
+    /// The short reason an agent gave for the action, when it gave one.
+    public var reason: String?
     public var affected: [ElementID]
     /// Affected elements as they were, in their old order (deleted and changed).
     public var before: [Annotation]
@@ -39,10 +41,10 @@ public struct HistoryEntry: Codable, Equatable, Sendable {
     public init(id: UUID = UUID(), actor: HistoryActor, timestamp: Date, revisionBefore: Int, revisionAfter: Int,
                 summary: String, affected: [ElementID], before: [Annotation], after: [Annotation],
                 cropChanged: Bool, cropBefore: CGRect?, cropAfter: CGRect?,
-                gridBefore: GridDefinition? = nil, gridAfter: GridDefinition? = nil) {
+                gridBefore: GridDefinition? = nil, gridAfter: GridDefinition? = nil, reason: String? = nil) {
         self.id = id; self.actor = actor; self.timestamp = Dates.rounded(timestamp)
         self.revisionBefore = revisionBefore; self.revisionAfter = revisionAfter
-        self.summary = summary; self.affected = affected; self.before = before; self.after = after
+        self.summary = summary; self.reason = reason; self.affected = affected; self.before = before; self.after = after
         self.cropChanged = cropChanged; self.cropBefore = cropBefore; self.cropAfter = cropAfter
         self.gridBefore = gridBefore; self.gridAfter = gridAfter
     }
@@ -53,7 +55,7 @@ public struct HistoryEntry: Codable, Equatable, Sendable {
     /// redo name the action they reversed).
     public static func diff(from old: Document, to new: Document, actor: HistoryActor, revisionBefore: Int,
                             timestamp: Date = Date(), id: UUID = UUID(),
-                            summaryOverride: String? = nil) -> HistoryEntry {
+                            summaryOverride: String? = nil, reason: String? = nil) -> HistoryEntry {
         let oldIndex = Dictionary(uniqueKeysWithValues: old.elements.enumerated().map { ($1.id, $0) })
         let newIndex = Dictionary(uniqueKeysWithValues: new.elements.enumerated().map { ($1.id, $0) })
         var deleted: [Annotation] = [], changed: [Annotation] = [], added: [Annotation] = []
@@ -82,7 +84,8 @@ public struct HistoryEntry: Codable, Equatable, Sendable {
             cropBefore: cropChanged ? old.crop : nil,
             cropAfter: cropChanged ? new.crop : nil,
             gridBefore: gridChanged ? old.grid : nil,
-            gridAfter: gridChanged ? new.grid : nil)
+            gridAfter: gridChanged ? new.grid : nil,
+            reason: reason)
     }
 }
 

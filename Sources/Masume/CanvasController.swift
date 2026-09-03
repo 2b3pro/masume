@@ -159,6 +159,10 @@ final class CanvasController {
     /// The document's durable identity, history, and recovery shadow; nil
     /// until an image is loaded.
     private(set) var project: ProjectSession?
+    /// Who the next commits are attributed to when something other than the
+    /// human is driving (the command service sets this around each call).
+    /// Nil means the human user.
+    @ObservationIgnored var commitAttribution: (actor: HistoryActor, reason: String?)?
 
     init(preferencesStore: ToolPreferencesStore = UserDefaultsToolPreferencesStore(),
          recoveryStore: RecoveryStore = .default) {
@@ -323,7 +327,8 @@ final class CanvasController {
         if let image = baseImage, before.image !== image, let png = Renderer.encode(image, as: .png) {
             project.replaceBaseImage(png)
         }
-        project.record(before: before.document, after: after)
+        project.record(before: before.document, after: after,
+                       actor: commitAttribution?.actor, reason: commitAttribution?.reason)
         autosave()
     }
 

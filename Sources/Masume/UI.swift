@@ -46,6 +46,7 @@ struct TabBarView: View {
             ForEach(workspace.tabs) { tab in
                 TabItem(
                     title: WorkspaceController.title(for: tab),
+                    isDirty: tab.isDirty,
                     isActive: tab === workspace.active,
                     select: { workspace.activate(tab) },
                     close: { workspace.close(tab) }
@@ -72,6 +73,7 @@ struct TabBarView: View {
 
 private struct TabItem: View {
     let title: String
+    let isDirty: Bool
     let isActive: Bool
     let select: () -> Void
     let close: () -> Void
@@ -89,7 +91,7 @@ private struct TabItem: View {
     }
 
     var body: some View {
-        Text(title)
+        Text(isDirty ? "\u{2022} \(title)" : title)
             .font(.miroCaption)
             .lineLimit(1)
             .truncationMode(.tail)
@@ -231,7 +233,7 @@ struct EmptyState: View {
                 .font(.miroBody)
                 .foregroundStyle(MiroTheme.textSecondary(scheme))
             HStack(spacing: 12) {
-                MiroPrimaryButton(title: "Open Image…") { ExportService.openPanel(controller) }
+                MiroPrimaryButton(title: "Open Image…") { SaveService.openPanel(into: controller) }
                 MiroSecondaryButton(title: "Paste from Clipboard") { ExportService.confirmAndPasteImage(controller) }
             }
         }

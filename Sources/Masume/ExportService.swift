@@ -141,13 +141,19 @@ enum ExportService {
         return controller.pasteImage()
     }
 
-    static func openPanel(_ controller: CanvasController) {
-        let panel = NSOpenPanel()
-        panel.allowedContentTypes = [.image, .pdf]
-        panel.allowsMultipleSelection = false
-        panel.begin { response in
-            guard response == .OK, let url = panel.url else { return }
-            controller.loadImage(at: url)
+    /// Save / Don't Save / Cancel for a dirty saved project.
+    static func confirmSave(name: String) -> WorkspaceController.SaveChoice {
+        let alert = NSAlert()
+        alert.messageText = "Save changes to \u{201C}\(name)\u{201D}?"
+        alert.informativeText = "Your changes will be lost if you don\u{2019}t save them."
+        alert.alertStyle = .warning
+        alert.addButton(withTitle: "Save")
+        alert.addButton(withTitle: "Cancel")
+        alert.addButton(withTitle: "Don\u{2019}t Save")
+        switch alert.runModal() {
+        case .alertFirstButtonReturn: return .save
+        case .alertThirdButtonReturn: return .discard
+        default: return .cancel
         }
     }
 }

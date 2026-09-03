@@ -155,7 +155,7 @@ final class CanvasController {
     private var referenceWidths: [StrokeWidthGroup: CGFloat]
     private var referencePixelateAmount: CGFloat
     @ObservationIgnored private let preferencesStore: ToolPreferencesStore
-    @ObservationIgnored private let recoveryStore: RecoveryStore
+    @ObservationIgnored let recoveryStore: RecoveryStore
     /// The document's durable identity, history, and recovery shadow; nil
     /// until an image is loaded.
     private(set) var project: ProjectSession?
@@ -223,7 +223,7 @@ final class CanvasController {
             UserDefaults.standard.set(exportBounds.rawValue, forKey: Self.exportBoundsKey)
         }
     }
-    private(set) var sourceURL: URL?
+    var sourceURL: URL?
 
     /// Transient view state — deliberately outside the undo stack.
     var zoomMode: ZoomMode = .fit
@@ -269,80 +269,26 @@ final class CanvasController {
 
     // MARK: - Loading
 
-    func loadImage(at url: URL) {
-        if PDFPageSource.isPDF(url) {
-            guard let source = PDFPageSource(url: url) else {
-                NSSound.beep()
-                return
-            }
-            loadPDF(source)
-            return
-        }
-        guard let image = ImageLoader.cgImage(from: url) else {
-            NSSound.beep()
-            return
-        }
-        load(image: image, sourceURL: url)
-    }
-
-    // MARK: PDF import
-
     /// A multi-page PDF awaiting a page choice; the canvas pane shows the
     /// page picker while this is set.
     var pendingPDF: PDFPageSource?
 
-    /// Imports a one-page PDF straight away; a longer one waits for a page.
-    func loadPDF(_ source: PDFPageSource) {
-        if source.pageCount == 1 {
-            choosePDFPage(1, from: source)
-        } else {
-            pendingPDF = source
-        }
-    }
-
-    /// Rasterizes `page` of `source` (or of the pending PDF) at the import
-    /// scale and makes it the base image. Beeps and keeps the current
-    /// document when the page cannot be rendered.
-    func choosePDFPage(_ page: Int, from source: PDFPageSource? = nil) {
-        guard let source = source ?? pendingPDF else { return }
-        pendingPDF = nil
-        guard let image = source.render(page: page) else {
-            NSSound.beep()
-            return
-        }
-        load(image: image, sourceURL: source.sourceURL)
-    }
-
-    func cancelPDFImport() {
-        pendingPDF = nil
-    }
-
-    func loadImage(_ image: CGImage, sourceURL: URL? = nil) {
-        load(image: image, sourceURL: sourceURL)
-    }
-
-    /// Loads the first readable image among dropped payloads; beeps if none.
-    @discardableResult
-    func loadDroppedImage(_ items: [DroppedImage]) -> Bool {
-        for item in items {
-            if let pdf = item.pdfSource {
-                loadPDF(pdf)
-                return true
-            }
-            guard let image = item.cgImage else { continue }
-            load(image: image, sourceURL: item.sourceURL)
-            return true
-        }
-        NSSound.beep()
-        return false
-    }
-
-    private func load(image: CGImage, sourceURL: URL?) {
+    /// A freshly imported image: a new document with a new project session,
+    /// shadowed into recovery at once.
+    func load(image: CGImage, sourceURL: URL?) {
         let size = CGSize(width: image.width, height: image.height)
-        let ref: ImageRef
-        if let sourceURL { ref = .file(path: sourceURL.path) } else { ref = .pngData(Data()) }
+        let ref: ImageRef = sourceURL.map { .file(path: $0.path) } ?? .pngData(Data())
+        let session = ProjectSession(baseImagePNG: Renderer.encode(image, as: .png) ?? Data(), recovery: recoveryStore)
+        install(image: image, document: Document(baseImage: ref, canvasSize: size), sourceURL: sourceURL, session: session)
+        autosave()
+    }
+
+    /// Makes `document` the open document: resets selection, tool sizing,
+    /// undo, and zoom for the new canvas. Shared by import, open, and recovery.
+    func install(image: CGImage, document: Document, sourceURL: URL?, session: ProjectSession) {
+        let size = document.canvasSize
         baseImage = image
-        document = Document(baseImage: ref, canvasSize: size)
+        self.document = document
         self.sourceURL = sourceURL
         selection = nil
         groupWidths = Self.scaledWidths(referenceWidths, forCanvasSize: size)
@@ -359,10 +305,7 @@ final class CanvasController {
         pendingCommitTask = nil
         interactionSnapshot = nil
         zoomMode = .fit
-        // A new document is durable from the first moment: its recovery
-        // package exists before any edit or project path does.
-        project = ProjectSession(baseImagePNG: Renderer.encode(image, as: .png) ?? Data(), recovery: recoveryStore)
-        autosave()
+        project = session
     }
 
     // MARK: - Project commits
@@ -380,7 +323,7 @@ final class CanvasController {
 
     /// Writes the recovery package. A failure is shown in the toast; the
     /// document is dirty either way, so nothing is reported as saved.
-    private func autosave() {
+    func autosave() {
         guard let project, let document else { return }
         let base = baseImage
         project.autosave(document: document) { ProjectSession.previewPNG(document: document, baseImage: base) }
@@ -399,24 +342,6 @@ final class CanvasController {
     func reportEffectiveZoomScale(_ scale: CGFloat) {
         guard scale != effectiveZoomScale else { return }
         effectiveZoomScale = scale
-    }
-
-    /// Loads an image from the pasteboard, if present. PDF data is imported
-    /// through the page path (2×, page picker) rather than as a blurry
-    /// first-page NSImage.
-    @discardableResult
-    func pasteImage(from pb: NSPasteboard = .general) -> Bool {
-        if let data = pb.data(forType: .pdf), let source = PDFPageSource(data: data) {
-            loadPDF(source)
-            return true
-        }
-        if let objs = pb.readObjects(forClasses: [NSImage.self], options: nil) as? [NSImage],
-           let nsImage = objs.first,
-           let cg = nsImage.cgImage(forProposedRect: nil, context: nil, hints: nil) {
-            load(image: cg, sourceURL: nil)
-            return true
-        }
-        return false
     }
 
     // MARK: - Undo

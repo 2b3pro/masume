@@ -27,6 +27,10 @@ struct MasumeApp: App {
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
+    /// The live delegate. SwiftUI's adaptor wraps it, so `NSApp.delegate`
+    /// is not this object; scripting reaches the workspace through here.
+    private(set) static var current: AppDelegate?
+
     let workspace = WorkspaceController()
     private var pasteKeyMonitor: Any?
     private var copyKeyMonitor: Any?
@@ -82,6 +86,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        Self.current = self
         // SwiftUI's bridged Edit ▸ Paste item swallows ⌘V without dispatching
         // paste: down the AppKit responder chain, so intercept the key event
         // before menu dispatch instead.

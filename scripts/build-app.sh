@@ -21,6 +21,7 @@ rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp "$BIN" "$APP/Contents/MacOS/Masume"
 cp "$ROOT/Resources/Info.plist" "$APP/Contents/Info.plist"
+cp "$ROOT/Resources/Masume.sdef" "$APP/Contents/Resources/Masume.sdef"
 printf 'APPL????' > "$APP/Contents/PkgInfo"
 
 ICON_SRC="$ROOT/Resources/AppIcon.icns"

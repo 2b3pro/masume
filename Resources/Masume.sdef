@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE dictionary SYSTEM "file://localhost/System/Library/DTDs/sdef.dtd">
+<!--
+  Masume's scripting surface: read-only document properties and one verb,
+  execute, which takes a JSON command and returns a JSON envelope. Script
+  Editor, JXA, the masume CLI, and (through the CLI) the MCP server all use
+  this same surface. See docs/agent-collaborative-annotation-spec.md, section 6.
+-->
+<dictionary title="Masume Terminology">
+  <suite name="Standard Suite" code="????" description="Common commands.">
+    <command name="quit" code="aevtquit" description="Quit Masume.">
+      <cocoa class="NSQuitCommand"/>
+    </command>
+  </suite>
+  <suite name="Masume Suite" code="Msum" description="The active annotation document and the execute verb.">
+    <class name="application" code="capp" description="Masume.">
+      <cocoa class="NSApplication"/>
+      <property name="active document" code="MsAD" type="document" access="r"
+                description="The document in the front tab, or missing value when that tab is empty.">
+        <cocoa key="activeDocument"/>
+      </property>
+    </class>
+    <class name="document" code="docu" description="An open annotation document.">
+      <cocoa class="ScriptableDocument"/>
+      <property name="id" code="ID  " type="text" access="r" description="The document's identity (a UUID).">
+        <cocoa key="documentID"/>
+      </property>
+      <property name="revision" code="MsRv" type="integer" access="r"
+                description="Climbs by one on every committed change; pass it as expectedRevision.">
+        <cocoa key="revision"/>
+      </property>
+      <property name="name" code="pnam" type="text" access="r" description="The project name, or Untitled.">
+        <cocoa key="name"/>
+      </property>
+      <property name="canvas width" code="MsCW" type="integer" access="r" description="Base image width in pixels.">
+        <cocoa key="canvasWidth"/>
+      </property>
+      <property name="canvas height" code="MsCH" type="integer" access="r" description="Base image height in pixels.">
+        <cocoa key="canvasHeight"/>
+      </property>
+      <property name="grid columns" code="MsGC" type="integer" access="r">
+        <cocoa key="gridColumns"/>
+      </property>
+      <property name="grid rows" code="MsGR" type="integer" access="r">
+        <cocoa key="gridRows"/>
+      </property>
+      <property name="grid version" code="MsGV" type="integer" access="r"
+                description="Changes whenever the grid counts change.">
+        <cocoa key="gridVersion"/>
+      </property>
+      <property name="dirty" code="MsDy" type="boolean" access="r" description="Unsaved changes exist.">
+        <cocoa key="dirty"/>
+      </property>
+      <property name="project path" code="MsPP" type="text" access="r"
+                description="Where the project is saved, or missing value.">
+        <cocoa key="projectPath"/>
+      </property>
+    </class>
+    <command name="execute" code="MsumExec"
+             description="Runs one JSON command against the active document and returns the JSON envelope. Malformed JSON is the only error; everything else comes back inside the envelope.">
+      <cocoa class="ExecuteScriptCommand"/>
+      <direct-parameter type="text" description="The command as a JSON object."/>
+      <result type="text" description="{&quot;ok&quot;: true, &quot;result&quot;: …} or {&quot;ok&quot;: false, &quot;error&quot;: {&quot;code&quot;, &quot;message&quot;}}."/>
+    </command>
+  </suite>
+</dictionary>

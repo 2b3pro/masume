@@ -92,6 +92,23 @@ public struct Document: Codable, Equatable, Sendable {
         crop.flatMap { clampedCrop($0)?.integral }
     }
 
+    public var canvasRect: CGRect { CGRect(origin: .zero, size: canvasSize) }
+
+    /// `rect` as a frame for the image: it may reach outside the canvas
+    /// (that part becomes new white canvas) but must keep some of the image
+    /// and have area; nil otherwise.
+    public func framedRect(_ rect: CGRect) -> CGRect? {
+        let rect = rect.standardized
+        guard rect.width >= 2, rect.height >= 2, rect.intersects(canvasRect) else { return nil }
+        return rect
+    }
+
+    /// The pending frame snapped to whole pixels, or nil when there is none
+    /// or it keeps none of the image.
+    public var integralFrame: CGRect? {
+        crop.flatMap { framedRect($0)?.integral }
+    }
+
     public mutating func add(_ element: Annotation) {
         elements.append(element)
     }

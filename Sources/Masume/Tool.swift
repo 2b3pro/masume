@@ -30,7 +30,7 @@ enum Tool: String, CaseIterable, Identifiable, Codable {
         case .stamp: return "Stamp"
         case .magnifier: return "Magnify"
         case .pixelate: return "Pixelate"
-        case .crop: return "Crop"
+        case .crop: return "Crop / Resize"
         }
     }
 

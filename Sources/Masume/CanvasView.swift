@@ -42,6 +42,9 @@ final class CanvasNSView: NSView {
         case creating(ElementID, HandleRole)
         case cropping(anchor: CGPoint)
         case movingCrop(last: CGPoint)
+        /// One handle of the pending frame (or of the canvas itself, which
+        /// starts a frame) being dragged; `base` is the rect at mouse-down.
+        case resizingCrop(HandleRole, base: CGRect)
         /// Pen straight line: the end point follows the pointer until mouse-up.
         case lining(ElementID, anchor: CGPoint)
         /// Callout creation: the tail tip is fixed at the mouse-down point and
@@ -210,7 +213,13 @@ final class CanvasNSView: NSView {
         let scale: CGFloat
         switch controller?.zoomMode ?? .fit {
         case .fit:
-            scale = ZoomMath.fittedScale(canvas: canvas.size, viewport: bounds.size)
+            // With the grid shown, fit leaves a gutter above and left of the
+            // canvas for the axis labels (non-flipped: above is larger y).
+            let gutter = gridGutter
+            let viewport = CGSize(width: bounds.width - gutter, height: bounds.height - gutter)
+            scale = ZoomMath.fittedScale(canvas: canvas.size, viewport: viewport)
+            let rect = ZoomMath.imageRect(canvas: canvas.size, viewport: viewport, scale: scale, pan: .zero)
+            return DisplayInfo(canvas: canvas, scale: scale, rect: rect.offsetBy(dx: gutter, dy: 0))
         case .percent(let percent):
             scale = percent
         }
@@ -219,6 +228,14 @@ final class CanvasNSView: NSView {
         let rect = ZoomMath.imageRect(canvas: canvas.size, viewport: bounds.size,
                                       scale: scale, pan: panOffset)
         return DisplayInfo(canvas: canvas, scale: scale, rect: rect)
+    }
+
+    /// Room reserved for the grid's axis labels in fit mode; nothing when the
+    /// grid is hidden or the view is too small to spare it.
+    private var gridGutter: CGFloat {
+        guard controller?.showsGrid == true else { return 0 }
+        let gutter = GridOverlayMath.gutter
+        return bounds.width > gutter * 4 && bounds.height > gutter * 4 ? gutter : 0
     }
 
     private var displayScale: CGFloat { displayInfo.scale }
@@ -305,9 +322,12 @@ final class CanvasNSView: NSView {
             ctx.draw(img, in: imageRect)
         }
 
-        // Crop dimming + outline.
+        // Crop dimming + outline; with the crop tool and no frame yet, the
+        // canvas's own handles invite a resize.
         if let crop = doc.crop {
             drawCropOverlay(crop, info: info, imageRect: imageRect, in: ctx)
+        } else if controller.tool == .crop {
+            drawFrameHandles(info.viewRect(forModelRect: doc.canvasRect), in: ctx)
         }
         updateAntsTimer(cropVisible: doc.crop != nil)
 
@@ -339,6 +359,9 @@ final class CanvasNSView: NSView {
         ctx.setFillColor(NSColor.black.withAlphaComponent(0.45).cgColor)
         ctx.fill(imageRect)
         ctx.clear(viewCrop)
+        // Frame outside the image: the new canvas that applying would add.
+        ctx.setFillColor(NSColor.white.cgColor)
+        ctx.fill(viewCrop)
         if let img = flattened {
             ctx.saveGState()
             ctx.clip(to: viewCrop)
@@ -355,10 +378,13 @@ final class CanvasNSView: NSView {
         ctx.stroke(viewCrop)
         ctx.setLineDash(phase: 0, lengths: [])
 
-        // Corner handles so the crop rect is re-editable with the crop tool.
-        for handle in viewCrop.cornerHandles() {
-            drawHandle(at: handle.position,
-                       stroke: NSColor.miroBlue, lineWidth: 1, in: ctx)
+        drawFrameHandles(viewCrop, in: ctx)
+    }
+
+    /// Corner and edge handles so a frame is re-editable with the crop tool.
+    private func drawFrameHandles(_ viewRect: CGRect, in ctx: CGContext) {
+        for handle in viewRect.frameHandles() {
+            drawHandle(at: handle.position, stroke: NSColor.miroBlue, lineWidth: 1, in: ctx)
         }
     }
 

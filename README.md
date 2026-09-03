@@ -60,13 +60,20 @@ A PDF page is rasterized at 2× on import; a multi-page PDF shows a page picker 
   (`Cmd+Shift+Z`), Delete. Stroke color, width, pixel size, opacity, text style, alignment, bubble shape, loupe
   shape and zoom, and stamp glyph are remembered across launches, with sizes scaled to each
   image so they look the same on any screenshot.
+- **Crop and resize:** the Crop tool (`C`) frames the image. Drag a rectangle inside it and
+  Apply to crop; drag the handles that appear on the canvas's corners and sides outward, or
+  rubber-band past an edge, and Apply Resize grows the canvas with white, Skitch-style. A
+  pending frame is re-editable by its eight handles or by typing a width and height, moves
+  when dragged from inside, and is undoable once applied.
 - **Navigation:** zoom in and out (`Cmd++` / `Cmd+-`), fit to window (`Cmd+0`), pinch to zoom,
   `Cmd`+scroll wheel to zoom about the pointer, and hold `Space` and drag to pan when zoomed
   in.
 - **Grid:** a spreadsheet grid over the image, the shared spatial language for people and
   agents: `D5` is a cell, `D5:F14` a range, and `D5.3` a quadrant of a cell (1 to 4 clockwise
   from the upper left, so 3 is lower-right; quadrants nest, as in `D5.3.1`, for finer
-  pointing on large captures). Toggle it with Show Grid (`Cmd+G`); it never
+  pointing on large captures). Column letters sit in gray chips above the canvas and row
+  numbers to its left, like a ruler beside a page; zoomed in past an edge, they ride along
+  the inside of the window. Toggle it with Show Grid (`Cmd+G`); it never
   exports. The default density comes from the image's pixel size alone, so the same image
   always gets the same addresses, and the counts are stored in the project so they never
   drift. Pick a different density from View ▸ Grid Density; that is a document action, so

@@ -12,6 +12,7 @@ final class CommandScrollZoomTests: XCTestCase {
                             space: CGColorSpaceCreateDeviceRGB(),
                             bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
         let controller = CanvasController(preferencesStore: InMemoryToolPreferencesStore())
+        controller.showsGrid = false      // fit mode reserves a label gutter when the grid shows
         controller.loadImage(ctx.makeImage()!)
         controller.zoomMode = zoom
         let view = CanvasNSView(frame: NSRect(x: 0, y: 0, width: 200, height: 200))

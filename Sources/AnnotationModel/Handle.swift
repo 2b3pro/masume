@@ -10,18 +10,24 @@ public enum HandleRole: Codable, Equatable, Hashable, Sendable {
     case topRight
     case bottomLeft
     case bottomRight
-    case left          // mid-left edge (text width)
-    case right         // mid-right edge (text width)
+    case left          // mid-left edge (text width, frame edge)
+    case right         // mid-right edge (text width, frame edge)
+    case top           // mid-top edge (frame edge)
+    case bottom        // mid-bottom edge (frame edge)
 
-    /// The diagonally opposite corner — the anchor when resizing by this
-    /// corner. Nil for non-corner roles.
+    /// The diagonally opposite corner, or the facing edge: the anchor when
+    /// resizing by this handle. Nil for the point roles.
     public var opposite: HandleRole? {
         switch self {
         case .topLeft: return .bottomRight
         case .topRight: return .bottomLeft
         case .bottomLeft: return .topRight
         case .bottomRight: return .topLeft
-        case .move, .start, .end, .left, .right: return nil
+        case .left: return .right
+        case .right: return .left
+        case .top: return .bottom
+        case .bottom: return .top
+        case .move, .start, .end: return nil
         }
     }
 }
@@ -82,6 +88,19 @@ extension CGRect {
         ]
     }
 
+    /// Midpoint handles of the four edges (y-down: top is `minY`).
+    public func edgeHandles() -> [Handle] {
+        [
+            Handle(role: .top, position: CGPoint(x: midX, y: minY)),
+            Handle(role: .right, position: CGPoint(x: maxX, y: midY)),
+            Handle(role: .bottom, position: CGPoint(x: midX, y: maxY)),
+            Handle(role: .left, position: CGPoint(x: minX, y: midY)),
+        ]
+    }
+
+    /// Corners and edge midpoints: what a frame being resized shows.
+    public func frameHandles() -> [Handle] { cornerHandles() + edgeHandles() }
+
     /// Returns a copy of this rect with the given corner moved to `point`.
     public func movingCorner(_ role: HandleRole, to point: CGPoint) -> CGRect {
         let c = corners
@@ -91,6 +110,18 @@ extension CGRect {
         case .bottomLeft:  return CGRect(corner: point, c.topRight)
         case .bottomRight: return CGRect(corner: point, c.topLeft)
         default:           return self
+        }
+    }
+
+    /// A corner moved to `point`, or one edge moved to `point`'s coordinate
+    /// on its axis; the rect stays normalized when a side crosses over.
+    public func movingHandle(_ role: HandleRole, to point: CGPoint) -> CGRect {
+        switch role {
+        case .top:    return CGRect(corner: CGPoint(x: minX, y: point.y), CGPoint(x: maxX, y: maxY))
+        case .bottom: return CGRect(corner: CGPoint(x: minX, y: minY), CGPoint(x: maxX, y: point.y))
+        case .left:   return CGRect(corner: CGPoint(x: point.x, y: minY), CGPoint(x: maxX, y: maxY))
+        case .right:  return CGRect(corner: CGPoint(x: minX, y: minY), CGPoint(x: point.x, y: maxY))
+        default:      return movingCorner(role, to: point)
         }
     }
 }

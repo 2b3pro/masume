@@ -50,6 +50,9 @@ final class ProjectSession {
     /// Revision last written to `projectURL`; nil until the first save.
     private(set) var lastSavedRevision: Int?
     private(set) var projectURL: URL?
+    /// The user's name for an unsaved document; the tab title and the Save
+    /// As default. Ignored once the document is saved (the file name rules).
+    var workingName: String?
     private(set) var history: [HistoryEntry]
     private(set) var baseImagePNG: Data
     let createdAt: Date
@@ -93,6 +96,7 @@ final class ProjectSession {
         self.actor = actor
         self.recovery = recovery
         self.projectURL = projectURL
+        workingName = contents.manifest.workingName
         // A project opened from disk is clean; a recovered one is not (its
         // recovery package may be ahead of the saved project, if any).
         lastSavedRevision = isRecovered ? nil : contents.manifest.revision
@@ -104,9 +108,15 @@ final class ProjectSession {
 
     var recoveryURL: URL { recovery.url(for: id) }
 
-    /// Display name: the project's file name, else "Untitled".
+    /// Display name: the project's file name, else the working name, else
+    /// "Untitled".
     var name: String {
-        projectURL?.deletingPathExtension().lastPathComponent ?? "Untitled"
+        projectURL?.deletingPathExtension().lastPathComponent ?? workingName ?? "Untitled"
+    }
+
+    /// The saved project moved on disk (a rename): follow it.
+    func rebind(to url: URL) {
+        projectURL = url
     }
 
     // MARK: Commits
@@ -141,6 +151,7 @@ final class ProjectSession {
                                      width: size?.width ?? Int(document.canvasSize.width),
                                      height: size?.height ?? Int(document.canvasSize.height)),
             grid: document.grid,
+            workingName: workingName,
             boundProjectPath: url?.path)
     }
 

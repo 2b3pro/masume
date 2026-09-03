@@ -48,8 +48,10 @@ struct TabBarView: View {
                     title: WorkspaceController.title(for: tab),
                     isDirty: tab.isDirty,
                     isActive: tab === workspace.active,
+                    canRename: tab.hasDocument,
                     select: { workspace.activate(tab) },
-                    close: { workspace.close(tab) }
+                    close: { workspace.close(tab) },
+                    rename: { workspace.rename(tab, to: $0) }
                 )
                 Rectangle().fill(Color.miroDivider).frame(width: 1)
             }
@@ -71,14 +73,21 @@ struct TabBarView: View {
     }
 }
 
+/// One tab: title with an unsaved dot, a close button on hover, tap to
+/// select, and press-and-hold on the title to rename it in place.
 private struct TabItem: View {
     let title: String
     let isDirty: Bool
     let isActive: Bool
+    let canRename: Bool
     let select: () -> Void
     let close: () -> Void
+    let rename: (String) -> Void
     @Environment(\.colorScheme) private var scheme
     @State private var hovering = false
+    @State private var editing = false
+    @State private var draft = ""
+    @FocusState private var fieldFocused: Bool
 
     private var backgroundColor: Color {
         if isActive {
@@ -90,13 +99,52 @@ private struct TabItem: View {
         }
     }
 
-    var body: some View {
-        Text(isDirty ? "\u{2022} \(title)" : title)
+    private var label: some View {
+        HStack(spacing: 5) {
+            if isDirty {
+                Circle()
+                    .fill(Color.miroBlue)
+                    .frame(width: 6, height: 6)
+                    .help("Unsaved changes")
+            }
+            Text(title)
+                .lineLimit(1)
+                .truncationMode(.tail)
+        }
+        .font(.miroCaption)
+        .foregroundStyle(isActive ? MiroTheme.textPrimary(scheme) : MiroTheme.textSecondary(scheme))
+    }
+
+    private var editor: some View {
+        TextField("Name", text: $draft)
+            .textFieldStyle(.plain)
             .font(.miroCaption)
-            .lineLimit(1)
-            .truncationMode(.tail)
-            .foregroundStyle(isActive ? MiroTheme.textPrimary(scheme)
-                                      : MiroTheme.textSecondary(scheme))
+            .focused($fieldFocused)
+            .onSubmit { commit() }
+            .onExitCommand { editing = false }
+            .onChange(of: fieldFocused) { _, focused in
+                if !focused { commit() }
+            }
+    }
+
+    private func beginEditing() {
+        guard canRename else { return }
+        draft = title
+        editing = true
+        fieldFocused = true
+    }
+
+    private func commit() {
+        guard editing else { return }
+        editing = false
+        let name = draft.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !name.isEmpty, name != title { rename(name) }
+    }
+
+    var body: some View {
+        Group {
+            if editing { editor } else { label }
+        }
             .padding(.horizontal, 28) // symmetric room for the close button
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(backgroundColor)
@@ -116,8 +164,9 @@ private struct TabItem: View {
             }
             .contentShape(.rect)
             .onTapGesture(perform: select)
+            .gesture(LongPressGesture(minimumDuration: 0.4).onEnded { _ in beginEditing() })
             .onHover { hovering = $0 }
-            .help(title)
+            .help(canRename ? "\(title). Press and hold to rename." : title)
     }
 }
 

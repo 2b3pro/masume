@@ -108,6 +108,17 @@ final class WorkspaceController {
 
     func closeActiveTab() { close(active) }
 
+    /// Inline tab rename. Failures (a sibling with that name, an empty name)
+    /// are shown; the tab keeps its title.
+    func rename(_ controller: CanvasController, to name: String) {
+        guard controller.hasDocument else { return }
+        do {
+            try controller.renameDocument(to: name)
+        } catch {
+            NSAlert(error: error).runModal()
+        }
+    }
+
     /// Asks before losing work: a dirty saved project offers Save; anything
     /// else with a document keeps the discard confirmation. Returns true when
     /// closing may proceed (after saving, if chosen).

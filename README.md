@@ -59,6 +59,9 @@ A PDF page is rasterized at 2× on import; a multi-page PDF shows a page picker 
   always gets the same addresses, and the counts are stored in the project so they never
   drift. Pick a different density from View ▸ Grid Density; that is a document action, so
   it is undoable and recorded.
+- **Tabs and names:** a tab says Untitled until you name it. Press and hold the tab title to
+  rename in place; for a saved project that renames the package on disk. A dot on the tab
+  means unsaved changes.
 - **Projects:** Save (`Cmd+S`) writes an editable `.masume` package: the original image as
   PNG, the annotations, and an attributed history of every committed change. Save As
   (`Cmd+Shift+S`) makes a copy with a new identity. Open (`Cmd+O`) or double-click a

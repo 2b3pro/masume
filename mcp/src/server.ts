@@ -38,7 +38,9 @@ const elementInput = z.object({
   width: z.number().optional(), opacity: z.number().optional(),
   text: z.string().optional(), fontSize: z.number().optional(), bold: z.boolean().optional(),
   alignment: z.enum(["left", "center", "right"]).optional(), style: z.enum(["shadow", "outline", "plain"]).optional(),
-  outlineColor: z.string().optional(), shape: z.string().optional(), kind: z.string().optional(),
+  outlineColor: z.string().optional(), shape: z.string().optional(),
+  kind: z.string().optional().describe("Stamp glyph: check, cross, exclaim, question, heart, number, or letter. number and letter show `ordinal` (1 = \"1\" or \"A\"), defaulting to one past the highest of that kind."),
+  ordinal: z.number().int().optional().describe("The count a number or letter stamp shows, 1 to 999."),
   zoom: z.number().optional(), amount: z.number().optional(), radius: z.number().optional(),
   pointerAngle: z.number().optional(),
 }).passthrough();

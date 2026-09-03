@@ -488,7 +488,8 @@ final class CanvasNSView: NSView {
         default:
             // Model-space drags use the mapping frozen at mouse-down.
             let info = dragDisplayInfo ?? displayInfo
-            dragModel(to: info.viewToModel(viewPoint), controller: controller)
+            dragModel(to: info.viewToModel(viewPoint), controller: controller,
+                      snapping: event.modifierFlags.contains(.shift))
         }
         refresh()
     }
@@ -613,23 +614,47 @@ final class CanvasNSView: NSView {
             controller.deleteSelection()
             refresh()
         case 36, 76: // return / keypad enter — apply pending crop
-            if controller.document?.crop != nil {
-                controller.applyCrop()
-                refresh()
-            } else {
-                super.keyDown(with: event)
-            }
-        case 53: // escape — cancel pending crop or line anchor, else clear selection
-            if controller.document?.crop != nil {
-                controller.cancelCrop()
-            } else if penLineAnchor != nil {
-                penLineAnchor = nil
-            } else {
-                controller.selection = nil
-            }
-            refresh()
+            consume(controller.applyPendingCrop(), else: event)
+        case 48: // tab — a selected flag switches between digits and letters
+            consume(controller.toggleSelectedStampLettering(), else: event)
+        case 53: // escape
+            handleEscape(controller)
         default:
-            super.keyDown(with: event)
+            consume(stepStamp(controller, event), else: event)
+        }
+    }
+
+    /// Redraws when a key did something; otherwise lets the key travel on.
+    private func consume(_ handled: Bool, else event: NSEvent) {
+        if handled { refresh() } else { super.keyDown(with: event) }
+    }
+
+    /// Cancels a pending crop or line anchor, else clears the selection.
+    private func handleEscape(_ controller: CanvasController) {
+        if controller.document?.crop != nil {
+            controller.cancelCrop()
+        } else if penLineAnchor != nil {
+            penLineAnchor = nil
+        } else {
+            controller.selection = nil
+        }
+        refresh()
+    }
+
+    /// A selected numbered stamp counts up and down from an unmodified
+    /// `+` or `-`; true when the key was consumed.
+    private func stepStamp(_ controller: CanvasController, _ event: NSEvent) -> Bool {
+        guard event.modifierFlags.isDisjoint(with: [.command, .control, .option]),
+              let delta = Self.stampStep(for: event.charactersIgnoringModifiers) else { return false }
+        return controller.stepSelectedStamp(by: delta)
+    }
+
+    /// `+` (or `=`, its unshifted key) counts up; `-` counts down.
+    static func stampStep(for characters: String?) -> Int? {
+        switch characters {
+        case "+", "=": return 1
+        case "-", "_": return -1
+        default: return nil
         }
     }
 

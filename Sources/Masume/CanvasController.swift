@@ -533,6 +533,14 @@ final class CanvasController {
     /// Destructively applies the pending crop: trims the base image, shifts
     /// elements into the new origin, and shrinks the canvas. Undoable; the
     /// crop stays non-destructive (re-editable) until this is called.
+    /// Return key: applies a pending crop; false when there is none.
+    @discardableResult
+    func applyPendingCrop() -> Bool {
+        guard document?.crop != nil else { return false }
+        applyCrop()
+        return true
+    }
+
     func applyCrop() {
         guard let doc = document, let base = baseImage,
               let clamped = doc.integralCrop,

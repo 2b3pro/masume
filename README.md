@@ -1,5 +1,7 @@
 # Masume
 
+![Masume — one human, one agent, one grid](docs/masume-hero.png)
+
 Masume is a native **Apple Silicon (arm64)** annotation workspace for macOS, written in Swift
 (SwiftUI shell + AppKit canvas, Core Graphics / Core Image rendering). One human and one agent
 mark up the same image: the human through a Skitch-like interface, the agent through MCP, the
@@ -32,9 +34,13 @@ A PDF page is rasterized at 2× on import; a multi-page PDF shows a page picker 
   re-aim it; a tip inside the bubble hides the tail. Pick speech or thought from the row
   beside the Callout tool. A plain text box becomes a callout (and back) from the **Bubble**
   row in the alignment control.
-- **Stamps:** check, cross, exclamation, question, and heart as Skitch-style pins. Click to
-  place; drag while placing to aim the tail; drag the tail later to re-aim; drag the disk edge
-  to resize. Pick the glyph from the row that appears beside the Stamp tool.
+- **Stamps:** check, cross, exclamation, question, and heart as Skitch-style pins, plus
+  numbered (`#`) and lettered (`A`) flags that count up as you place them: the first is 1
+  or A, the next is one past the highest on the canvas. With a flag selected, `+` and `-`
+  change its count, and `Tab` (or the other flag kind in the row) switches it between digits
+  and letters without losing its place. Click to place; drag while placing to aim the tail,
+  holding `Shift` to snap it to 45°; drag the tail later to re-aim; drag the disk edge to
+  resize. Pick the glyph from the row that appears beside the Stamp tool.
 - **Magnifier:** a loupe that shows the image under it enlarged. Press where the loupe should
   center and drag outward to size it (a plain click gives a default size); corner handles
   reshape it afterwards, so a circle can become an oval. Drag the slider under a selected

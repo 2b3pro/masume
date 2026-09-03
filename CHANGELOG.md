@@ -4,6 +4,16 @@ All notable changes to Masume. The format follows [Keep a Changelog](https://kee
 and the project uses semantic versioning while pre-1.0: a minor bump for new tools, formats,
 or surfaces, a patch bump for fixes. Each release is tagged `vX.Y.Z` on `main`.
 
+## [Unreleased]
+
+### Added
+
+- Numbered and lettered stamps: `#` flags count 1, 2, 3 and `A` flags A, B, C, each new one
+  taking the count past the highest of its kind. With one selected, `+` and `-` change the
+  count and `Tab` (or the stamp row) switches between digits and letters. Through the command service,
+  stamps of kind `number` or `letter` accept and report `ordinal` and report `label`.
+- Shift while dragging a stamp's tail snaps it to 45° steps.
+
 ## [0.3.0] - 2026-09-02
 
 The release where a person and an agent share the document: an editable project format, a
@@ -77,6 +87,7 @@ grid as the common spatial language, and three ways in for automation.
 The Skitch-look fork as inherited from [2b3pro/kakico](https://github.com/2b3pro/kakico):
 drop shadows, text styles, stamps, pen and highlighter, and remembered tool state.
 
+[Unreleased]: https://github.com/2b3pro/masume/compare/v0.3.0...HEAD
 [0.3.0]: https://github.com/2b3pro/masume/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/2b3pro/masume/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/2b3pro/masume/releases/tag/v0.1.0

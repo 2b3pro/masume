@@ -134,6 +134,8 @@ extension StampKind {
         case .exclaim: return "Exclamation"
         case .question: return "Question"
         case .heart: return "Heart"
+        case .number: return "Number"
+        case .letter: return "Letter"
         }
     }
 
@@ -145,6 +147,8 @@ extension StampKind {
         case .exclaim: return "exclamationmark.circle.fill"
         case .question: return "questionmark.circle.fill"
         case .heart: return "heart.circle.fill"
+        case .number: return "number.circle.fill"
+        case .letter: return "a.circle.fill"
         }
     }
 }

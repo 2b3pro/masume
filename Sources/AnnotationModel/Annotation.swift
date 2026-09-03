@@ -81,6 +81,12 @@ public enum Annotation: Codable, Equatable, Sendable, Identifiable {
 
     /// Stamp glyph of a stamp element; nil for other kinds. Setting is a
     /// no-op for those kinds and for nil.
+    /// The count of a numbered or lettered stamp; nil for anything else.
+    public var stampOrdinal: Int? {
+        if case .stamp(let e) = self, e.kind.isOrdinal { return e.ordinal }
+        return nil
+    }
+
     public var stampKind: StampKind? {
         get {
             guard case .stamp(let e) = self else { return nil }

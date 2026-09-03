@@ -49,6 +49,8 @@ enum StampPaths {
             p.addArc(center: pt(0.74, 0.28), radius: 0.24 * w, startAngle: .pi, endAngle: 0, clockwise: false)
             p.addCurve(to: pt(0.50, 0.90), control1: pt(0.98, 0.50), control2: pt(0.80, 0.70))
             p.closeSubpath()
+        case .number, .letter:
+            break   // drawn as text by the renderer, not as a path
         }
         return p
     }

@@ -144,7 +144,41 @@ extension CanvasController {
         guard let sel = selection, let doc = document, let i = doc.index(of: sel),
               let current = doc.elements[i].stampKind, current != stampKind else { return }
         let kind = stampKind
-        perform { $0.elements[i].stampKind = kind }
+        // A glyph stamp that becomes a counted one joins the sequence at
+        // the end; a counted stamp switching between digits and letters
+        // keeps its place.
+        let ordinal = current.isOrdinal ? nil : doc.nextStampOrdinal(for: kind)
+        perform { document in
+            document.elements[i].stampKind = kind
+            if let ordinal, case .stamp(var e) = document.elements[i] {
+                e.ordinal = ordinal
+                document.elements[i] = .stamp(e)
+            }
+        }
+    }
+
+    /// Switches the selected flag between digits and letters, keeping its
+    /// count. Goes through `stampKind` so the palette follows. False when
+    /// the selection is not a flag.
+    @discardableResult
+    func toggleSelectedStampLettering() -> Bool {
+        guard let sel = selection, let doc = document, let i = doc.index(of: sel),
+              let kind = doc.elements[i].stampKind, kind.isOrdinal else { return false }
+        stampKind = kind == .number ? .letter : .number
+        return true
+    }
+
+    /// Counts the selected numbered or lettered stamp up or down as one
+    /// undo step. False when the selection is not such a stamp or the count
+    /// is already at its limit.
+    @discardableResult
+    func stepSelectedStamp(by delta: Int) -> Bool {
+        guard let sel = selection, let doc = document, let i = doc.index(of: sel),
+              case .stamp(var e) = doc.elements[i], e.kind.isOrdinal else { return false }
+        e.step(by: delta)
+        guard e.ordinal != (doc.elements[i].stampOrdinal ?? e.ordinal) else { return false }
+        perform { $0.elements[i] = .stamp(e) }
+        return true
     }
 
     /// Applies the global pen opacity to the selected stroke. Undo boundaries

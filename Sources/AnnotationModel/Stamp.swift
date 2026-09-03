@@ -1,9 +1,13 @@
 import Foundation
 import CoreGraphics
 
-/// The five Skitch stamp glyphs.
+/// The five Skitch stamp glyphs, plus two that carry a count: `number`
+/// shows the stamp's ordinal as digits, `letter` as A, B, C (then AA).
 public enum StampKind: String, Codable, Equatable, Sendable, CaseIterable {
-    case check, cross, exclaim, question, heart
+    case check, cross, exclaim, question, heart, number, letter
+
+    /// Whether the stamp shows its `ordinal` rather than a fixed glyph.
+    public var isOrdinal: Bool { self == .number || self == .letter }
 }
 
 /// A Skitch-style icon stamp: a colored disk with a white glyph and a
@@ -25,6 +29,11 @@ public struct StampElement: Codable, Equatable, Sendable, AnnotationGeometry {
         DefaultSizeScale.scaledDefault(reference: referenceRadius, clampedTo: radiusRange, forCanvasSize: size)
     }
 
+    /// What a numbered or lettered stamp may count to.
+    public static let ordinalRange = 1...999
+    /// Shift-drag snaps the tail to multiples of this.
+    public static let snapAngle: CGFloat = .pi / 4
+
     public var id: ElementID
     public var center: CGPoint
     public var radius: CGFloat
@@ -32,11 +41,52 @@ public struct StampElement: Codable, Equatable, Sendable, AnnotationGeometry {
     public var color: RGBAColor
     /// Tail direction in radians, model space (y-down). Defaults to pointing down.
     public var pointerAngle: CGFloat
+    /// The count a `number` or `letter` stamp shows, from 1. Kept through
+    /// kind changes so a stamp can switch between digits and letters.
+    public var ordinal: Int
 
     public init(id: ElementID = UUID(), center: CGPoint, radius: CGFloat = StampElement.referenceRadius,
-                kind: StampKind = .check, color: RGBAColor = .red, pointerAngle: CGFloat = .pi / 2) {
+                kind: StampKind = .check, color: RGBAColor = .red, pointerAngle: CGFloat = .pi / 2,
+                ordinal: Int = 1) {
         self.id = id; self.center = center; self.radius = radius
         self.kind = kind; self.color = color; self.pointerAngle = pointerAngle
+        self.ordinal = ordinal
+    }
+
+    private enum CodingKeys: String, CodingKey { case id, center, radius, kind, color, pointerAngle, ordinal }
+
+    /// `ordinal` is absent in projects saved before numbered stamps.
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(ElementID.self, forKey: .id)
+        center = try c.decode(CGPoint.self, forKey: .center)
+        radius = try c.decode(CGFloat.self, forKey: .radius)
+        kind = try c.decode(StampKind.self, forKey: .kind)
+        color = try c.decode(RGBAColor.self, forKey: .color)
+        pointerAngle = try c.decode(CGFloat.self, forKey: .pointerAngle)
+        ordinal = try c.decodeIfPresent(Int.self, forKey: .ordinal) ?? 1
+    }
+
+    /// The text a `number` or `letter` stamp shows; nil for glyph stamps.
+    /// Letters run A to Z then AA, like grid columns.
+    public var label: String? {
+        switch kind {
+        case .number: return String(ordinal)
+        case .letter: return GridCell.columnName(ordinal - 1)
+        default: return nil
+        }
+    }
+
+    /// Moves the count by `delta`, staying within `ordinalRange`.
+    public mutating func step(by delta: Int) {
+        ordinal = min(Self.ordinalRange.upperBound, max(Self.ordinalRange.lowerBound, ordinal + delta))
+    }
+
+    /// Aims the tail at `point`; with `snapping`, to the nearest 45°.
+    public mutating func aimTail(at point: CGPoint, snapping: Bool) {
+        guard GeometryMath.distance(from: point, to: center) >= Self.tailDeadZone * radius else { return }
+        let angle = atan2(point.y - center.y, point.x - center.x)
+        pointerAngle = snapping ? (angle / Self.snapAngle).rounded() * Self.snapAngle : angle
     }
 
     /// Where the tail ends.
@@ -77,8 +127,7 @@ public struct StampElement: Codable, Equatable, Sendable, AnnotationGeometry {
         case .end:
             // Inside the dead zone the direction is noise: a plain click that
             // wobbles a pixel or two must not swing the tail.
-            guard GeometryMath.distance(from: point, to: center) >= Self.tailDeadZone * radius else { return }
-            pointerAngle = atan2(point.y - center.y, point.x - center.x)
+            aimTail(at: point, snapping: false)
         case .topRight:
             radius = min(Self.radiusRange.upperBound,
                          max(Self.radiusRange.lowerBound, GeometryMath.distance(from: point, to: center)))
@@ -89,5 +138,18 @@ public struct StampElement: Codable, Equatable, Sendable, AnnotationGeometry {
 
     public mutating func translate(by delta: CGVector) {
         center.x += delta.dx; center.y += delta.dy
+    }
+}
+
+extension Document {
+    /// The count the next `number` or `letter` stamp gets: one past the
+    /// highest of its kind, so a new stamp never repeats a label that is
+    /// still on the canvas; 1 when there are none.
+    public func nextStampOrdinal(for kind: StampKind) -> Int {
+        let highest = elements.compactMap { element -> Int? in
+            guard case .stamp(let e) = element, e.kind == kind else { return nil }
+            return e.ordinal
+        }.max() ?? 0
+        return min(StampElement.ordinalRange.upperBound, highest + 1)
     }
 }

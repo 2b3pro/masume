@@ -34,6 +34,29 @@ final class CommandServiceTests: XCTestCase {
         try? FileManager.default.removeItem(at: scratch)
     }
 
+    // MARK: Numbered stamps
+
+    func testNumberedStampsCountUpAndTakeAnOrdinal() {
+        let first = result(run("create_element", params: ["type": "stamp", "kind": "number", "at": "B2"]))
+        XCTAssertEqual((first["element"] as? [String: Any])?["label"] as? String, "1")
+        let second = result(run("create_element", params: ["type": "stamp", "kind": "letter", "at": "C2"]))
+        XCTAssertEqual((second["element"] as? [String: Any])?["label"] as? String, "A", "letters count on their own")
+        let third = result(run("create_element", params: ["type": "stamp", "kind": "number", "at": "D2", "ordinal": 7]))
+        let thirdElement = third["element"] as? [String: Any]
+        XCTAssertEqual(thirdElement?["label"] as? String, "7")
+        XCTAssertEqual(thirdElement?["ordinal"] as? Int, 7)
+        let fourth = result(run("create_element", params: ["type": "stamp", "kind": "number", "at": "E2"]))
+        XCTAssertEqual((fourth["element"] as? [String: Any])?["label"] as? String, "8", "one past the highest")
+        let id = thirdElement?["id"] as? String ?? ""
+        let updated = result(run("update_element", params: ["id": id, "kind": "letter", "ordinal": 28]))
+        XCTAssertEqual((updated["element"] as? [String: Any])?["label"] as? String, "AB")
+        XCTAssertEqual(errorCode(run("update_element", params: ["id": id, "ordinal": 0])), "invalid_argument")
+        XCTAssertEqual(errorCode(run("create_element", params: ["type": "stamp", "kind": "number", "at": "F2", "ordinal": 1000])),
+                       "invalid_argument")
+        let plain = result(run("create_element", params: ["type": "stamp", "kind": "heart", "at": "G2"]))
+        XCTAssertNil((plain["element"] as? [String: Any])?["label"], "glyph stamps report no label")
+    }
+
     // MARK: Helpers
 
     private var docID: String { controller.project!.id.uuidString }

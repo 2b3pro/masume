@@ -242,6 +242,37 @@ final class AnnotationRenderTests: XCTestCase {
         XCTAssertGreaterThan(min(halo.r, halo.g, halo.b), 180, "white halo outside the disk on black")
     }
 
+    /// A numbered stamp shows its count as white text on the disk: the
+    /// stroke of a "1" crosses the disk center, and a lettered "A" leaves
+    /// the exact center colored (the crossbar sits low) but paints white
+    /// on the legs beside it.
+    func testNumberedAndLetteredStampsDrawTheirCountInWhite() {
+        let base = solidImage(CGSize(width: 200, height: 200), color: (0, 0, 0))
+        var doc = Document(baseImage: .pngData(Data()), canvasSize: CGSize(width: 200, height: 200))
+        doc.add(.stamp(StampElement(center: CGPoint(x: 100, y: 80), radius: 40, kind: .number, color: .red, ordinal: 1)))
+        let one = Renderer.flatten(doc, baseImage: base, scale: 1)!
+        let center = samplePixel(one, x: 100, y: 80)
+        XCTAssertGreaterThan(min(center.r, center.g, center.b), 200, "the 1's stem is white at the disk center")
+        let beside = samplePixel(one, x: 100 + 22, y: 80)
+        XCTAssertGreaterThan(beside.r, 180); XCTAssertLessThan(beside.g, 90)
+
+        doc.elements[0].stampKind = .letter
+        let a = Renderer.flatten(doc, baseImage: base, scale: 1)!
+        // Inside the white ring (at 0.72r) only, so the ring itself is not counted.
+        func whitePixels(_ image: CGImage) -> [(Int, Int)] {
+            (76...124).flatMap { x in (56...104).compactMap { y in
+                guard hypot(Double(x - 100), Double(y - 80)) < 24 else { return nil }
+                let p = samplePixel(image, x: x, y: y)
+                return min(p.r, p.g, p.b) > 200 ? (x, y) : nil
+            } }
+        }
+        let whiteInA = whitePixels(a), whiteInOne = whitePixels(one)
+        XCTAssertGreaterThan(whiteInA.count, 200, "the A paints a good deal of white inside the disk")
+        XCTAssertGreaterThan(whiteInA.count, whiteInOne.count, "two legs and a bar cover more than one stem")
+        XCTAssertTrue(whiteInA.contains { $0.0 < 90 && $0.1 > 90 }, "the A's left leg reaches the lower left")
+        XCTAssertFalse(whiteInOne.contains { $0.0 < 88 && $0.1 > 90 }, "the 1 has nothing there")
+    }
+
     func testStampGlyphIsWhiteAtItsCenterForBarGlyphs() {
         let base = solidImage(CGSize(width: 200, height: 200), color: (0, 0, 0))
         // The cross and exclaim glyphs both cover the disk center.

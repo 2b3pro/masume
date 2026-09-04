@@ -238,7 +238,8 @@ public enum Renderer {
     /// the CTM's scale; the shadow then matches at every export scale and
     /// on-screen zoom. The body draws inside a transparency layer so a
     /// fill-plus-stroke shape casts one shadow, not two overlapping ones.
-    static func withShadow(forStrokeWidth width: CGFloat, in ctx: CGContext, _ body: () -> Void) {
+    static func withShadow(forStrokeWidth width: CGFloat, enabled: Bool = true, in ctx: CGContext, _ body: () -> Void) {
+        guard enabled else { body(); return }
         let ctm = ctx.ctm
         let deviceScale = sqrt(abs(ctm.a * ctm.d - ctm.b * ctm.c))
         let drop = max(1.5, width * 0.35) * deviceScale
@@ -255,7 +256,7 @@ public enum Renderer {
     }
 
     private static func drawLine(_ e: SegmentElement, in ctx: CGContext) {
-        withShadow(forStrokeWidth: e.width, in: ctx) {
+        withShadow(forStrokeWidth: e.width, enabled: e.shadow ?? true, in: ctx) {
             setStroke(ctx, e.color, e.width)
             ctx.beginPath()
             ctx.move(to: e.start)
@@ -268,7 +269,7 @@ public enum Renderer {
         // Skitch-style arrow: one filled polygon (tapered shaft + barbed head).
         let outline = e.arrowOutline()
         guard let first = outline.first else { return }
-        withShadow(forStrokeWidth: e.width, in: ctx) {
+        withShadow(forStrokeWidth: e.width, enabled: e.shadow ?? true, in: ctx) {
             setFill(ctx, e.color)
             ctx.beginPath()
             ctx.move(to: first)
@@ -304,18 +305,28 @@ public enum Renderer {
     }
 
     private static func drawRect(_ e: ShapeElement, in ctx: CGContext) {
-        withShadow(forStrokeWidth: e.width, in: ctx) {
+        withShadow(forStrokeWidth: e.width, enabled: e.shadow ?? (e.highlightOpacity == nil), in: ctx) {
+            if let opacity = e.highlightOpacity {
+                var color = e.color
+                color.a *= min(1, max(0, opacity))
+                setFill(ctx, color)
+                ctx.addPath(e.path)
+                ctx.fillPath()
+                return
+            }
             if let fill = e.fill {
                 setFill(ctx, fill)
-                ctx.fill(e.rect)
+                ctx.addPath(e.path)
+                ctx.fillPath()
             }
             setStroke(ctx, e.color, e.width)
-            ctx.stroke(e.rect)
+            ctx.addPath(e.path)
+            ctx.strokePath()
         }
     }
 
     private static func drawEllipse(_ e: ShapeElement, in ctx: CGContext) {
-        withShadow(forStrokeWidth: e.width, in: ctx) {
+        withShadow(forStrokeWidth: e.width, enabled: e.shadow ?? true, in: ctx) {
             if let fill = e.fill {
                 setFill(ctx, fill)
                 ctx.fillEllipse(in: e.rect)
@@ -395,7 +406,7 @@ public enum Renderer {
     private static func drawCalloutBody(_ e: TextElement, in ctx: CGContext) {
         let body = CalloutPaths.bodyPath(for: e)
         let circles = CalloutPaths.thoughtTailCircles(for: e)
-        withShadow(forStrokeWidth: e.font.pointSize * 0.25, in: ctx) {
+        withShadow(forStrokeWidth: e.font.pointSize * 0.25, enabled: e.shadow ?? true, in: ctx) {
             setFill(ctx, e.color)
             ctx.addPath(body)
             ctx.fillPath()
@@ -437,12 +448,17 @@ public enum Renderer {
             }
             switch e.style {
             case .plain:
-                drawPass(fill)
+                withShadow(forStrokeWidth: FontSpec.strokeWidth(forPointSize: e.font.pointSize),
+                           enabled: e.shadow ?? false, in: ctx) { drawPass(fill) }
             case .outline:
-                drawPass(attributedString(for: e, stroke: (e.outlineColor, outlineStrokePercent)))
-                drawPass(fill)
+                withShadow(forStrokeWidth: FontSpec.strokeWidth(forPointSize: e.font.pointSize),
+                           enabled: e.shadow ?? false, in: ctx) {
+                    drawPass(attributedString(for: e, stroke: (e.outlineColor, outlineStrokePercent)))
+                    drawPass(fill)
+                }
             case .shadow:
-                withShadow(forStrokeWidth: FontSpec.strokeWidth(forPointSize: e.font.pointSize), in: ctx) {
+                withShadow(forStrokeWidth: FontSpec.strokeWidth(forPointSize: e.font.pointSize),
+                           enabled: e.shadow ?? true, in: ctx) {
                     drawPass(attributedString(for: e, stroke: (e.outlineColor, haloStrokePercent)))
                     drawPass(fill)
                 }
@@ -455,7 +471,7 @@ public enum Renderer {
     private static func drawStamp(_ e: StampElement, in ctx: CGContext) {
         let r = e.radius
         let pin = StampPaths.pinPath(for: e)
-        withShadow(forStrokeWidth: r * 0.3, in: ctx) {
+        withShadow(forStrokeWidth: r * 0.3, enabled: e.shadow ?? true, in: ctx) {
             ctx.setLineJoin(.round)
             ctx.setStrokeColor(red: 1, green: 1, blue: 1, alpha: 1)
             ctx.setLineWidth(r * 0.12)

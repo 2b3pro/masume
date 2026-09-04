@@ -7,6 +7,21 @@ import AnnotationRender
 // text style preview button. Split from CanvasView.swift for size.
 
 extension CanvasNSView {
+    func drawTextMatches(info: DisplayInfo, in ctx: CGContext) {
+        guard let controller, controller.showsTranscription, let map = controller.currentTextMap else { return }
+        ctx.saveGState()
+        defer { ctx.restoreGState() }
+        for line in map.matches(controller.textQuery) {
+            let color: NSColor = line.confidence < TextMap.lowConfidenceThreshold ? .systemOrange : .systemBlue
+            let bounds = info.viewRect(forModelRect: line.bounds)
+            ctx.setFillColor(color.withAlphaComponent(0.15).cgColor)
+            ctx.fill(bounds)
+            ctx.setStrokeColor(color.cgColor)
+            ctx.setLineWidth(1.5)
+            ctx.stroke(bounds)
+        }
+    }
+
     func drawHandle(at center: CGPoint, stroke: NSColor, lineWidth: CGFloat, in ctx: CGContext) {
         let hr = CGRect(x: center.x - 4.5, y: center.y - 4.5, width: 9, height: 9)
         ctx.setFillColor(NSColor.white.cgColor)

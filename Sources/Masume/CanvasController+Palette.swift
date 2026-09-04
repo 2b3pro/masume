@@ -96,6 +96,7 @@ extension CanvasController {
 
     /// The tool whose flyout (glyph, bubble, or loupe shape) is showing, if any.
     var flyoutTool: Tool? {
+        if tool == .rectangle || selectedRectangle != nil { return .rectangle }
         if editsStampKind { return .stamp }
         if editsCalloutShape { return .callout }
         if editsMagnifierShape { return .magnifier }

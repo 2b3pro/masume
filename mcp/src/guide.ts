@@ -23,7 +23,8 @@ One person and one agent mark up the same image. Your edits land in the person's
 
 ## Elements
 masume_create_element { element: { type, ...geometry, ...style } }   masume_update_element { id, changes: { ... } }   masume_delete_elements { ids }
-types: arrow line rectangle ellipse pen text callout stamp pixelate magnifier
+types: arrow line rectangle rounded_rectangle highlight ellipse pen text callout stamp pixelate magnifier
+rounded_rectangle: cornerRadius in pixels; highlight: opacity (default 0.3), no border/shadow by default. shadow true/false overrides arrows, lines, shapes, text, callouts, stamps, and images.
 geometry by address: from/to (arrow, line) | over (rectangle, ellipse, pixelate, magnifier) | at (text origin, stamp center) | tail (callout tail cell)
 geometry by pixels: start/end | rect | center | tailTip | points (pen)
 style: color (palette name or #RRGGBB), width, fill, opacity (pen, below 1 is a highlighter)
@@ -34,7 +35,7 @@ update only: zOrder front|back
 Every element comes back with id, type, bounds, color, and its own fields; ids are stable.
 
 ## Other tools
-masume_get_element (id), masume_read_text (range, languages, customWords), masume_get_history (limit), masume_set_zone (rect, range, or null; shape), masume_set_crop (rect, range, or null), masume_set_grid_density (8 12 16 24 32 across the long side; changes every address), masume_undo, masume_redo (either side's actions), masume_save_project (absolute .masume path first time; holds the unredacted original), masume_export (absolute png/jpeg/webp path; bounds expandToFit|clipToImage).
+masume_get_element (id), masume_read_text (range, languages, customWords; uses saved preferences if omitted; transcription marks low confidence), masume_set_text_preferences (languages, customWords; undoable document defaults, empty arrays clear), masume_get_history (limit), masume_set_zone (rect, range, or null; shape), masume_set_crop (rect, range, or null), masume_set_grid_density (8 12 16 24 32 across the long side; changes every address), masume_undo, masume_redo (either side's actions), masume_save_project (absolute .masume path first time; holds the unredacted original), masume_export (absolute png/jpeg/webp path; bounds expandToFit|clipToImage).
 
 ## Errors
 conflict (revision moved), not_found, invalid_address, invalid_argument, unsupported, io. The message says what to fix; the document is unchanged.

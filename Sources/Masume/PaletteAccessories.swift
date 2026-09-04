@@ -57,6 +57,8 @@ struct ToolFlyout: View {
 
     var body: some View {
         switch tool {
+        case .rectangle:
+            RectangleStyleControls(controller: controller)
         case .stamp:
             HStack(spacing: 8) {
                 ChoicePanel(choices: StampKind.allCases, selected: controller.stampKind) { controller.stampKind = $0 }

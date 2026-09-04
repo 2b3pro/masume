@@ -44,7 +44,7 @@ public enum ElementJSON {
         switch a {
         case .arrow: return "arrow"
         case .line: return "line"
-        case .rectangle: return "rectangle"
+        case .rectangle(let e): return e.highlightOpacity != nil ? "highlight" : ((e.cornerRadius ?? 0) > 0 ? "rounded_rectangle" : "rectangle")
         case .ellipse: return "ellipse"
         case .pen: return "pen"
         case .text(let t): return t.isCallout ? "callout" : "text"
@@ -71,12 +71,15 @@ public enum ElementJSON {
             "bounds": .rect(a.boundingBox()),
         ]
         if let color = a.color { fields["color"] = .string(color.hex) }
+        if let shadow = a.shadowEnabled { fields["shadow"] = .bool(shadow) }
         switch a {
         case .arrow(let e), .line(let e):
             fields["start"] = .point(e.start); fields["end"] = .point(e.end); fields["width"] = .number(e.width)
         case .rectangle(let e), .ellipse(let e):
             fields["rect"] = .rect(e.rect); fields["width"] = .number(e.width)
             fields["fill"] = .optional(e.fill.map { .string($0.hex) })
+            fields["cornerRadius"] = .number(e.cornerRadius ?? 0)
+            fields.merge(highlightFields(e)) { _, new in new }
         case .pen(let e):
             fields["points"] = .array(e.points.map(JSONValue.point)); fields["width"] = .number(e.width)
             fields["opacity"] = .number(e.opacity)
@@ -109,6 +112,11 @@ public enum ElementJSON {
             fields["shape"] = .string(container.shape.rawValue)
             fields["tailTip"] = .point(container.tailTip)
         }
+    }
+
+    private static func highlightFields(_ shape: ShapeElement) -> [String: JSONValue] {
+        guard let opacity = shape.highlightOpacity else { return [:] }
+        return ["opacity": .number(opacity)]
     }
 }
 
@@ -209,10 +217,16 @@ public struct ElementInput {
 /// the palette would give a new element on this canvas.
 public enum ElementFactory {
     public static func make(_ input: ElementInput) throws -> Annotation {
+        var element = try makeGeometry(input)
+        try applyCommon(input, to: &element)
+        return element
+    }
+
+    private static func makeGeometry(_ input: ElementInput) throws -> Annotation {
         guard let type = input.type else { throw CommandError.invalidArgument("type is required") }
         switch type {
         case "arrow", "line": return try makeSegment(input, arrow: type == "arrow")
-        case "rectangle", "ellipse": return try makeShape(input, rectangle: type == "rectangle")
+        case "rectangle", "rounded_rectangle", "highlight", "ellipse": return try makeShape(input, rectangle: type != "ellipse")
         case "pen": return try makePen(input)
         case "text", "callout": return .text(try makeText(input, callout: type == "callout"))
         case "stamp": return try makeStamp(input)
@@ -240,9 +254,12 @@ public enum ElementFactory {
         guard let rect = try input.box() else {
             throw CommandError.invalidArgument("\(rectangle ? "rectangle" : "ellipse") needs rect or over")
         }
-        let shape = ShapeElement(rect: rect, color: try input.color() ?? .red,
+        var shape = ShapeElement(rect: rect, color: try input.color() ?? (input.type == "highlight" ? .yellow : .red),
                                  width: try defaultWidth(DefaultStrokeWidth.shapeReferenceWidth, input),
                                  fill: try input.color("fill"))
+        if input.type == "rounded_rectangle" { shape.cornerRadius = 16 }
+        if input.type == "highlight" { shape.highlightOpacity = 0.3 }
+        try applyShape(input, to: &shape)
         return rectangle ? .rectangle(shape) : .ellipse(shape)
     }
 
@@ -365,6 +382,10 @@ public enum ElementFactory {
     }
 
     private static func applyCommon(_ input: ElementInput, to element: inout Annotation) throws {
+        if let shadow = try input.params.optionalBool("shadow") {
+            guard element.shadowEnabled != nil else { throw CommandError.invalidArgument("this element does not support shadow") }
+            element.shadowEnabled = shadow
+        }
         if let color = try input.color() { element.color = color }
         if let width = try input.width() { element.strokeWidth = width }
     }
@@ -378,6 +399,16 @@ public enum ElementFactory {
     private static func applyShape(_ input: ElementInput, to e: inout ShapeElement) throws {
         if let rect = try input.box() { e.rect = rect }
         if input.params.has("fill") { e.fill = try input.color("fill") }
+        if let radius = try input.params.optionalDouble("cornerRadius") {
+            guard radius >= 0 else { throw CommandError.invalidArgument("cornerRadius must be nonnegative") }
+            e.cornerRadius = radius
+        }
+        if let opacity = try input.params.optionalDouble("opacity") {
+            guard e.highlightOpacity != nil, (0...1).contains(opacity) else {
+                throw CommandError.invalidArgument("opacity must be between 0 and 1 on a highlight")
+            }
+            e.highlightOpacity = opacity
+        }
     }
 
     private static func applyPen(_ input: ElementInput, to e: inout PenElement) throws {

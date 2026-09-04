@@ -56,6 +56,7 @@ public struct StampElement: Codable, Equatable, Sendable, AnnotationGeometry {
     public var ordinal: Int
     /// What an `emoji` stamp shows: one grapheme cluster.
     public var emoji: String
+    public var shadow: Bool?
 
     public init(id: ElementID = UUID(), center: CGPoint, radius: CGFloat = StampElement.referenceRadius,
                 kind: StampKind = .check, color: RGBAColor = .red, pointerAngle: CGFloat = .pi / 2,
@@ -65,7 +66,7 @@ public struct StampElement: Codable, Equatable, Sendable, AnnotationGeometry {
         self.ordinal = ordinal; self.emoji = emoji
     }
 
-    private enum CodingKeys: String, CodingKey { case id, center, radius, kind, color, pointerAngle, ordinal, emoji }
+    private enum CodingKeys: String, CodingKey { case id, center, radius, kind, color, pointerAngle, ordinal, emoji, shadow }
 
     /// `ordinal` is absent in projects saved before numbered stamps.
     public init(from decoder: Decoder) throws {
@@ -78,6 +79,7 @@ public struct StampElement: Codable, Equatable, Sendable, AnnotationGeometry {
         pointerAngle = try c.decode(CGFloat.self, forKey: .pointerAngle)
         ordinal = try c.decodeIfPresent(Int.self, forKey: .ordinal) ?? 1
         emoji = try c.decodeIfPresent(String.self, forKey: .emoji) ?? Self.defaultEmoji
+        shadow = try c.decodeIfPresent(Bool.self, forKey: .shadow)
     }
 
     /// The text a `number`, `letter`, or `emoji` stamp shows; nil for the

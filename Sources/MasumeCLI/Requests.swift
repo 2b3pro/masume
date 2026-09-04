@@ -8,7 +8,7 @@ import MasumeCommands
 public enum CLIRequest {
     /// Subcommands that change the document and so need documentId and
     /// expectedRevision.
-    public static let mutations: Set<String> = ["add", "update", "delete", "crop", "density", "undo", "redo", "batch"]
+    public static let mutations: Set<String> = ["add", "update", "delete", "crop", "density", "text-preferences", "undo", "redo", "batch"]
 
     public struct Options: Equatable {
         public var documentId: String?
@@ -40,6 +40,14 @@ public enum CLIRequest {
 
     private static func commandAndParams(_ subcommand: String, arguments: [String],
                                          flags: [String: String]) throws -> (String, [String: Any]) {
+        if subcommand == "text-preferences" {
+            guard arguments.isEmpty else { throw CLIError.usage("text-preferences [--languages en-US] [--custom-words Shen]") }
+            var params: [String: Any] = [:]
+            for (flag, key) in [("languages", "languages"), ("custom-words", "customWords")] {
+                if let value = flags[flag] { params[key] = value.isEmpty ? [] : try commaSeparated(value, flag: "--\(flag)") }
+            }
+            return ("set_text_preferences", params)
+        }
         if let read = try readCommand(subcommand, arguments: arguments, flags: flags) { return read }
         if let mutation = try mutationCommand(subcommand, arguments: arguments) { return mutation }
         if let file = try fileCommand(subcommand, arguments: arguments, flags: flags) { return file }

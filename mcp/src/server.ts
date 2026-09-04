@@ -27,7 +27,7 @@ const rect = z.object({ x: z.number(), y: z.number(), width: z.number(), height:
 
 /** Geometry by grid address or pixels, plus style; see the element JSON in the spec. */
 const elementInput = z.object({
-  type: z.enum(["arrow", "line", "rectangle", "ellipse", "pen", "text", "callout", "stamp", "pixelate", "magnifier"]),
+  type: z.enum(["arrow", "line", "rectangle", "rounded_rectangle", "highlight", "ellipse", "pen", "text", "callout", "stamp", "pixelate", "magnifier"]),
   from: z.string().optional().describe("Cell for an arrow's or line's start, e.g. B3, or a quadrant of it, e.g. B3.3 (1 to 4 clockwise from the upper left; nests as B3.3.1)."),
   to: z.string().optional(),
   over: z.string().optional().describe("Range for a box, e.g. D5:F14 or D5.3:F14."),
@@ -37,6 +37,7 @@ const elementInput = z.object({
   tailTip: point.optional(), points: z.array(point).optional(),
   color: z.string().optional().describe("Palette name or #RRGGBB."), fill: z.string().optional(),
   width: z.number().optional(), opacity: z.number().optional(),
+  cornerRadius: z.number().nonnegative().optional(), shadow: z.boolean().optional(),
   text: z.string().optional(), fontSize: z.number().optional(), bold: z.boolean().optional(),
   alignment: z.enum(["left", "center", "right"]).optional(), style: z.enum(["shadow", "outline", "plain"]).optional(),
   outlineColor: z.string().optional(), shape: z.string().optional(),
@@ -109,6 +110,14 @@ export function createMasumeServer(actor: Actor): McpServer {
       customWords: z.array(z.string()).optional().describe("Names or specialist terms Vision should preserve."),
     },
   }, call("masume_read_text"));
+  server.registerTool("masume_set_text_preferences", {
+    description: "Save this document's recognition languages and custom words as one undoable action. Omitted fields keep their values; empty arrays clear them. read_text uses these defaults unless overridden per call.",
+    inputSchema: {
+      ...mutationShape,
+      languages: z.array(z.string()).optional(),
+      customWords: z.array(z.string()).optional(),
+    },
+  }, call("masume_set_text_preferences"));
   server.registerTool("masume_set_zone", {
     description: "Mark a region out for the person as marching ants (a rect, a grid range, or null to clear), optionally as an ellipse. Not an annotation: never exported, no revision change. The person's own zone, drawn with the Select tool, is read from masume_get_active_document, and \"zone\" works as an address in any geometry parameter.",
     inputSchema: { ...docShape, zone: z.union([rect, z.string(), z.null()]), shape: z.enum(["rectangle", "ellipse"]).optional() },

@@ -11,6 +11,7 @@ public struct SegmentElement: Codable, Equatable, Sendable, AnnotationGeometry {
     public var end: CGPoint
     public var color: RGBAColor
     public var width: CGFloat
+    public var shadow: Bool?
 
     public init(id: ElementID = UUID(), start: CGPoint, end: CGPoint,
                 color: RGBAColor = .red, width: CGFloat = 6) {
@@ -85,6 +86,15 @@ public struct ShapeElement: Codable, Equatable, Sendable, RectGeometry {
     public var color: RGBAColor
     public var width: CGFloat
     public var fill: RGBAColor?
+    public var shadow: Bool?
+    public var cornerRadius: CGFloat?
+    /// Presence distinguishes a borderless rectangular highlight from an outline.
+    public var highlightOpacity: CGFloat?
+
+    public var path: CGPath {
+        let radius = min(max(0, cornerRadius ?? 0), min(rect.width, rect.height) / 2)
+        return CGPath(roundedRect: rect, cornerWidth: radius, cornerHeight: radius, transform: nil)
+    }
 
     public init(id: ElementID = UUID(), rect: CGRect,
                 color: RGBAColor = .red, width: CGFloat = 6, fill: RGBAColor? = nil) {
@@ -95,6 +105,11 @@ public struct ShapeElement: Codable, Equatable, Sendable, RectGeometry {
     public func boundingBox() -> CGRect { rect.insetBy(dx: -width, dy: -width) }
 
     public func hitTest(_ point: CGPoint, tolerance: CGFloat) -> Bool {
+        if highlightOpacity != nil || (cornerRadius ?? 0) > 0 {
+            if highlightOpacity != nil || fill != nil, path.contains(point) { return true }
+            return path.copy(strokingWithWidth: 2 * max(tolerance, highlightOpacity == nil ? width : 0),
+                             lineCap: .round, lineJoin: .round, miterLimit: 10).contains(point)
+        }
         if fill != nil { return rect.insetBy(dx: -tolerance, dy: -tolerance).contains(point) }
         // Stroked: hit if near the edge band but not deep inside.
         let outer = rect.insetBy(dx: -max(tolerance, width), dy: -max(tolerance, width))
@@ -137,6 +152,7 @@ public struct TextElement: Codable, Equatable, Sendable, RectGeometry {
     public var alignment: LineAlignment
     /// Present when the text is a callout; see `Callout.swift`.
     public var container: TextContainer?
+    public var shadow: Bool?
 
     /// Rect-backed view over the stored origin/size (which stay the encoded
     /// representation). For a callout this is the bubble body; the text
@@ -230,6 +246,7 @@ public struct TextElement: Codable, Equatable, Sendable, RectGeometry {
         outlineColor = try c.decode(RGBAColor.self, forKey: .outlineColor)
         alignment = try c.decodeIfPresent(LineAlignment.self, forKey: .alignment) ?? .left
         container = try c.decodeIfPresent(TextContainer.self, forKey: .container)
+        shadow = try c.decodeIfPresent(Bool.self, forKey: .shadow)
     }
 }
 

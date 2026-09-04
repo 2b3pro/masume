@@ -271,7 +271,11 @@ Preserve all existing tools and add only the agreed v1 gaps:
 - Speech-bubble and thought-cloud text callouts with a free tail tip, filled with the palette color and inked (border and text) in white or black, plus left/center/right line alignment on all text. Shipped ahead of the phases below; the tail-first gesture is described in the README.
 - Numbered callout marker with editable integer and automatic next-number default.
 - Optional shadow for arrows, lines, shapes, text, and callouts.
-- Shadow is a global remembered default with a per-object override planned.
+- Shadow is a remembered default with explicit per-object overrides. Missing overrides in old projects preserve their prior appearance.
+
+Rectangle styles share the existing rectangle geometry and undo/resize path. `rounded_rectangle` accepts `cornerRadius` in pixels;
+`highlight` is a borderless color fill with `opacity` (default 0.3) and no shadow by default. Both are exposed in the Rectangle tool flyout,
+CLI, and MCP. `shadow` is a boolean on arrows, lines, shapes, text, callouts, stamps, and image layers.
 
 Tool and style memory currently persists across launches. It applies to newly created objects and does not retroactively alter existing annotations.
 
@@ -313,13 +317,16 @@ Implementation notes are in `phase-3-agent-surfaces-plan.md`. `scripts/ae-roundt
 4. Add the TypeScript MCP server that spawns the CLI. Implement read tools first, then mutations, batch commits, history, save, and export.
 5. Prove the round trip twice: from MCP, and from a shell with the CLI. Agent reads revision, resolves cells, adds an arrow, human moves it, agent reads the updated object, either participant undoes it, and the state survives restart.
 
-### Phase 4: Remaining annotation vocabulary (partially shipped)
+### Phase 4: Remaining annotation vocabulary (implemented 2026-09-04)
 
-Freehand pen/highlighter strokes, numbered callouts, general Skitch-style shadows, and remembered tool state have shipped. Exact rounded-rectangle and rectangular-highlight annotations and per-object shadow overrides remain.
+Freehand pen/highlighter strokes, numbered callouts, rounded rectangles with editable radii, rectangular highlights, per-object shadows,
+and remembered defaults are implemented. New styles share the document codec, renderer, selection/resize behavior, shared undo, CLI, and MCP.
 
 ### Phase 5: On-device intelligence (in progress 2026-09-04)
 
-The first Vision text-mapping slice has shipped on the 0.5.0 candidate branch through the command service, CLI, and MCP. Persistent per-document language/custom-word preferences, transcription UI/export, and the redaction scan remain. The Foundation Models command bar and App Intents follow only after the macOS 26 deployment-target decision. Details are in section 15.
+Vision text mapping and the human transcription workflow are implemented on the 0.5.0 candidate branch: persistent per-document
+languages/custom words, Find Text, confidence display, copy, and UTF-8 text export. The redaction scan remains. The Foundation Models
+command bar and App Intents follow only after the macOS 26 deployment-target decision. Details are in section 15.
 
 ## 12. Acceptance criteria
 
@@ -384,8 +391,8 @@ Available on macOS 15, so it needs no deployment-target change.
 The primary human use of the text map is not locating a labeled control. It is lifting text off a scanned newspaper clipping or a photographed document, which is the recurring case in the operator's family-history work. That use sets the accuracy bar and several defaults.
 
 - Recognition runs at the accurate level with language correction on. Speed is irrelevant when the person invoked it deliberately on one region.
-- `recognitionLanguages` is configurable per call today; per-document persistence remains planned. Archive material is frequently not English, and a run in the wrong language yields fluent nonsense rather than an obvious failure.
-- A per-call `customWords` list supplements the language model today. Proper nouns are what language correction destroys: a surname it does not know becomes a common word it does, silently and confidently. Persistent preferences for a body of related work remain planned.
+- `recognitionLanguages` is configurable per call and persisted per document. Archive material is frequently not English, and a run in the wrong language yields fluent nonsense rather than an obvious failure.
+- A persisted per-document `customWords` list supplements the language model, with per-call overrides. Proper nouns are what language correction destroys: a surname it does not know becomes a common word it does, silently and confidently.
 - The result must be copyable and exportable as text, not only readable by an agent. Transcription is a deliverable here, not navigation state.
 - Reading order across multiple columns is not guaranteed. This is a real limitation, and the zone is the mitigation: one column at a time is both more accurate and correctly ordered. Say so in the UI rather than reordering observations by heuristic.
 - Low-confidence strings are marked in the output rather than quietly included. For this use a wrong transcription is worse than a gap, because it looks checkable.
@@ -435,7 +442,15 @@ The common thread: on-device intelligence belongs here when the answer must be e
 
 ### Delivery
 
-Vision text mapping's command-service, CLI, and MCP slice is in the 0.5.0 candidate. Its UI and persistence follow-ups, the redaction scan, command bar, and App Intents remain future work; the latter two wait on the deployment-target decision.
+Vision text mapping and its human UI/persistence workflow are in the 0.5.0 candidate. **Find Text & Transcribe** (`⇧⌘F`) reads the whole
+image or zone only when invoked. Search highlights source text bounds; each line shows confidence and a grid range. Copy/export mark
+confidence below 0.8 without rewriting recognized words. Results become stale when the base image, grid, relevant zone, or saved
+preferences change, including while a background recognition is in progress. The redaction scan, command bar, and App Intents remain
+future work; the latter two wait on the deployment-target decision.
+
+`set_text_preferences` / `masume text-preferences` / `masume_set_text_preferences` update `languages` and `customWords` as one attributed,
+revision-checked, undoable commit; omitted fields stay unchanged and empty arrays clear them. `read_text` inherits these fields when omitted.
+The JSON `text` field remains raw; `transcription` adds low-confidence markers. Preference changes persist in project and recovery manifests.
 
 ### Tests
 

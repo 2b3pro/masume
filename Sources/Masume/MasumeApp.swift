@@ -357,6 +357,9 @@ struct AppCommands: Commands {
         // Lands in the system View menu. ⌘0 doesn't collide with the legacy
         // digit tool shortcuts — AppDelegate's key monitor skips ⌘-modified keys.
         CommandGroup(after: .sidebar) {
+            Button("Find Text & Transcribe…") { workspace.active.showsTranscription = true }
+                .keyboardShortcut("f", modifiers: [.command, .shift])
+                .disabled(!workspace.active.hasDocument)
             Divider()
             Button("Zoom In") { workspace.active.zoomIn() }
                 .keyboardShortcut("+", modifiers: .command)

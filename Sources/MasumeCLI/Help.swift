@@ -15,8 +15,10 @@ extension MasumeCLI {
                                        zone (the region marked out on the canvas).
           Geometry by pixels           start=x,y end=x,y | rect=x,y,w,h | center=x,y | tailTip=x,y |
                                        points=x,y;x,y;... (pen)
-          Style (most types)           color=red|#RRGGBB width=6 fill=#RRGGBB opacity=0.5 (pen: below 1
-                                       is a highlighter)
+          Style (most types)           color=red|#RRGGBB width=6 fill=#RRGGBB shadow=true|false
+          rounded_rectangle            cornerRadius=16 (pixels; also accepted on rectangle)
+          highlight                    opacity=0.3 (borderless rectangle, no shadow by default)
+          pen                          opacity=0.5 (below 1 is a highlighter)
           text, callout                text=... fontSize=24 bold=true alignment=left|center|right
                                        style=shadow|outline|plain outlineColor=white|black
                                        callout: shape=speech|thought
@@ -27,7 +29,7 @@ extension MasumeCLI {
           magnifier                    zoom=2.5 (1.5 to 8) shape=circle|square
           update only                  zOrder=front|back
 
-        Types: arrow line rectangle ellipse pen text callout stamp pixelate magnifier
+        Types: arrow line rectangle rounded_rectangle highlight ellipse pen text callout stamp pixelate magnifier
         """
 
     static let topics: [String: String] = [
@@ -77,6 +79,13 @@ extension MasumeCLI {
             Recognizes text locally in the untouched base image. A range may be a grid address or
             "zone"; no range means the whole image. Returns text, confidence, source pixel bounds,
             normalized bounds, and covering grid ranges. No image data leaves Masume.
+            Uses saved document languages/custom words unless overridden. The transcription field
+            marks low-confidence lines; text preserves raw recognition. Read one column at a time.
+            """,
+        "text-preferences": """
+            masume text-preferences [--languages en-US,fr-FR] [--custom-words Shen,Masume]
+            Save document OCR defaults as one undoable action. Omitted flags keep existing values;
+            pass an empty string to clear a list. No analysis runs until read-text or Read Text is invoked.
             """,
         "history": "masume history [--limit n]\nCommitted actions, oldest first, with actor, revisions, summary, reason, and affected ids.",
         "crop": """

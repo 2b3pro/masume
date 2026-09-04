@@ -28,7 +28,19 @@ A PDF page is rasterized at 2× on import; a multi-page PDF shows a page picker 
   address `zone` works wherever an address does, so "look at the zone" and "put a box over the
   zone" both work. An agent can mark one out for you the same way.
 - **Skitch look:** arrows, lines, rectangles, and ellipses cast a soft drop shadow that scales
-  with the stroke width and stays identical at every export size.
+  with the stroke width and stays identical at every export size. The shadow control edits the
+  selected annotation and remembers the default for new objects.
+- **Rectangle styles:** choose Rectangle (`R`), then outline, rounded rectangle, or translucent
+  highlight in its flyout. Rounded rectangles have an editable corner radius in pixels;
+  highlights have adjustable opacity and start without a border or shadow.
+- **Find Text & Transcribe:** open the bottom-right Find Text control or press `⇧⌘F`.
+  Choose the whole image or a drawn zone and click Read Text. Recognition runs locally on the
+  untouched base image. Languages (such as `en-US, fr-FR`) and custom words (one per line)
+  save with the project and share undo/recovery. Search results highlight source regions on
+  the canvas. Copy Text and Export Text produce UTF-8 transcription, marking lines below
+  80% confidence. Confidence is Vision's estimate; multi-column order is not guaranteed,
+  so read one column at a time. Nothing analyzes on load. Image, grid, zone, or preference
+  changes invalidate old results; ordinary annotations do not.
 - **Text:** three styles, **Shadow** (white or black halo plus drop shadow), **Outline**, and
   **Plain**, chosen from the palette or by clicking the round "a" button above a selected text
   box, which previews the style you will get next. Side handles set the width and the text

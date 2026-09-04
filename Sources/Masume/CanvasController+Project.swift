@@ -78,7 +78,8 @@ extension CanvasController {
         }
         let manifest = contents.manifest
         let document = Document(baseImage: .pngData(Data()), canvasSize: manifest.canvasSize,
-                                elements: manifest.elements, crop: manifest.crop, grid: manifest.grid)
+                                elements: manifest.elements, crop: manifest.crop, grid: manifest.grid,
+                                textPreferences: manifest.textPreferences)
         install(image: image, document: document, sourceURL: sourceURL, session: session)
         autosave()
     }

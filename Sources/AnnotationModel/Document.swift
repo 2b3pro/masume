@@ -17,14 +17,17 @@ public struct Document: Codable, Equatable, Sendable {
     /// The address grid over the base image. Defaults from the canvas size
     /// alone; stored so it never drifts. Changing it is a document action.
     public var grid: GridDefinition
+    public var textPreferences: TextPreferences
 
     public init(baseImage: ImageRef, canvasSize: CGSize,
-                elements: [Annotation] = [], crop: CGRect? = nil, grid: GridDefinition? = nil) {
+                elements: [Annotation] = [], crop: CGRect? = nil, grid: GridDefinition? = nil,
+                textPreferences: TextPreferences = TextPreferences()) {
         self.baseImage = baseImage
         self.canvasSize = canvasSize
         self.elements = elements
         self.crop = crop
         self.grid = grid ?? .default(for: canvasSize)
+        self.textPreferences = textPreferences
     }
 
     /// A document encoded before grids existed gets the default for its size.
@@ -35,6 +38,7 @@ public struct Document: Codable, Equatable, Sendable {
         elements = try c.decode([Annotation].self, forKey: .elements)
         crop = try c.decodeIfPresent(CGRect.self, forKey: .crop)
         grid = try c.decodeIfPresent(GridDefinition.self, forKey: .grid) ?? .default(for: canvasSize)
+        textPreferences = try c.decodeIfPresent(TextPreferences.self, forKey: .textPreferences) ?? TextPreferences()
     }
 
     /// Output bounds after crop (defaults to the full canvas).

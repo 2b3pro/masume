@@ -66,7 +66,7 @@ extension CanvasNSView {
         let color = controller.strokeColor
         let width = controller.strokeWidth
         let zeroRect = CGRect(corner: p, p)
-        let new: Annotation
+        var new: Annotation
         var role: HandleRole = .bottomRight
         switch tool {
         case .arrow:
@@ -74,7 +74,7 @@ extension CanvasNSView {
         case .line:
             new = .line(SegmentElement(start: p, end: p, color: color, width: width)); role = .end
         case .rectangle:
-            new = .rectangle(ShapeElement(rect: zeroRect, color: color, width: width))
+            new = .rectangle(controller.newRectangle(in: zeroRect))
         case .ellipse:
             new = .ellipse(ShapeElement(rect: zeroRect, color: color, width: width))
         case .pen:
@@ -94,10 +94,11 @@ extension CanvasNSView {
             // plain click keeps the default (down) direction.
             let canvasSize = controller.document?.canvasSize ?? DefaultSizeScale.referenceCanvasSize
             let kind = controller.stampKind
-            let stamp = StampElement(center: p, radius: StampElement.defaultRadius(forCanvasSize: canvasSize),
+            var stamp = StampElement(center: p, radius: StampElement.defaultRadius(forCanvasSize: canvasSize),
                                      kind: kind, color: color,
                                      ordinal: controller.document?.nextStampOrdinal(for: kind) ?? 1,
                                      emoji: controller.stampEmoji)
+            stamp.shadow = controller.shadowEnabled
             controller.document?.add(.stamp(stamp))
             controller.selection = stamp.id
             drag = .creating(stamp.id, .end)
@@ -105,6 +106,7 @@ extension CanvasNSView {
         default:
             return
         }
+        new.shadowEnabled = tool == .rectangle && controller.rectangleTreatment == .highlight ? false : controller.shadowEnabled
         controller.document?.add(new)
         controller.selection = new.id
         drag = .creating(new.id, role)
@@ -142,6 +144,7 @@ extension CanvasNSView {
                                   alignment: .center,
                                   container: TextContainer(shape: controller.calloutShape, tailTip: tip))
         element.size.width += 2 * element.padding
+        element.shadow = controller.shadowEnabled
         element.size.height = Renderer.suggestedSize(for: element).height
         let offset = DefaultInitialSize.calloutOffset(forCanvasSize: canvasSize)
         element.origin = CGPoint(x: tip.x + offset.dx, y: tip.y - offset.dy - element.size.height)
@@ -153,13 +156,14 @@ extension CanvasNSView {
     func createText(at p: CGPoint) {
         guard let controller else { return }
         let canvasSize = controller.document?.canvasSize ?? DefaultSizeScale.referenceCanvasSize
-        let element = TextElement(origin: p,
+        var element = TextElement(origin: p,
                                   size: CGSize(width: DefaultInitialSize.textWidth(forCanvasSize: canvasSize), height: 44),
                                   string: "",
                                   font: FontSpec(pointSize: FontSpec.suggestedPointSize(forStrokeWidth: controller.strokeWidth)),
                                   color: controller.strokeColor,
                                   style: controller.textStyle,
                                   outlineColor: controller.textOutlineColor)
+        element.shadow = controller.shadowEnabled && controller.textStyle == .shadow
         controller.document?.add(.text(element))
         controller.selection = element.id
         drag = .none

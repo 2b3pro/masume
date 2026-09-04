@@ -225,8 +225,10 @@ private struct CanvasPane: View {
         }
         .overlay(alignment: .topTrailing) {
             if controller.hasDocument {
-                ActionBar(controller: controller)
-                    .padding(16)
+                VStack(alignment: .trailing, spacing: 8) {
+                    ActionBar(controller: controller)
+                    if controller.showsTranscription { TranscriptionPanel(controller: controller) }
+                }.padding(16)
             }
         }
         .overlay(alignment: .bottom) {
@@ -238,6 +240,10 @@ private struct CanvasPane: View {
         .overlay(alignment: .bottomTrailing) {
             if let doc = controller.document {
                 HStack(spacing: 8) {
+                    Button { controller.showsTranscription.toggle() } label: {
+                        Label("Find Text", systemImage: "text.viewfinder")
+                    }
+                    .help("Find text and transcribe the image or zone")
                     GridToggleButton(controller: controller)
                     ZoomMenuButton(controller: controller)
                     ImageSizeBadge(document: doc, exportBounds: controller.exportBounds)
@@ -405,6 +411,13 @@ struct ToolPalette: View {
             }
 
             paletteDivider(width: 28, verticalPadding: 4)
+
+            Button { controller.setShadow(!controller.displayedShadow) } label: {
+                tileIcon("shadow", tint: controller.displayedShadow ? Color.miroInk : MiroTheme.textSecondary(scheme))
+            }
+            .buttonStyle(MiroTileButtonStyle())
+            .help("Shadow: selected object and default for new annotations")
+            .accessibilityLabel("Toggle annotation shadow")
 
             Button {
                 showsColorPresets.toggle()

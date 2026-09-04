@@ -25,6 +25,10 @@ struct ToolPreferences: Codable, Equatable {
     var imageMask: ImageMask = .rectangle
     var imageBorder: Bool = false
     var imageShadow: Bool = true
+    var shadowEnabled: Bool = true
+    var rectangleTreatment: RectangleTreatment = .outline
+    var cornerRadius: CGFloat = 16
+    var highlightOpacity: CGFloat = 0.3
 
     static let defaultReferenceWidths: [StrokeWidthGroup: CGFloat] = [
         .segment: DefaultStrokeWidth.segmentReferenceWidth,
@@ -61,6 +65,10 @@ struct ToolPreferences: Codable, Equatable {
         imageMask = try c.decodeIfPresent(ImageMask.self, forKey: .imageMask) ?? defaults.imageMask
         imageBorder = try c.decodeIfPresent(Bool.self, forKey: .imageBorder) ?? defaults.imageBorder
         imageShadow = try c.decodeIfPresent(Bool.self, forKey: .imageShadow) ?? defaults.imageShadow
+        shadowEnabled = try c.decodeIfPresent(Bool.self, forKey: .shadowEnabled) ?? defaults.shadowEnabled
+        rectangleTreatment = try c.decodeIfPresent(RectangleTreatment.self, forKey: .rectangleTreatment) ?? .outline
+        cornerRadius = try c.decodeIfPresent(CGFloat.self, forKey: .cornerRadius) ?? 16
+        highlightOpacity = try c.decodeIfPresent(CGFloat.self, forKey: .highlightOpacity) ?? 0.3
     }
 }
 

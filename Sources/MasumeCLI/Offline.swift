@@ -60,7 +60,7 @@ public enum OfflineCommands {
             let m = contents.manifest
             guard let base = decode(contents.baseImagePNG) else { throw CommandError.io("the base image could not be decoded") }
             let document = Document(baseImage: .pngData(Data()), canvasSize: m.canvasSize,
-                                    elements: m.elements, crop: m.crop, grid: m.grid)
+                                    elements: m.elements, crop: m.crop, grid: m.grid, textPreferences: m.textPreferences)
             let out = URL(fileURLWithPath: output)
             let type = try utType(formatName ?? out.pathExtension)
             let bounds = try exportBounds(boundsName)

@@ -17,6 +17,7 @@ public enum MasumeCLI {
           resolve <address>           D5, D5.3 (quadrant), or D5:F14 to pixels, center, corners, normalized
           view [range] --out <png>    crop of the untouched base image [--margin px]
           read-text [range]           local OCR of the base image or "zone" [--languages en-US,fr-FR]
+          text-preferences            save OCR defaults [--languages en-US] [--custom-words Shen,Masume]
           history [--limit n]         committed actions, oldest first
           add <type> key=value ...    create: from=B3 to=D6 | over=D5:F14 | at=C3 | text=... color=...
           update <id> key=value ...   change the given keys only (zOrder=front|back)

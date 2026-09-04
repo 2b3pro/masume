@@ -14,7 +14,7 @@ import AnnotationRender
 @MainActor
 final class CommandService {
     let controller: CanvasController
-    private let textRecognizer: any TextRecognizing
+    let textRecognizer: any TextRecognizing
 
     init(controller: CanvasController, textRecognizer: any TextRecognizing = VisionTextRecognizer()) {
         self.controller = controller
@@ -53,7 +53,7 @@ final class CommandService {
 
     /// Commands that change the document through one attributed commit.
     static let mutationCommands: Set<String> = [
-        "create_element", "update_element", "delete_elements", "set_crop", "set_grid_density", "batch",
+        "create_element", "update_element", "delete_elements", "set_crop", "set_grid_density", "set_text_preferences", "batch",
     ]
 
     private func dispatch(_ request: CommandRequest) throws -> JSONValue {
@@ -134,6 +134,7 @@ final class CommandService {
             "elementCount": .int(doc.elements.count),
             "historyCount": .int(project.history.count),
             "containsOriginalImage": .bool(true),
+            "textPreferences": Self.textPreferencesJSON(doc.textPreferences),
         ])
     }
 
@@ -287,6 +288,11 @@ final class CommandService {
     /// Recognizes text locally in the untouched base image. Only strings and
     /// geometry cross the command boundary: no image path or image bytes.
     private func readText(_ request: CommandRequest) throws -> JSONValue {
+        try prepareTextRecognition(request).run(using: textRecognizer).json
+    }
+
+    /// Captures the serialized read boundary before a UI worker leaves the main actor.
+    func prepareTextRecognition(_ request: CommandRequest) throws -> TextRecognitionJob {
         try assertTarget(request, mutation: false)
         let project = try project
         let doc = try document
@@ -306,48 +312,30 @@ final class CommandService {
             throw CommandError.invalidArgument("the requested region is empty")
         }
 
-        let languages = try stringArray(params, key: "languages")
-        let customWords = try stringArray(params, key: "customWords")
-        let recognized: [TextRecognitionLine]
-        do {
-            recognized = try textRecognizer.recognize(in: crop, languages: languages, customWords: customWords)
-        } catch {
-            throw CommandError.io("text recognition failed: \(error.localizedDescription)")
-        }
-
-        let observations = recognized.compactMap { line -> JSONValue? in
-            let local = line.bounds.intersection(CGRect(x: 0, y: 0, width: crop.width, height: crop.height))
-            guard !local.isNull, !local.isEmpty else { return nil }
-            let source = local.offsetBy(dx: bounds.minX, dy: bounds.minY)
-            let range = doc.grid.range(covering: source, in: doc.canvasSize)
-            return .object([
-                "text": .string(line.text),
-                "confidence": .number(Double(line.confidence)),
-                "bounds": .rect(source),
-                "normalized": .rect(doc.grid.normalized(source, in: doc.canvasSize)),
-                "range": .optional(range.map { .string($0.name) }),
-            ])
-        }
-        return .object([
-            "documentId": .string(project.id.uuidString),
-            "revision": .int(project.revision),
-            "baseImageChecksum": .string(ProjectPackage.sha256Hex(project.baseImagePNG)),
-            "requested": .optional(requestedAddress.map(JSONValue.string)),
-            "bounds": .rect(bounds),
-            "text": .string(recognized.map(\.text).joined(separator: "\n")),
-            "observations": .array(observations),
-            "languages": .array(languages.map(JSONValue.string)),
-            "grid": gridJSON(doc.grid),
-        ])
+        let languages = params.has("languages") ? try Self.textStringArray(params, key: "languages") : doc.textPreferences.languages
+        let customWords = params.has("customWords") ? try Self.textStringArray(params, key: "customWords") : doc.textPreferences.customWords
+        return TextRecognitionJob(image: crop, documentID: project.id, revision: project.revision,
+                                  checksum: ProjectPackage.sha256Hex(project.baseImagePNG), baseImagePNG: project.baseImagePNG, document: doc,
+                                  requested: requestedAddress, bounds: bounds,
+                                  preferences: TextPreferences(languages: languages, customWords: customWords),
+                                  zone: requestedAddress?.lowercased() == "zone" ? controller.zone : nil)
     }
 
-    private func stringArray(_ params: Params, key: String) throws -> [String] {
-        try (params.optionalArray(key) ?? []).map { value in
-            guard case .string(let string) = value, !string.isEmpty else {
+    static func textStringArray(_ params: Params, key: String) throws -> [String] {
+        let values = try params.optionalArray(key) ?? []
+        guard values.count <= 1000 else { throw CommandError.invalidArgument("\(key) has too many entries") }
+        return try values.map { value in
+            guard case .string(let string) = value, !string.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+                  string.count <= 256 else {
                 throw CommandError.invalidArgument("\(key) must contain non-empty strings")
             }
             return string
         }
+    }
+
+    static func textPreferencesJSON(_ preferences: TextPreferences) -> JSONValue {
+        .object(["languages": .array(preferences.languages.map(JSONValue.string)),
+                 "customWords": .array(preferences.customWords.map(JSONValue.string))])
     }
 
     // MARK: Mutations
@@ -419,6 +407,8 @@ final class CommandService {
             return try setCrop(params, in: &doc, zone: zone)
         case "set_grid_density":
             return try setGridDensity(params, in: &doc)
+        case "set_text_preferences":
+            return try setTextPreferences(params, in: &doc)
         case "batch":
             return try batch(params, in: &doc, zone: zone)
         default:
@@ -436,6 +426,14 @@ final class CommandService {
             doc.elements.insert(element, at: 0)
         default: throw CommandError.invalidArgument("zOrder must be front or back")
         }
+    }
+
+    private static func setTextPreferences(_ params: Params, in doc: inout Document) throws -> JSONValue {
+        var preferences = doc.textPreferences
+        if params.has("languages") { preferences.languages = try textStringArray(params, key: "languages") }
+        if params.has("customWords") { preferences.customWords = try textStringArray(params, key: "customWords") }
+        doc.textPreferences = preferences
+        return .object(["textPreferences": textPreferencesJSON(preferences)])
     }
 
     private static func deleteElements(_ params: Params, from doc: inout Document) throws -> JSONValue {

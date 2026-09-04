@@ -13,9 +13,10 @@ public enum CommandErrorCode: String, Codable, Sendable {
     case io
 }
 
-public struct CommandError: Error, Equatable, Sendable {
+public struct CommandError: Error, Equatable, Sendable, LocalizedError {
     public let code: CommandErrorCode
     public let message: String
+    public var errorDescription: String? { message }
 
     public init(code: CommandErrorCode, message: String) {
         self.code = code
@@ -51,6 +52,12 @@ public struct CommandRequest: Decodable {
     public var actorName: String?
     public var reason: String?
     public var params: JSONValue?
+
+    public init(command: String, documentId: String? = nil, expectedRevision: Int? = nil,
+                actorId: String? = nil, actorName: String? = nil, reason: String? = nil, params: JSONValue? = nil) {
+        self.command = command; self.documentId = documentId; self.expectedRevision = expectedRevision
+        self.actorId = actorId; self.actorName = actorName; self.reason = reason; self.params = params
+    }
 
     public var parameters: Params {
         if case .object(let o)? = params { return Params(o) }

@@ -100,6 +100,15 @@ export function createMasumeServer(actor: Actor): McpServer {
     description: "The untouched base image, whole or by grid range (or \"zone\"), as PNG. Annotations never appear in it and looking leaves no trace.",
     inputSchema: { ...docShape, range: z.string().optional(), margin: z.number().optional().describe("Context margin in pixels.") },
   }, async (args) => cropResult(await executeRequest(buildRequest("masume_view_base_image", args, actor))));
+  server.registerTool("masume_read_text", {
+    description: "Recognize text locally in the untouched base image, whole or by grid range (or \"zone\"). Returns strings, confidence, pixel and normalized bounds, and covering grid ranges; never returns image data.",
+    inputSchema: {
+      ...docShape,
+      range: z.string().optional(),
+      languages: z.array(z.string()).optional().describe("Vision language identifiers such as en-US or fr-FR."),
+      customWords: z.array(z.string()).optional().describe("Names or specialist terms Vision should preserve."),
+    },
+  }, call("masume_read_text"));
   server.registerTool("masume_set_zone", {
     description: "Mark a region out for the person as marching ants (a rect, a grid range, or null to clear), optionally as an ellipse. Not an annotation: never exported, no revision change. The person's own zone, drawn with the Select tool, is read from masume_get_active_document, and \"zone\" works as an address in any geometry parameter.",
     inputSchema: { ...docShape, zone: z.union([rect, z.string(), z.null()]), shape: z.enum(["rectangle", "ellipse"]).optional() },

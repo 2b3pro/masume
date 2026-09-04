@@ -1,6 +1,6 @@
 {
   "name": "masume-mcp",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "MCP server for Masume: annotate the open image with an agent, over the masume command-line tool.",
   "type": "module",
   "bin": { "masume-mcp": "dist/src/index.js" },

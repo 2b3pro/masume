@@ -80,6 +80,8 @@ final class CLITests: XCTestCase {
             (["element", "abc"], "get_element", ["id": "abc"]),
             (["resolve", "d5:f7"], "resolve_grid", ["address": "d5:f7"]),
             (["view", "B2:C3", "--margin", "8"], "view_base_image", ["range": "B2:C3", "margin": 8]),
+            (["read-text", "zone", "--languages", "en-US,fr-FR", "--custom-words", "Shen,Masume"], "read_text",
+             ["range": "zone", "languages": ["en-US", "fr-FR"], "customWords": ["Shen", "Masume"]]),
             (["history", "--limit", "5"], "get_history", ["limit": 5]),
             (["add", "arrow", "from=B3", "to=D6", "color=blue", "width=12"], "create_element",
              ["type": "arrow", "from": "B3", "to": "D6", "color": "blue", "width": 12]),
@@ -131,6 +133,8 @@ final class CLITests: XCTestCase {
         XCTAssertEqual(MasumeCLI.run([], output: { _ in }, error: { _ in }, transport: { $0 }), 64, "no subcommand is a mistake")
         XCTAssertThrowsError(try MasumeCLI.parse(["doc", "--revision", "x"]))
         XCTAssertThrowsError(try MasumeCLI.parse(["doc", "--bogus", "1"]))
+        XCTAssertThrowsError(try CLIRequest.build("read-text", arguments: ["A1", "B2"], flags: [:], options: .init()))
+        XCTAssertThrowsError(try CLIRequest.build("read-text", arguments: [], flags: ["languages": "en-US,"], options: .init()))
         XCTAssertEqual(MasumeCLI.run(["frobnicate"], output: { _ in }, error: { _ in }, transport: { $0 }), 64)
         XCTAssertEqual(MasumeCLI.run(["add"], output: { _ in }, error: { _ in }, transport: { $0 }), 64)
     }

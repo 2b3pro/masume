@@ -72,6 +72,12 @@ extension MasumeCLI {
             Writes a crop of the untouched base image (annotations never appear in it) to --out;
             no range means the whole image. --margin adds context around the range.
             """,
+        "read-text": """
+            masume read-text [range] [--languages en-US,fr-FR] [--custom-words Shen,Masume]
+            Recognizes text locally in the untouched base image. A range may be a grid address or
+            "zone"; no range means the whole image. Returns text, confidence, source pixel bounds,
+            normalized bounds, and covering grid ranges. No image data leaves Masume.
+            """,
         "history": "masume history [--limit n]\nCommitted actions, oldest first, with actor, revisions, summary, reason, and affected ids.",
         "crop": """
             masume crop <range|x,y,w,h|none>
@@ -115,7 +121,7 @@ extension MasumeCLI {
             Any command by name, as the JSON the app's command service takes:
               {"command": "create_element", "params": {"type": "arrow", "from": "B3", "to": "D6"}}
             --doc, --revision, --actor, --actor-name, and --reason are merged in.
-            Commands: get_active_document list_elements get_element resolve_grid view_base_image get_history
+            Commands: get_active_document list_elements get_element resolve_grid view_base_image read_text get_history
             set_zone create_element update_element delete_elements set_crop set_grid_density undo redo
             save_project export batch.
             """,

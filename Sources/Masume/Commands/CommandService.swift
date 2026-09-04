@@ -14,9 +14,11 @@ import AnnotationRender
 @MainActor
 final class CommandService {
     let controller: CanvasController
+    private let textRecognizer: any TextRecognizing
 
-    init(controller: CanvasController) {
+    init(controller: CanvasController, textRecognizer: any TextRecognizing = VisionTextRecognizer()) {
         self.controller = controller
+        self.textRecognizer = textRecognizer
     }
 
     /// Where `view_base_image` crops go. Under Caches: not the project.
@@ -57,6 +59,7 @@ final class CommandService {
     private func dispatch(_ request: CommandRequest) throws -> JSONValue {
         if Self.mutationCommands.contains(request.command) { return try mutate(request) }
         if request.command == "undo" || request.command == "redo" { return try undoRedo(request) }
+        if request.command == "read_text" { return try readText(request) }
         return try dispatchOther(request)
     }
 
@@ -279,6 +282,72 @@ final class CommandService {
             "height": .int(crop.height),
             "marginAdded": .bool(margin > 0 && bounds != requested.integral),
         ])
+    }
+
+    /// Recognizes text locally in the untouched base image. Only strings and
+    /// geometry cross the command boundary: no image path or image bytes.
+    private func readText(_ request: CommandRequest) throws -> JSONValue {
+        try assertTarget(request, mutation: false)
+        let project = try project
+        let doc = try document
+        guard let base = controller.baseImage else { throw CommandError.notFound("no base image") }
+        let params = request.parameters
+        let requestedAddress = try params.optionalString("range")
+        let canvas = CGRect(origin: .zero, size: doc.canvasSize)
+        let requested: CGRect
+        if let requestedAddress {
+            requested = try ElementInput(params: params, document: doc, zone: controller.zone).resolve(requestedAddress).rect
+        } else {
+            requested = canvas
+        }
+        let bounds = requested.intersection(canvas).integral
+        guard !bounds.isNull, bounds.width >= 1, bounds.height >= 1,
+              let crop = base.cropping(to: bounds) else {
+            throw CommandError.invalidArgument("the requested region is empty")
+        }
+
+        let languages = try stringArray(params, key: "languages")
+        let customWords = try stringArray(params, key: "customWords")
+        let recognized: [TextRecognitionLine]
+        do {
+            recognized = try textRecognizer.recognize(in: crop, languages: languages, customWords: customWords)
+        } catch {
+            throw CommandError.io("text recognition failed: \(error.localizedDescription)")
+        }
+
+        let observations = recognized.compactMap { line -> JSONValue? in
+            let local = line.bounds.intersection(CGRect(x: 0, y: 0, width: crop.width, height: crop.height))
+            guard !local.isNull, !local.isEmpty else { return nil }
+            let source = local.offsetBy(dx: bounds.minX, dy: bounds.minY)
+            let range = doc.grid.range(covering: source, in: doc.canvasSize)
+            return .object([
+                "text": .string(line.text),
+                "confidence": .number(Double(line.confidence)),
+                "bounds": .rect(source),
+                "normalized": .rect(doc.grid.normalized(source, in: doc.canvasSize)),
+                "range": .optional(range.map { .string($0.name) }),
+            ])
+        }
+        return .object([
+            "documentId": .string(project.id.uuidString),
+            "revision": .int(project.revision),
+            "baseImageChecksum": .string(ProjectPackage.sha256Hex(project.baseImagePNG)),
+            "requested": .optional(requestedAddress.map(JSONValue.string)),
+            "bounds": .rect(bounds),
+            "text": .string(recognized.map(\.text).joined(separator: "\n")),
+            "observations": .array(observations),
+            "languages": .array(languages.map(JSONValue.string)),
+            "grid": gridJSON(doc.grid),
+        ])
+    }
+
+    private func stringArray(_ params: Params, key: String) throws -> [String] {
+        try (params.optionalArray(key) ?? []).map { value in
+            guard case .string(let string) = value, !string.isEmpty else {
+                throw CommandError.invalidArgument("\(key) must contain non-empty strings")
+            }
+            return string
+        }
     }
 
     // MARK: Mutations

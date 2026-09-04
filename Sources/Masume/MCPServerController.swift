@@ -22,7 +22,7 @@ final class MCPServerController {
 
     /// The tools the server registers; kept in step with `mcp/src/server.ts`
     /// by a test.
-    static let toolCount = 18
+    static let toolCount = 19
     /// Not 8765, which DEVONthink's MCP server takes on the same Mac.
     static let defaultPort = 8722
 

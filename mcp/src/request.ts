@@ -58,6 +58,12 @@ export function buildRequest(tool: string, args: Record<string, unknown>, actor:
         ...(a.range !== undefined ? { range: a.range } : {}),
         ...(a.margin !== undefined ? { margin: a.margin } : {}),
       }, a.documentId);
+    case "masume_read_text":
+      return read("read_text", {
+        ...(a.range !== undefined ? { range: a.range } : {}),
+        ...(a.languages !== undefined ? { languages: a.languages } : {}),
+        ...(a.customWords !== undefined ? { customWords: a.customWords } : {}),
+      }, a.documentId);
     case "masume_set_zone":
       return read("set_zone", { zone: a.zone ?? null, ...(a.shape !== undefined ? { shape: a.shape } : {}) }, a.documentId);
     case "masume_get_history":

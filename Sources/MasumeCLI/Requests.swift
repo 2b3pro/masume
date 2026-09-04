@@ -54,6 +54,7 @@ public enum CLIRequest {
         case "element": return ("get_element", ["id": try one(arguments, "element <id>")])
         case "resolve": return ("resolve_grid", ["address": try one(arguments, "resolve <address>")])
         case "view": return ("view_base_image", try viewParams(arguments, flags: flags))
+        case "read-text": return ("read_text", try readTextParams(arguments, flags: flags))
         case "zone": return ("set_zone", try zoneParams(arguments, flags: flags))
         case "history":
             var params: [String: Any] = [:]
@@ -117,6 +118,26 @@ public enum CLIRequest {
         if let range = arguments.first { params["range"] = range }
         if let margin = flags["margin"] { params["margin"] = try number(margin, "--margin") }
         return params
+    }
+
+    private static func readTextParams(_ arguments: [String], flags: [String: String]) throws -> [String: Any] {
+        guard arguments.count <= 1 else {
+            throw CLIError.usage("read-text [range] [--languages en-US,fr-FR] [--custom-words Shen,Masume]")
+        }
+        var params: [String: Any] = [:]
+        if let range = arguments.first { params["range"] = range }
+        if let value = flags["languages"] { params["languages"] = try commaSeparated(value, flag: "--languages") }
+        if let value = flags["custom-words"] { params["customWords"] = try commaSeparated(value, flag: "--custom-words") }
+        return params
+    }
+
+    private static func commaSeparated(_ value: String, flag: String) throws -> [String] {
+        let values = value.split(separator: ",", omittingEmptySubsequences: false)
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+        guard !values.isEmpty, values.allSatisfy({ !$0.isEmpty }) else {
+            throw CLIError.usage("\(flag) must be a comma-separated list")
+        }
+        return values
     }
 
     private static func zoneParams(_ arguments: [String], flags: [String: String]) throws -> [String: Any] {

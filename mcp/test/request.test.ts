@@ -12,6 +12,8 @@ const table: Array<[string, Record<string, unknown>, string, Record<string, unkn
   ["masume_get_element", { id: "abc" }, "get_element", { id: "abc" }],
   ["masume_resolve_grid", { address: "d5:f7" }, "resolve_grid", { address: "d5:f7" }],
   ["masume_view_base_image", { range: "B2:C3", margin: 8 }, "view_base_image", { range: "B2:C3", margin: 8 }],
+  ["masume_read_text", { range: "zone", languages: ["en-US"], customWords: ["Masume"] }, "read_text",
+    { range: "zone", languages: ["en-US"], customWords: ["Masume"] }],
   ["masume_get_history", { limit: 5 }, "get_history", { limit: 5 }],
   ["masume_create_element", { ...m, element: { type: "arrow", from: "B3", to: "D6", color: "blue", width: 12 } },
     "create_element", { type: "arrow", from: "B3", to: "D6", color: "blue", width: 12 }],

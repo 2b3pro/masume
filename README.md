@@ -118,7 +118,9 @@ JSON commands and get the same `{ok, result}` or `{ok, error: {code, message}}` 
 
 - **`masume` command line.** Live subcommands send one Apple Event each to the running app:
   `masume doc`, `masume resolve D5:F14`, `masume add arrow from=B3 to=D6 --reason "…"`,
-  `masume view D5:F14 --out crop.png` (or `view zone`), `masume zone C3:E6`, `masume undo`,
+  `masume view D5:F14 --out crop.png` (or `view zone`),
+  `masume read-text zone --languages en-US --custom-words Masume,Shen`,
+  `masume zone C3:E6`, `masume undo`,
   `masume save ~/Shots/Login.masume`,
   `masume export out.png`, and `masume exec '<json>'` for anything by name. Mutations default
   to the active document at its current revision and say so on stderr; pass `--doc` and
@@ -141,7 +143,9 @@ JSON commands and get the same `{ok, result}` or `{ok, error: {code, message}}` 
 
 Every mutation carries the document id and expected revision and fails closed on a mismatch,
 and every agent edit lands in the same history and undo stack as yours, attributed and with
-the reason the agent gave.
+the reason the agent gave. `read-text` uses macOS Vision on the untouched base image and
+returns strings, confidence, and geometry without sending pixels through the agent transport;
+`view` deliberately returns pixels when visual inspection is needed.
 
 ### Setting up MCP
 
@@ -186,6 +190,7 @@ history is in [CHANGELOG.md](CHANGELOG.md).
 
 | Version | Highlights |
 |---|---|
+| 0.5.0 (next) | Zones shared by person and agent; local Vision text recognition over the whole image, a grid range, or a zone; in-app CLI installation and more stable Apple Event signing and diagnostics; canvas resize and refined grid labels. |
 | 0.4.0 | Numbered, lettered, and emoji stamps with `+`/`-`, `Tab`, and Shift-snapped tails; the agent guide (`masume_guide` and server instructions) with MCP setup directions; `masume help <subcommand>` with every element key; the CLI addresses the app by process id. |
 | 0.3.0 | The shared document: `.masume` projects with attributed history and crash recovery, the grid with quadrant addresses, the command service behind MCP, the `masume` CLI, and AppleScript, an in-app MCP server with a menu bar item, image layers, Option-drag duplicates, tab naming and Close All. |
 | 0.2.0 | Callouts (speech and thought) with text alignment, one-shot tools with a lock, the magnifier loupe with a zoom slider, PDF import at 2× with a page picker. |
@@ -195,12 +200,14 @@ history is in [CHANGELOG.md](CHANGELOG.md).
 
 ```sh
 swift test                       # Run unit tests (model, renderer, and app)
-bash scripts/build-app.sh        # Build & assemble an ad-hoc-signed Masume.app
+bash scripts/build-app.sh        # Build, assemble, and sign Masume.app
 open build/Masume.app
 ```
 
 Requirements: macOS 15+, Xcode/Swift toolchain. The build script produces a native arm64,
-ad-hoc-signed bundle (no Apple Developer account required). The repository's lint hook uses
+signed bundle, preferring an available Apple Development or Developer ID identity so macOS
+can retain Automation grants across rebuilds. It falls back to ad-hoc signing when no identity
+is available (no Apple Developer account is required). The repository's lint hook uses
 [SwiftLint](https://github.com/realm/SwiftLint) (`brew install swiftlint`).
 
 ## Project layout

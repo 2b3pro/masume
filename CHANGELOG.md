@@ -12,6 +12,12 @@ or surfaces, a patch bump for fixes. Each release is tagged `vX.Y.Z` on `main`.
   as a pointer for the agent. It is not an annotation and never exports. Agents read it from
   the document summary (rect, shape, covering grid range), use `zone` as an address anywhere,
   and can mark one out for the person with `set_zone` (`masume zone`, `masume_set_zone`).
+- On-device text recognition through `read_text`, `masume read-text`, and
+  `masume_read_text`. It reads the untouched whole image, a grid range, or `zone` with
+  Vision and returns text, confidence, full-image pixel and normalized bounds, and covering
+  grid ranges without returning image data. Calls may provide recognition languages and
+  custom words.
+- A Command Line settings pane installs or updates the bundled `masume` executable.
 
 ### Changed
 
@@ -20,6 +26,16 @@ or surfaces, a patch bump for fixes. Each release is tagged `vX.Y.Z` on `main`.
 - The Crop tool also resizes the canvas: handles on the canvas's corners and sides (and a
   frame dragged past an edge) grow it with white on Apply Resize. The action bar shows the
   frame's width and height as editable fields.
+- The app stays running when its last main window closes, while auxiliary windows retain
+  their normal close behavior.
+- App assembly prefers an available Apple Development or Developer ID identity and signs
+  the bundled CLI with its Automation entitlement, falling back to ad-hoc signing with a
+  warning when no identity is available.
+
+### Fixed
+
+- Apple Event failures, including Automation denial (`-1743`), now produce actionable CLI
+  diagnostics instead of being flattened into a generic not-running error.
 
 ## [0.4.0] - 2026-09-02
 

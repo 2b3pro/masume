@@ -3,11 +3,32 @@ import CoreGraphics
 import AnnotationModel
 @testable import Masume
 
+private struct TextRecognizerCall: Equatable {
+    let size: CGSize
+    let languages: [String]
+    let customWords: [String]
+}
+
 /// The command service through its JSON surface: every command, every
 /// error code, attribution, batch atomicity, and the crop that carries no
 /// annotations.
 @MainActor
 final class CommandServiceTests: XCTestCase {
+
+    private final class StubTextRecognizer: TextRecognizing, @unchecked Sendable {
+        var lines: [TextRecognitionLine]
+        private(set) var calls: [TextRecognizerCall] = []
+
+        init(lines: [TextRecognitionLine]) {
+            self.lines = lines
+        }
+
+        func recognize(in image: CGImage, languages: [String], customWords: [String]) throws -> [TextRecognitionLine] {
+            calls.append(TextRecognizerCall(size: CGSize(width: image.width, height: image.height),
+                                            languages: languages, customWords: customWords))
+            return lines
+        }
+    }
 
     private var scratch: URL!
     private var controller: CanvasController!
@@ -110,6 +131,54 @@ final class CommandServiceTests: XCTestCase {
         XCTAssertEqual(errorCode(run("set_zone", params: ["zone": "A1", "shape": "star"], mutation: false)), "invalid_argument")
         result(run("set_zone", params: ["zone": NSNull()], mutation: false))
         XCTAssertNil(controller.zone)
+    }
+
+    func testReadTextUsesTheZoneAndReturnsOnlyTextAndGeometry() throws {
+        let recognizer = StubTextRecognizer(lines: [
+            TextRecognitionLine(text: "Masume", confidence: 0.875,
+                                bounds: CGRect(x: 10, y: 20, width: 100, height: 30)),
+        ])
+        service = CommandService(controller: controller, textRecognizer: recognizer)
+        controller.zone = Zone(rect: CGRect(x: 200, y: 200, width: 300, height: 200))
+        let beforeRevision = revision
+        let beforeHistory = controller.project?.history.count
+
+        let response = run("read_text", params: [
+            "range": "zone",
+            "languages": ["en-US"],
+            "customWords": ["Masume"],
+        ], mutation: false)
+        let output = result(response)
+        let observations = try XCTUnwrap(output["observations"] as? [[String: Any]])
+        let first = try XCTUnwrap(observations.first)
+
+        XCTAssertEqual(recognizer.calls, [TextRecognizerCall(
+            size: CGSize(width: 300, height: 200), languages: ["en-US"], customWords: ["Masume"]
+        )])
+        XCTAssertEqual(output["requested"] as? String, "zone")
+        XCTAssertNotNil(output["baseImageChecksum"] as? String)
+        XCTAssertEqual(output["text"] as? String, "Masume")
+        XCTAssertEqual(first["text"] as? String, "Masume")
+        XCTAssertEqual(try XCTUnwrap(first["confidence"] as? Double), 0.875, accuracy: 0.0001)
+        XCTAssertEqual((first["bounds"] as? [String: Any])?["x"] as? Double, 210)
+        XCTAssertEqual((first["bounds"] as? [String: Any])?["y"] as? Double, 220)
+        XCTAssertEqual(try XCTUnwrap((first["normalized"] as? [String: Any])?["x"] as? Double), 0.175, accuracy: 0.0001)
+        XCTAssertNotNil(first["range"] as? String)
+        XCTAssertEqual(revision, beforeRevision, "recognition is an observation, not a document action")
+        XCTAssertEqual(controller.project?.history.count, beforeHistory)
+
+        let encoded = String(data: encode(response), encoding: .utf8) ?? ""
+        XCTAssertFalse(encoded.contains("\"path\""))
+        XCTAssertFalse(encoded.contains("base64"))
+        XCTAssertFalse(encoded.contains("imageData"))
+    }
+
+    func testReadTextRejectsMissingZoneAndMalformedWordLists() {
+        let recognizer = StubTextRecognizer(lines: [])
+        service = CommandService(controller: controller, textRecognizer: recognizer)
+        XCTAssertEqual(errorCode(run("read_text", params: ["range": "zone"], mutation: false)), "invalid_address")
+        XCTAssertEqual(errorCode(run("read_text", params: ["languages": "en-US"], mutation: false)), "invalid_argument")
+        XCTAssertTrue(recognizer.calls.isEmpty)
     }
 
     // MARK: Helpers

@@ -1,6 +1,6 @@
 #!/bin/bash
 # Builds the masume command-line tool in release and installs it at a stable
-# path, which is what the macOS Automation grant attaches to.
+# path.
 #
 #   bash scripts/install-cli.sh [prefix]     default prefix: /usr/local
 set -euo pipefail

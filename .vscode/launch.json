@@ -19,6 +19,26 @@
             "target": "Masume",
             "configuration": "release",
             "preLaunchTask": "swift: Build Release Masume"
+        },
+        {
+            "type": "swift",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:masume}",
+            "name": "Debug masume",
+            "target": "masume",
+            "configuration": "debug",
+            "preLaunchTask": "swift: Build Debug masume"
+        },
+        {
+            "type": "swift",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:masume}",
+            "name": "Release masume",
+            "target": "masume",
+            "configuration": "release",
+            "preLaunchTask": "swift: Build Release masume"
         }
     ]
 }

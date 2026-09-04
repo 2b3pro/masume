@@ -6,10 +6,13 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 CONFIG="${1:-release}"
 APP="$ROOT/build/Masume.app"
 SIGNING_IDENTITY="${MASUME_SIGNING_IDENTITY:-}"
-BUILD_ARGUMENTS=(-c "$CONFIG")
-if [[ -n "${MASUME_SCRATCH_PATH:-}" ]]; then
-    BUILD_ARGUMENTS+=(--scratch-path "$MASUME_SCRATCH_PATH")
-fi
+# SwiftPM names executable artifacts after their products. On the default
+# case-insensitive macOS filesystem, the Masume GUI and masume CLI therefore
+# resolve to the same output path. Keep the products in separate scratch
+# directories so building one can never replace the other.
+BUILD_SCRATCH_ROOT="${MASUME_SCRATCH_PATH:-$ROOT/build/swiftpm-products}"
+APP_BUILD_ARGUMENTS=(-c "$CONFIG" --scratch-path "$BUILD_SCRATCH_ROOT/app")
+CLI_BUILD_ARGUMENTS=(-c "$CONFIG" --scratch-path "$BUILD_SCRATCH_ROOT/cli")
 
 # TCC must be able to compute a designated requirement for the Apple Event
 # target. Prefer a real identity so Automation grants survive rebuilds.
@@ -22,11 +25,11 @@ if [[ -z "$SIGNING_IDENTITY" ]]; then
     echo "warning: no signing identity; macOS Automation may reject this ad-hoc build" >&2
 fi
 
-echo "==> swift build -c $CONFIG"
+echo "==> swift build -c $CONFIG --product Masume"
 cd "$ROOT"
-swift build "${BUILD_ARGUMENTS[@]}"
+swift build "${APP_BUILD_ARGUMENTS[@]}" --product Masume
 
-BIN="$(swift build "${BUILD_ARGUMENTS[@]}" --show-bin-path)/Masume"
+BIN="$(swift build "${APP_BUILD_ARGUMENTS[@]}" --show-bin-path)/Masume"
 if [[ ! -f "$BIN" ]]; then
     echo "error: built binary not found at $BIN" >&2
     exit 1
@@ -82,9 +85,14 @@ build_quick_look_extension "MasumeQuickLookThumbnail" "MasumeQuickLookThumbnail"
 # Under Helpers, not MacOS: on a case-insensitive disk MacOS/masume would
 # overwrite MacOS/Masume.
 echo "==> swift build -c $CONFIG --product masume"
-swift build "${BUILD_ARGUMENTS[@]}" --product masume
+swift build "${CLI_BUILD_ARGUMENTS[@]}" --product masume
 mkdir -p "$APP/Contents/Helpers"
-cp "$(swift build "${BUILD_ARGUMENTS[@]}" --show-bin-path)/masume" "$APP/Contents/Helpers/masume"
+CLI_BIN="$(swift build "${CLI_BUILD_ARGUMENTS[@]}" --show-bin-path)/masume"
+cp "$CLI_BIN" "$APP/Contents/Helpers/masume"
+if cmp -s "$APP/Contents/MacOS/Masume" "$APP/Contents/Helpers/masume"; then
+    echo "error: GUI and CLI executables are identical; SwiftPM product outputs collided" >&2
+    exit 1
+fi
 
 # The MCP server, when it has been built (cd mcp && npm install && npm run build).
 if [[ -d "$ROOT/mcp/dist" ]]; then

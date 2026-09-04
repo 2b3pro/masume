@@ -36,6 +36,8 @@ or surfaces, a patch bump for fixes. Each release is tagged `vX.Y.Z` on `main`.
 
 - Apple Event failures, including Automation denial (`-1743`), now produce actionable CLI
   diagnostics instead of being flattened into a generic not-running error.
+- Clicking or dragging the action bar's share control no longer crashes when AppKit asks its
+  file-promise delegate for an operation queue from a background file-coordination thread.
 
 ## [0.4.0] - 2026-09-02
 

@@ -606,10 +606,9 @@ struct DragOutWell: NSViewRepresentable {
     }
 }
 
-final class DragOutView: NSView, NSFilePromiseProviderDelegate, NSDraggingSource {
+final class DragOutView: NSView, NSDraggingSource {
     weak var controller: CanvasController?
-    nonisolated(unsafe) private var pendingData: Data?
-    private let ioQueue = OperationQueue()
+    private let promiseWriter = DragOutPromiseWriter()
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
@@ -631,8 +630,9 @@ final class DragOutView: NSView, NSFilePromiseProviderDelegate, NSDraggingSource
     override func mouseDown(with event: NSEvent) {
         guard let controller, controller.hasDocument,
               let data = ExportService.pngData(controller) else { return }
-        pendingData = data
-        let provider = NSFilePromiseProvider(fileType: UTType.png.identifier, delegate: self)
+        let base = controller.sourceURL?.deletingPathExtension().lastPathComponent ?? "annotated"
+        let provider = NSFilePromiseProvider(fileType: UTType.png.identifier, delegate: promiseWriter)
+        provider.userInfo = DragOutPromise(data: data, fileName: "\(base).png")
         let item = NSDraggingItem(pasteboardWriter: provider)
         let preview = NSImage(data: data) ?? NSImage()
         item.setDraggingFrame(bounds, contents: preview)
@@ -642,26 +642,51 @@ final class DragOutView: NSView, NSFilePromiseProviderDelegate, NSDraggingSource
     // NSDraggingSource
     func draggingSession(_ session: NSDraggingSession,
                          sourceOperationMaskFor context: NSDraggingContext) -> NSDragOperation { .copy }
+}
 
-    // NSFilePromiseProviderDelegate
+/// Immutable state belongs to each provider, rather than to the view, so a
+/// second drag cannot replace the bytes while the first promise is writing.
+final class DragOutPromise: NSObject, @unchecked Sendable {
+    let data: Data
+    let fileName: String
+
+    init(data: Data, fileName: String) {
+        self.data = data
+        self.fileName = fileName
+    }
+}
+
+/// AppKit asks for the promise operation queue from a FileCoordination worker
+/// on macOS 26, despite the SDK's UI-actor annotation. Keep this delegate off
+/// the NSView and make the worker callbacks explicitly nonisolated.
+final class DragOutPromiseWriter: NSObject, NSFilePromiseProviderDelegate, @unchecked Sendable {
+    private let ioQueue: OperationQueue = {
+        let queue = OperationQueue()
+        queue.name = "com.2b3pro.masume.drag-out"
+        queue.maxConcurrentOperationCount = 1
+        return queue
+    }()
+
     func filePromiseProvider(_ filePromiseProvider: NSFilePromiseProvider,
                              fileNameForType fileType: String) -> String {
-        let base = controller?.sourceURL?.deletingPathExtension().lastPathComponent ?? "annotated"
-        return "\(base).png"
+        (filePromiseProvider.userInfo as? DragOutPromise)?.fileName ?? "annotated.png"
     }
 
-    func filePromiseProvider(_ filePromiseProvider: NSFilePromiseProvider,
-                             writePromiseTo url: URL,
-                             completionHandler: @escaping (Error?) -> Void) {
+    nonisolated func filePromiseProvider(_ filePromiseProvider: NSFilePromiseProvider,
+                                         writePromiseTo url: URL,
+                                         completionHandler: @escaping (Error?) -> Void) {
         do {
-            if let data = pendingData { try data.write(to: url) }
+            guard let promise = filePromiseProvider.userInfo as? DragOutPromise else {
+                throw CocoaError(.fileNoSuchFile)
+            }
+            try promise.data.write(to: url)
             completionHandler(nil)
         } catch {
             completionHandler(error)
         }
     }
 
-    func operationQueue(for filePromiseProvider: NSFilePromiseProvider) -> OperationQueue { ioQueue }
+    nonisolated func operationQueue(for filePromiseProvider: NSFilePromiseProvider) -> OperationQueue { ioQueue }
 }
 
 extension NSImage {

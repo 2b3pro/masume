@@ -10,7 +10,7 @@ let package = Package(
         .library(name: "AnnotationRender", targets: ["AnnotationRender"]),
         .library(name: "MasumeCommands", targets: ["MasumeCommands"]),
         .library(name: "MasumeQuickLookSupport", targets: ["MasumeQuickLookSupport"]),
-        .executable(name: "masume", targets: ["MasumeTool"]),
+        .executable(name: "MasumeTool", targets: ["MasumeTool"]),
     ],
     dependencies: [
         // ImageIO cannot encode WebP, so WebP export uses libwebp.

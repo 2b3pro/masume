@@ -6,10 +6,9 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 CONFIG="${1:-release}"
 APP="$ROOT/build/Masume.app"
 SIGNING_IDENTITY="${MASUME_SIGNING_IDENTITY:-}"
-# SwiftPM names executable artifacts after their products. On the default
-# case-insensitive macOS filesystem, the Masume GUI and masume CLI therefore
-# resolve to the same output path. Keep the products in separate scratch
-# directories so building one can never replace the other.
+# The CLI product is MasumeTool to avoid case-insensitive artifact collisions
+# with Masume (including SwiftPM's linker inputs). Keep separate scratch trees
+# as well, so old cached products cannot contaminate either bundle executable.
 BUILD_SCRATCH_ROOT="${MASUME_SCRATCH_PATH:-$ROOT/build/swiftpm-products}"
 APP_BUILD_ARGUMENTS=(-c "$CONFIG" --scratch-path "$BUILD_SCRATCH_ROOT/app")
 CLI_BUILD_ARGUMENTS=(-c "$CONFIG" --scratch-path "$BUILD_SCRATCH_ROOT/cli")
@@ -84,10 +83,10 @@ build_quick_look_extension "MasumeQuickLookThumbnail" "MasumeQuickLookThumbnail"
 # The CLI rides inside the app bundle for the in-app installer and MCP server.
 # Under Helpers, not MacOS: on a case-insensitive disk MacOS/masume would
 # overwrite MacOS/Masume.
-echo "==> swift build -c $CONFIG --product masume"
-swift build "${CLI_BUILD_ARGUMENTS[@]}" --product masume
+echo "==> swift build -c $CONFIG --product MasumeTool"
+swift build "${CLI_BUILD_ARGUMENTS[@]}" --product MasumeTool
 mkdir -p "$APP/Contents/Helpers"
-CLI_BIN="$(swift build "${CLI_BUILD_ARGUMENTS[@]}" --show-bin-path)/masume"
+CLI_BIN="$(swift build "${CLI_BUILD_ARGUMENTS[@]}" --show-bin-path)/MasumeTool"
 cp "$CLI_BIN" "$APP/Contents/Helpers/masume"
 if cmp -s "$APP/Contents/MacOS/Masume" "$APP/Contents/Helpers/masume"; then
     echo "error: GUI and CLI executables are identical; SwiftPM product outputs collided" >&2

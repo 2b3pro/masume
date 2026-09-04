@@ -251,6 +251,9 @@ final class CLITests: XCTestCase {
         let contents = try ProjectPackage.read(at: project)
         XCTAssertEqual(contents.manifest.canvasSize, CGSize(width: 1200, height: 800))
         XCTAssertEqual(contents.manifest.grid, GridDefinition(columns: 12, rows: 8))
+        let preview = try Data(contentsOf: project.appendingPathComponent(ProjectPackage.previewName))
+        XCTAssertEqual(ProjectPackage.pngPixelSize(preview)?.width, 512)
+        XCTAssertEqual(ProjectPackage.pngPixelSize(preview)?.height, 341)
 
         var out = ""
         XCTAssertEqual(MasumeCLI.run(["info", project.path], output: { out += $0 }, error: { _ in }, transport: { $0 }), 0)

@@ -18,6 +18,9 @@ or surfaces, a patch bump for fixes. Each release is tagged `vX.Y.Z` on `main`.
   grid ranges without returning image data. Calls may provide recognition languages and
   custom words.
 - A Command Line settings pane installs or updates the bundled `masume` executable.
+- Finder Quick Look previews and thumbnails for `.masume` projects, sourced only from the
+  package's flattened `preview.png`. The preview labels the package as editable and warns
+  that it contains the original image; missing or invalid previews never fall back to it.
 
 ### Changed
 
@@ -31,6 +34,8 @@ or surfaces, a patch bump for fixes. Each release is tagged `vX.Y.Z` on `main`.
 - App assembly prefers an available Apple Development or Developer ID identity and signs
   the bundled CLI with its Automation entitlement, falling back to ad-hoc signing with a
   warning when no identity is available.
+- `masume new` writes the same bounded `preview.png` as an app-created project, so projects
+  created offline participate in Quick Look immediately.
 
 ### Fixed
 

@@ -228,13 +228,13 @@ Example.masume/
 
 Saving uses atomic package replacement. Normal Save overwrites the bound project; Save As creates a new document identity. Opening verifies the manifest, image checksum, dimensions, and element IDs before replacing the active canvas.
 
-### Tracked TODO: Quick Look package preview
+### Quick Look package preview
 
-- Ship a Quick Look thumbnail and preview extension for `.masume` packages so Finder can display the package's existing `preview.png` without opening Masume.
-- The extension reads only `preview.png`; it must never fall back to `base-image.png` or another embedded source image when the preview is missing or invalid.
-- Regenerate `preview.png` whenever the project is saved so Quick Look reflects the latest committed annotations and crop.
-- Preserve the editable-project disclosure through the Masume document type, icon, and preview labeling; a visible flattened preview must not imply that the package itself is share-safe.
-- Test valid, missing, and corrupt previews, thumbnail sizing, and the guarantee that Quick Look never exposes the embedded original.
+- The app bundle ships sandboxed, read-only Quick Look thumbnail and preview extensions for `.masume` packages. They display the package's existing `preview.png` without opening Masume.
+- Both extensions read only `preview.png`. They never fall back to `base-image.png` or another embedded source image when the preview is missing, invalid, symlinked, or unreasonably large.
+- The app regenerates `preview.png` whenever a project is saved, and `masume new` creates the same bounded preview for an offline-created package.
+- The preview carries a visible editable-project disclosure, the Quick Look title says that the package contains the original image, and the thumbnail carries the `MASUME` extension badge. A visible flattened preview does not imply that the package itself is share-safe.
+- Focused tests cover valid, missing, corrupt, symlinked, and oversized previews, thumbnail sizing, and the guarantee that Quick Look never exposes the embedded original.
 
 ### Redaction disclosure
 

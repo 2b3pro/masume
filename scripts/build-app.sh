@@ -40,6 +40,44 @@ cp "$ROOT/Resources/Info.plist" "$APP/Contents/Info.plist"
 cp "$ROOT/Resources/Masume.sdef" "$APP/Contents/Resources/Masume.sdef"
 printf 'APPL????' > "$APP/Contents/PkgInfo"
 
+# Finder discovers Quick Look providers only when their .appex bundles live
+# inside the owning application. SwiftPM does not assemble application
+# extensions, so compile the two small extension executables directly with
+# the system SDK and give them the standard NSExtensionMain entry point.
+echo "==> building Quick Look extensions"
+SDK_PATH="$(xcrun --sdk macosx --show-sdk-path)"
+TARGET_ARCH="$(uname -m)"
+QUICK_LOOK_SUPPORT="$ROOT/Sources/MasumeQuickLookSupport/QuickLookPreviewAsset.swift"
+
+build_quick_look_extension() {
+    local name="$1"
+    local module="$2"
+    local source="$3"
+    local framework="$4"
+    local bundle="$APP/Contents/PlugIns/$name.appex"
+
+    mkdir -p "$bundle/Contents/MacOS"
+    cp "$ROOT/Extensions/$name/Info.plist" "$bundle/Contents/Info.plist"
+    xcrun swiftc \
+        -parse-as-library \
+        -emit-executable \
+        -O \
+        -whole-module-optimization \
+        -application-extension \
+        -target "$TARGET_ARCH-apple-macos15.0" \
+        -sdk "$SDK_PATH" \
+        -module-name "$module" \
+        -Xlinker -e \
+        -Xlinker _NSExtensionMain \
+        "$QUICK_LOOK_SUPPORT" \
+        "$ROOT/Extensions/$name/$source" \
+        -framework "$framework" \
+        -o "$bundle/Contents/MacOS/$name"
+}
+
+build_quick_look_extension "MasumeQuickLookPreview" "MasumeQuickLookPreview" "PreviewProvider.swift" "Quartz"
+build_quick_look_extension "MasumeQuickLookThumbnail" "MasumeQuickLookThumbnail" "ThumbnailProvider.swift" "QuickLookThumbnailing"
+
 # The CLI rides inside the app bundle for the in-app installer and MCP server.
 # Under Helpers, not MacOS: on a case-insensitive disk MacOS/masume would
 # overwrite MacOS/Masume.
@@ -79,8 +117,17 @@ if [[ -n "$VERSION" ]]; then
     echo "==> stamping version $VERSION"
     /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $VERSION" "$APP/Contents/Info.plist"
     /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $VERSION" "$APP/Contents/Info.plist"
+    for extension_info in "$APP"/Contents/PlugIns/*.appex/Contents/Info.plist; do
+        /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $VERSION" "$extension_info"
+        /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $VERSION" "$extension_info"
+    done
 fi
 
+echo "==> code signing Quick Look extensions with $SIGNING_IDENTITY"
+for extension_bundle in "$APP"/Contents/PlugIns/*.appex; do
+    codesign --force --sign "$SIGNING_IDENTITY" --options runtime \
+        --entitlements "$ROOT/Resources/MasumeQuickLook.entitlements" "$extension_bundle"
+done
 echo "==> code signing nested CLI with $SIGNING_IDENTITY"
 codesign --force --sign "$SIGNING_IDENTITY" --options runtime \
     --entitlements "$ROOT/Resources/MasumeCLI.entitlements" "$APP/Contents/Helpers/masume"

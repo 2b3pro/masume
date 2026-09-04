@@ -99,7 +99,8 @@ A PDF page is rasterized at 2× on import; a multi-page PDF shows a page picker 
   (`Cmd+Shift+S`) makes a copy with a new identity. Open (`Cmd+O`) or double-click a
   package to keep editing. Every committed action is also shadowed into a recovery package
   under Application Support, so after a crash the app reopens what you had, unsaved and
-  marked with a dot in its tab.
+  marked with a dot in its tab. Finder thumbnails and Quick Look show the saved flattened
+  preview, labeled as an editable project that still contains the original image.
 - **Redaction and sharing:** a project keeps the unredacted original, and the first save of
   each document says so (with a "Don't show this again" option). To share a pixelated
   result use **Create Share-Safe Copy…**, which writes only the flattened pixels, or

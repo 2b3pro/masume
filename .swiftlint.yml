@@ -31,6 +31,7 @@ type_body_length:
 
 # Paths to include
 included:
+  - Extensions
   - Sources
   - Tests
 

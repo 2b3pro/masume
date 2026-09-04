@@ -9,6 +9,7 @@ let package = Package(
         .library(name: "AnnotationModel", targets: ["AnnotationModel"]),
         .library(name: "AnnotationRender", targets: ["AnnotationRender"]),
         .library(name: "MasumeCommands", targets: ["MasumeCommands"]),
+        .library(name: "MasumeQuickLookSupport", targets: ["MasumeQuickLookSupport"]),
         .executable(name: "masume", targets: ["MasumeTool"]),
     ],
     dependencies: [
@@ -34,6 +35,9 @@ let package = Package(
         // The masume command-line tool: offline over the libraries, live
         // over Apple Events to the running app.
         .target(name: "MasumeCLI", dependencies: ["AnnotationModel", "AnnotationRender", "MasumeCommands"]),
+        // Kept independent of the app so the two sandboxed Quick Look
+        // extensions can validate preview.png without loading project data.
+        .target(name: "MasumeQuickLookSupport"),
         // Named MasumeTool because the filesystem is case-insensitive and
         // Sources/masume would collide with Sources/Masume.
         .executableTarget(name: "MasumeTool", dependencies: ["MasumeCLI"]),
@@ -41,5 +45,6 @@ let package = Package(
         .testTarget(name: "MasumeCLITests", dependencies: ["MasumeCLI", "MasumeCommands"]),
         .testTarget(name: "AnnotationModelTests", dependencies: ["AnnotationModel"]),
         .testTarget(name: "AnnotationRenderTests", dependencies: ["AnnotationModel", "AnnotationRender"]),
+        .testTarget(name: "MasumeQuickLookSupportTests", dependencies: ["MasumeQuickLookSupport"]),
     ]
 )

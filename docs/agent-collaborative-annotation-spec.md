@@ -324,7 +324,7 @@ and remembered defaults are implemented. New styles share the document codec, re
 
 ### Phase 5: On-device intelligence (in progress 2026-09-04)
 
-Vision text mapping and the human transcription workflow are implemented on the 0.5.0 candidate branch: persistent per-document
+Vision text mapping and the human transcription workflow are implemented on the 0.6.0 candidate branch: persistent per-document
 languages/custom words, Find Text, confidence display, copy, and UTF-8 text export. The redaction scan remains. The Foundation Models
 command bar and App Intents follow only after the macOS 26 deployment-target decision. Details are in section 15.
 
@@ -442,7 +442,7 @@ The common thread: on-device intelligence belongs here when the answer must be e
 
 ### Delivery
 
-Vision text mapping and its human UI/persistence workflow are in the 0.5.0 candidate. **Find Text & Transcribe** (`⇧⌘F`) reads the whole
+Vision text mapping and its human UI/persistence workflow are in the 0.6.0 candidate. **Find Text & Transcribe** (`⇧⌘F`) reads the whole
 image or zone only when invoked. Search highlights source text bounds; each line shows confidence and a grid range. Copy/export mark
 confidence below 0.8 without rewriting recognized words. Results become stale when the base image, grid, relevant zone, or saved
 preferences change, including while a background recognition is in progress. The redaction scan, command bar, and App Intents remain

@@ -6,8 +6,19 @@ or surfaces, a patch bump for fixes. Each release is tagged `vX.Y.Z` on `main`.
 
 ## [Unreleased]
 
+Target version: **0.6.0**. This development candidate includes the untagged 0.5.0 work below;
+the last tagged release remains 0.4.0.
+
 ### Added
 
+- Rounded rectangles with editable corner radii, borderless rectangular highlights with
+  adjustable opacity, and per-object shadows. Styles are available in the palette, CLI,
+  and MCP and round-trip through projects, rendering, and shared undo/redo.
+- Find Text & Transcribe (`Shift+Cmd+F`): local OCR of the whole image or selected zone,
+  searchable canvas matches, confidence display, copy, and UTF-8 text export. Low-confidence
+  lines are marked in copied/exported text, and stale results cannot be exported.
+- Per-document OCR languages and custom words, saved with projects and shared undo history;
+  `masume text-preferences` and `masume_set_text_preferences` expose the same preferences.
 - Zones: the Select tool drags a marching-ants region on empty canvas, rectangle or ellipse,
   as a pointer for the agent. It is not an annotation and never exports. Agents read it from
   the document summary (rect, shape, covering grid range), use `zone` as an address anywhere,
@@ -39,6 +50,8 @@ or surfaces, a patch bump for fixes. Each release is tagged `vX.Y.Z` on `main`.
 
 ### Fixed
 
+- The GUI and CLI use distinct SwiftPM product names and isolated bundle build paths,
+  preventing case-insensitive build collisions that could stop Masume from launching.
 - Apple Event failures, including Automation denial (`-1743`), now produce actionable CLI
   diagnostics instead of being flattened into a generic not-running error.
 - Clicking or dragging the action bar's share control no longer crashes when AppKit asks its

@@ -1,13 +1,13 @@
 # Masume Agent Collaboration v1
 
-**Status:** Core collaboration foundation released; Phase 4 and human OCR complete in the installed 0.6.0 development build; remaining v1 gaps tracked below
+**Status:** 0.6.0 release; Phase 4 and human OCR complete; remaining v1 gaps tracked below
 **Date:** 2026-09-04
 **Scope:** Extend the existing native macOS annotation app; do not rebuild Masume inside LiveDoc.
 
 ### Current checkpoint
 
 - **Installed build:** `/Applications/Masume.app`, version **0.6.0**, copied from `build/Masume.app` with a verified signature.
-- **Release state:** `feat/zones` is an untagged development branch. The last tagged release is **0.4.0**; 0.6.0 includes the untagged 0.5.0 work. Installed/implemented does not mean released on `main`.
+- **Release state:** **0.6.0**, merged from `feat/zones` into `main` and tagged `v0.6.0`. Includes the untagged 0.5.0 work. This records the local Git release; publishing the branch/tag remotely is a separate action.
 - **Completed:** Phases 1–4, zones, Finder Quick Look previews/thumbnails, and the Phase 5 text-map/transcription slice (the earlier roadmap's **#3**).
 - **Next:** the optional local pre-export redaction scan, followed by single-page PDF export and the visible attributed-history panel. See the ordered checkpoint in section 11.
 - **Not yet complete:** all of Phase 5 or the full v1 scope. macOS 26-related work remains a separate product/deployment decision.
@@ -336,7 +336,7 @@ and remembered defaults are implemented. New styles share the document codec, re
 
 ### Phase 5: On-device intelligence (in progress 2026-09-04)
 
-Vision text mapping and the human transcription workflow are implemented on the 0.6.0 candidate branch: persistent per-document
+Vision text mapping and the human transcription workflow are implemented in 0.6.0: persistent per-document
 languages/custom words, Find Text, confidence display, copy, and UTF-8 text export. The redaction scan remains. The Foundation Models
 command bar and related system integrations are deliberately sequenced after the platform decision; do not silently raise the macOS 15 minimum.
 Details are in section 15.
@@ -362,8 +362,8 @@ For **#5**, PDF export must use the same flattened renderer and crop/export boun
 editable layers, grid, or history. Expose it consistently through the app, live/offline CLI, and MCP. The history panel must read the existing
 attributed history and follow active-tab changes and undo/redo without introducing a second history store.
 
-Release housekeeping is separate from feature completion: review and merge the candidate to `main`, finalize the changelog, and tag `v0.6.0`
-only when explicitly undertaking a release. A documentation-only checkpoint does not require another version bump.
+Release housekeeping for 0.6.0: the changelog is finalized, `feat/zones` is merged to `main`, and the release is tagged `v0.6.0` locally.
+Remote publication remains separate. A documentation-only checkpoint does not require another version bump.
 
 Planning provenance (local history): Codex session `76e11d04`, event `cfd0b9bc`, provider session `01a06d37-0d6d-7990-870b-8754f8407861`.
 This checkpoint preserves that roadmap's order while updating completion status from the current source and verification below.
@@ -495,7 +495,7 @@ The common thread: on-device intelligence belongs here when the answer must be e
 
 ### Delivery
 
-Vision text mapping and its human UI/persistence workflow are in the 0.6.0 candidate. **Find Text & Transcribe** (`⇧⌘F`) reads the whole
+Vision text mapping and its human UI/persistence workflow are in 0.6.0. **Find Text & Transcribe** (`⇧⌘F`) reads the whole
 image or zone only when invoked. Search highlights source text bounds; each line shows confidence and a grid range. Copy/export mark
 confidence below 0.8 without rewriting recognized words. Results become stale when the base image, grid, relevant zone, or saved
 preferences change, including while a background recognition is in progress. The redaction scan, command bar, and App Intents remain

@@ -6,8 +6,10 @@ or surfaces, a patch bump for fixes. Each release is tagged `vX.Y.Z` on `main`.
 
 ## [Unreleased]
 
-Target version: **0.6.0**. This development candidate includes the untagged 0.5.0 work below;
-the last tagged release remains 0.4.0.
+## [0.6.0] - 2026-09-04
+
+Annotation styles, human transcription, and Quick Look. Includes the work developed under
+0.5.0, which was not separately tagged.
 
 ### Added
 
@@ -156,7 +158,8 @@ grid as the common spatial language, and three ways in for automation.
 The Skitch-look fork as inherited from [2b3pro/kakico](https://github.com/2b3pro/kakico):
 drop shadows, text styles, stamps, pen and highlighter, and remembered tool state.
 
-[Unreleased]: https://github.com/2b3pro/masume/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/2b3pro/masume/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/2b3pro/masume/compare/v0.4.0...v0.6.0
 [0.4.0]: https://github.com/2b3pro/masume/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/2b3pro/masume/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/2b3pro/masume/compare/v0.1.0...v0.2.0

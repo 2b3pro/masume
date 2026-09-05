@@ -1,8 +1,16 @@
 # Masume Agent Collaboration v1
 
-**Status:** Core v1 shipped; tracked gaps and on-device extensions in progress
+**Status:** Core collaboration foundation released; Phase 4 and human OCR complete in the installed 0.6.0 development build; remaining v1 gaps tracked below
 **Date:** 2026-09-04
 **Scope:** Extend the existing native macOS annotation app; do not rebuild Masume inside LiveDoc.
+
+### Current checkpoint
+
+- **Installed build:** `/Applications/Masume.app`, version **0.6.0**, copied from `build/Masume.app` with a verified signature.
+- **Release state:** `feat/zones` is an untagged development branch. The last tagged release is **0.4.0**; 0.6.0 includes the untagged 0.5.0 work. Installed/implemented does not mean released on `main`.
+- **Completed:** Phases 1–4, zones, Finder Quick Look previews/thumbnails, and the Phase 5 text-map/transcription slice (the earlier roadmap's **#3**).
+- **Next:** the optional local pre-export redaction scan, followed by single-page PDF export and the visible attributed-history panel. See the ordered checkpoint in section 11.
+- **Not yet complete:** all of Phase 5 or the full v1 scope. macOS 26-related work remains a separate product/deployment decision.
 
 ## 1. Product definition
 
@@ -197,11 +205,16 @@ Every mutation requires `documentId` and `expectedRevision`. The operation fails
 - `masume_update_element` changes geometry, text, color, fill, width, font, shadow, corner radius, pixelation strength, or z-order.
 - `masume_delete_elements` deletes explicit IDs.
 - `masume_set_crop` sets, updates, or clears the non-destructive crop.
+- `masume_set_grid_density` changes the stored grid preset as one undoable document action.
+- `masume_set_text_preferences` saves per-document OCR languages and custom words as one undoable document action.
+- `masume_batch` commits a group of supported document mutations atomically.
 - `masume_undo` and `masume_redo` move through the single shared history.
 - `masume_save_project` saves the editable source document.
 - `masume_export` writes a flattened PNG, JPEG, or WebP. Single-page PDF remains planned.
 
 Each mutating call carries `actorId` and a short human-readable `reason` for the history panel. Batch creation or updates must commit atomically as one undoable action.
+
+`masume_set_zone` changes the transient observation region, not the annotation list or document revision. It is available now and is not a pending annotation tool.
 
 ### Safety and validation
 
@@ -281,13 +294,12 @@ Tool and style memory currently persists across launches. It applies to newly cr
 
 ## 10. UI changes
 
-- Add a toolbar grid toggle and a compact grid-density control offering the five presets from section 4, with the tier default marked.
-- Draw column labels across the top and row labels down the left, inside the image overlay but outside exports.
-- Add a history panel showing shared actions and actor attribution. The underlying attributed history and command surfaces have shipped; the panel remains planned.
-- Add Save, Save As, Export Flattened Image, and Create Share-Safe Copy commands with conventional shortcuts.
-- Add agent connection status without exposing crop transport or model internals.
-- Keep selection handles and annotations visually above the grid; the grid must not intercept pointer events.
-- Never include the grid in flattened export unless a future explicit **Export With Grid** option is added.
+- **Implemented:** grid visibility and density controls, with column/row labels outside the canvas when space permits and riding the visible edge when zoomed in. The grid stays out of exports and does not intercept pointer events.
+- **Implemented:** Save, Save As, flattened export, and Create Share-Safe Copy commands; in-app CLI installation and MCP server status/settings.
+- **Implemented:** rectangle style flyout, corner-radius/opacity controls, and per-object shadow control with remembered defaults.
+- **Implemented:** Find Text & Transcribe (`⇧⌘F`), document recognition preferences, whole-image/zone reading, matching source bounds, confidence, copy, and text export.
+- **Planned:** a visible attributed-history panel. Durable history, actor attribution, command inspection, and shared undo/redo already work; this is a missing human-facing view, not a missing history engine.
+- **Future only:** an explicit Export With Grid option; ordinary exports must continue to omit the grid.
 
 ## 11. Delivery sequence
 
@@ -309,7 +321,7 @@ Implementation notes are in `phase-1-durable-document-plan.md`. The base image i
 
 ### Phase 3: Agent surfaces (shipped 2026-09-02)
 
-Implementation notes are in `phase-3-agent-surfaces-plan.md`. `scripts/ae-roundtrip.sh` (JXA) and `scripts/roundtrip.sh` (the `masume` CLI, including a kill-and-recover step and a byte-identical offline export) are the integration tests; both pass against the built app.
+Implementation notes are in `phase-3-agent-surfaces-plan.md`. `scripts/ae-roundtrip.sh` (JXA) and `scripts/roundtrip.sh` (the `masume` CLI, including a kill-and-recover step and a byte-identical offline export) passed during Phase 3 delivery. The latest candidate's verification is recorded below; this historical result is not a claim that both full scripts were rerun for 0.6.0.
 
 1. Extract document commands from `CanvasController` into a reusable command service with JSON-codable commands and results.
 2. Add the scripting definition, the read-only document properties, and the `execute` verb over that service, with document/revision assertions inside the handler.
@@ -326,7 +338,44 @@ and remembered defaults are implemented. New styles share the document codec, re
 
 Vision text mapping and the human transcription workflow are implemented on the 0.6.0 candidate branch: persistent per-document
 languages/custom words, Find Text, confidence display, copy, and UTF-8 text export. The redaction scan remains. The Foundation Models
-command bar and App Intents follow only after the macOS 26 deployment-target decision. Details are in section 15.
+command bar and related system integrations are deliberately sequenced after the platform decision; do not silently raise the macOS 15 minimum.
+Details are in section 15.
+
+### Ordered roadmap checkpoint — 2026-09-04
+
+These item numbers preserve the earlier roadmap; they are not phase numbers. In particular, roadmap **#3** means the human OCR workflow, not Phase 3.
+
+| Roadmap item | Current state | Remaining work / completion boundary |
+| --- | --- | --- |
+| 1. Quick Look package previews | Complete in 0.6.0 | Preview and thumbnail extensions use only the saved flattened preview and preserve the editable-project warning. |
+| 2. Complete Phase 4 | Complete in 0.6.0 | Rounded rectangles, rectangular highlights, and per-object shadows work through UI, persistence, rendering, undo, CLI, and MCP. |
+| 3. Human OCR/transcription | Complete in 0.6.0 | Saved languages/custom words, Find Text, confidence, copy, UTF-8 export, and stale-result protection are implemented. |
+| 4. Pre-export redaction scan | **Next; not implemented** | Opt-in, on-device detection of uncovered text and faces; highlight/report potential omissions without changing annotations or blocking export. Off by default; never on load. |
+| 5. Remaining v1 gaps | Planned after #4 | Single-page flattened PDF export and a visible, attributed shared-history panel. |
+| 6. Later system integrations | Deferred pending product/platform decision | Foundation Models command bar, App Intents/Shortcuts, and Writing Tools validation. Preserve the macOS 15 baseline until a decision is made. |
+
+Recommended next implementation slice: **#4, the pre-export redaction scan**. Reuse local OCR and the existing pixelate geometry; add face detection,
+coverage reporting, and temporary overlays. Test partial coverage, fully covered regions, no findings, and failure paths. Treat the scan as a review aid,
+not a guarantee of safety; cancelling it or finding possible omissions must not change the document or prevent an ordinary export.
+
+For **#5**, PDF export must use the same flattened renderer and crop/export bounds as image export, with one page and no embedded original,
+editable layers, grid, or history. Expose it consistently through the app, live/offline CLI, and MCP. The history panel must read the existing
+attributed history and follow active-tab changes and undo/redo without introducing a second history store.
+
+Release housekeeping is separate from feature completion: review and merge the candidate to `main`, finalize the changelog, and tag `v0.6.0`
+only when explicitly undertaking a release. A documentation-only checkpoint does not require another version bump.
+
+Planning provenance (local history): Codex session `76e11d04`, event `cfd0b9bc`, provider session `01a06d37-0d6d-7990-870b-8754f8407861`.
+This checkpoint preserves that roadmap's order while updating completion status from the current source and verification below.
+
+### Verification checkpoint
+
+- Feature commit: `e594e40`; CLI/GUI product-name fix: `8e95a45`; version synchronization: `0aa239a`.
+- Latest feature validation: **506 Swift tests executed, 1 skipped, 0 failures**; strict SwiftLint passed; **6 MCP tests passed**. These are the recorded 2026-09-04 results, not a new full-suite run for this documentation update.
+- Installed-app smoke test used a disposable fixture: rounded outline and translucent highlight rendered correctly; CLI create/undo/redo/save/export worked; zone OCR returned only the intended column; Find Text matched the expected line; native text export wrote that column successfully.
+- The 0.6.0 version-only rebuild passed signature verification; the app, both Quick Look extensions, and bundled MCP metadata agree on 0.6.0. MCP tests were rerun after the bump.
+- Relevant regressions live in `AnnotationStyleTests`, `AnnotationStyleRenderTests`, `PhaseFourWorkflowTests`, `AnnotationVocabularyTests`, and `TranscriptionWorkflowTests`; live Vision coverage is in `TextRecognitionTests`.
+- Synthetic OCR and workflow tests establish mechanics, not archival recognition accuracy. Skewed/low-contrast historical scans and proper-name accuracy still need representative evaluation; a confidence value is not independent verification.
 
 ## 12. Acceptance criteria
 
@@ -344,6 +393,8 @@ Version one is complete when all of the following are demonstrably true:
 9. Export produces a flattened artifact without grid lines, edit metadata, history, or recoverable base pixels outside the exported result.
 10. The complete agent-human round trip passes both automated tests and a manual UI smoke test.
 11. The same round trip driven from a shell with the `masume` CLI passes, and `masume export` of a saved project from a shell with the app closed is pixel-identical to the app's export.
+12. A single-page flattened PDF export honors crop/export bounds and contains no editable source image, annotation objects, grid, or history. **Still pending.**
+13. A human can inspect attributed actions in a visible history panel that follows the active document and shared undo/redo. **Still pending; the backing history already exists.**
 
 ## 13. Required tests
 
@@ -400,6 +451,8 @@ The primary human use of the text map is not locating a labeled control. It is l
 
 ### Pre-export redaction scan
 
+**Status: next roadmap item; not implemented in 0.6.0.**
+
 Section 7 makes the project-file disclosure boundary unmistakable. It does not address the other failure, which is more common and equally silent: exporting a flattened image in which something was never redacted at all. Flattening is safe by construction. Forgetting is not.
 
 - Before **Export Flattened Image** or **Create Share-Safe Copy**, an optional scan runs `RecognizeTextRequest` and `DetectFaceRectanglesRequest` over the base image and reports how many text regions and faces fall outside the bounds of any `pixelate` element.
@@ -446,7 +499,8 @@ Vision text mapping and its human UI/persistence workflow are in the 0.6.0 candi
 image or zone only when invoked. Search highlights source text bounds; each line shows confidence and a grid range. Copy/export mark
 confidence below 0.8 without rewriting recognized words. Results become stale when the base image, grid, relevant zone, or saved
 preferences change, including while a background recognition is in progress. The redaction scan, command bar, and App Intents remain
-future work; the latter two wait on the deployment-target decision.
+future work, sequenced as described in section 11. App Intents is a separate client of the command service; its place in the later phase
+is a product-priority decision, not a claim that all Shortcuts integration requires a macOS 26 target.
 
 `set_text_preferences` / `masume text-preferences` / `masume_set_text_preferences` update `languages` and `customWords` as one attributed,
 revision-checked, undoable commit; omitted fields stay unchanged and empty arrays clear them. `read_text` inherits these fields when omitted.

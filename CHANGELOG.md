@@ -6,6 +6,35 @@ or surfaces, a patch bump for fixes. Each release is tagged `vX.Y.Z` on `main`.
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-09-04
+
+Annotation styles, human transcription, and Quick Look. Includes the work developed under
+0.5.0, which was not separately tagged.
+
+### Added
+
+- Rounded rectangles with editable corner radii, borderless rectangular highlights with
+  adjustable opacity, and per-object shadows. Styles are available in the palette, CLI,
+  and MCP and round-trip through projects, rendering, and shared undo/redo.
+- Find Text & Transcribe (`Shift+Cmd+F`): local OCR of the whole image or selected zone,
+  searchable canvas matches, confidence display, copy, and UTF-8 text export. Low-confidence
+  lines are marked in copied/exported text, and stale results cannot be exported.
+- Per-document OCR languages and custom words, saved with projects and shared undo history;
+  `masume text-preferences` and `masume_set_text_preferences` expose the same preferences.
+- Zones: the Select tool drags a marching-ants region on empty canvas, rectangle or ellipse,
+  as a pointer for the agent. It is not an annotation and never exports. Agents read it from
+  the document summary (rect, shape, covering grid range), use `zone` as an address anywhere,
+  and can mark one out for the person with `set_zone` (`masume zone`, `masume_set_zone`).
+- On-device text recognition through `read_text`, `masume read-text`, and
+  `masume_read_text`. It reads the untouched whole image, a grid range, or `zone` with
+  Vision and returns text, confidence, full-image pixel and normalized bounds, and covering
+  grid ranges without returning image data. Calls may provide recognition languages and
+  custom words.
+- A Command Line settings pane installs or updates the bundled `masume` executable.
+- Finder Quick Look previews and thumbnails for `.masume` projects, sourced only from the
+  package's flattened `preview.png`. The preview labels the package as editable and warns
+  that it contains the original image; missing or invalid previews never fall back to it.
+
 ### Changed
 
 - Grid axis labels are navy-on-gray chips spaced 10 points outside the canvas; fit mode
@@ -13,6 +42,22 @@ or surfaces, a patch bump for fixes. Each release is tagged `vX.Y.Z` on `main`.
 - The Crop tool also resizes the canvas: handles on the canvas's corners and sides (and a
   frame dragged past an edge) grow it with white on Apply Resize. The action bar shows the
   frame's width and height as editable fields.
+- The app stays running when its last main window closes, while auxiliary windows retain
+  their normal close behavior.
+- App assembly prefers an available Apple Development or Developer ID identity and signs
+  the bundled CLI with its Automation entitlement, falling back to ad-hoc signing with a
+  warning when no identity is available.
+- `masume new` writes the same bounded `preview.png` as an app-created project, so projects
+  created offline participate in Quick Look immediately.
+
+### Fixed
+
+- The GUI and CLI use distinct SwiftPM product names and isolated bundle build paths,
+  preventing case-insensitive build collisions that could stop Masume from launching.
+- Apple Event failures, including Automation denial (`-1743`), now produce actionable CLI
+  diagnostics instead of being flattened into a generic not-running error.
+- Clicking or dragging the action bar's share control no longer crashes when AppKit asks its
+  file-promise delegate for an operation queue from a background file-coordination thread.
 
 ## [0.4.0] - 2026-09-02
 
@@ -113,7 +158,8 @@ grid as the common spatial language, and three ways in for automation.
 The Skitch-look fork as inherited from [2b3pro/kakico](https://github.com/2b3pro/kakico):
 drop shadows, text styles, stamps, pen and highlighter, and remembered tool state.
 
-[Unreleased]: https://github.com/2b3pro/masume/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/2b3pro/masume/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/2b3pro/masume/compare/v0.4.0...v0.6.0
 [0.4.0]: https://github.com/2b3pro/masume/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/2b3pro/masume/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/2b3pro/masume/compare/v0.1.0...v0.2.0

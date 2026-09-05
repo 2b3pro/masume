@@ -69,13 +69,19 @@ public enum Annotation: Codable, Equatable, Sendable, Identifiable {
     /// those kinds and for nil.
     public var opacity: CGFloat? {
         get {
-            guard case .pen(let e) = self else { return nil }
-            return e.opacity
+            switch self {
+            case .pen(let e): return e.opacity
+            case .rectangle(let e): return e.highlightOpacity
+            default: return nil
+            }
         }
         set {
-            guard case .pen(var e) = self, let opacity = newValue else { return }
-            e.opacity = opacity
-            self = .pen(e)
+            guard let opacity = newValue else { return }
+            switch self {
+            case .pen(var e): e.opacity = opacity; self = .pen(e)
+            case .rectangle(var e) where e.highlightOpacity != nil: e.highlightOpacity = opacity; self = .rectangle(e)
+            default: break
+            }
         }
     }
 

@@ -60,7 +60,7 @@ public enum OfflineCommands {
             let m = contents.manifest
             guard let base = decode(contents.baseImagePNG) else { throw CommandError.io("the base image could not be decoded") }
             let document = Document(baseImage: .pngData(Data()), canvasSize: m.canvasSize,
-                                    elements: m.elements, crop: m.crop, grid: m.grid)
+                                    elements: m.elements, crop: m.crop, grid: m.grid, textPreferences: m.textPreferences)
             let out = URL(fileURLWithPath: output)
             let type = try utType(formatName ?? out.pathExtension)
             let bounds = try exportBounds(boundsName)
@@ -118,7 +118,8 @@ public enum OfflineCommands {
                 baseImage: BaseImageInfo(fileName: ProjectPackage.baseImageName, sha256: ProjectPackage.sha256Hex(png),
                                          width: image.width, height: image.height),
                 grid: .default(for: size))
-            try ProjectPackage.create(at: destination, manifest: manifest, baseImagePNG: png, preview: nil, history: [])
+            let preview = previewPNG(of: image, size: size)
+            try ProjectPackage.create(at: destination, manifest: manifest, baseImagePNG: png, preview: preview, history: [])
             return .success(.object([
                 "path": .string(destination.standardizedFileURL.path),
                 "id": .string(manifest.id.uuidString),
@@ -135,6 +136,19 @@ public enum OfflineCommands {
     static func decode(_ data: Data) -> CGImage? {
         guard let source = CGImageSourceCreateWithData(data as CFData, nil) else { return nil }
         return CGImageSourceCreateImageAtIndex(source, 0, nil)
+    }
+
+    private static func previewPNG(of image: CGImage, size: CGSize) -> Data? {
+        let longSide = max(size.width, size.height)
+        let scale = longSide > 512 ? 512 / longSide : 1
+        let document = Document(baseImage: .pngData(Data()), canvasSize: size)
+        guard let preview = Renderer.flatten(
+            document,
+            baseImage: image,
+            scale: scale,
+            bounds: .clipToImage
+        ) else { return nil }
+        return Renderer.encode(preview, as: .png)
     }
 
     private static func loadImage(_ url: URL, page: Int?) throws -> CGImage? {

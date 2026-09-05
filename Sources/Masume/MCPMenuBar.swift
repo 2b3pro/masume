@@ -53,13 +53,31 @@ struct MCPMenu: View {
     }
 }
 
-/// Settings ▸ MCP: where the server listens, its token, Node, the agent's
-/// name, and launch behavior.
+/// Settings: installation for the command-line executable plus where the MCP
+/// server listens, its token, Node, the agent's name, and launch behavior.
 struct MCPSettingsView: View {
     @Bindable var server: MCPServerController
+    var cliInstaller: CLIInstallationController
 
     var body: some View {
         Form {
+            Section("Command Line") {
+                LabeledContent("Location") {
+                    Text(cliInstaller.destinationURL.path)
+                        .font(.system(.body, design: .monospaced))
+                        .textSelection(.enabled)
+                }
+                LabeledContent("Status") {
+                    installationStatus
+                }
+                Button(cliInstaller.buttonTitle) {
+                    Task { await cliInstaller.install() }
+                }
+                .disabled(cliInstaller.state == .installing)
+                Text("Installs the masume command for all local users. An administrator password is required.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
             Section("Server") {
                 TextField("Port", value: $server.port, format: .number)
                 LabeledContent("Token") {
@@ -96,5 +114,24 @@ struct MCPSettingsView: View {
         .formStyle(.grouped)
         .frame(width: 460)
         .padding(.bottom, 8)
+    }
+
+    @ViewBuilder
+    private var installationStatus: some View {
+        switch cliInstaller.state {
+        case .notInstalled:
+            Text("Not installed")
+                .foregroundStyle(.secondary)
+        case .installed:
+            Label("Installed", systemImage: "checkmark.circle.fill")
+                .foregroundStyle(.green)
+        case .installing:
+            ProgressView("Installing\u{2026}")
+                .controlSize(.small)
+        case .failed(let message):
+            Label(message, systemImage: "exclamationmark.triangle.fill")
+                .foregroundStyle(.red)
+                .fixedSize(horizontal: false, vertical: true)
+        }
     }
 }

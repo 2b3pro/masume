@@ -68,6 +68,16 @@ final class CanvasController {
             persistPreferences()
         }
     }
+    var shadowEnabled = true { didSet { persistPreferences() } }
+    var rectangleTreatment: RectangleTreatment = .outline { didSet { persistPreferences() } }
+    var cornerRadius: CGFloat = 16 { didSet { persistPreferences() } }
+    var highlightOpacity: CGFloat = 0.3 { didSet { persistPreferences() } }
+    var showsTranscription = false
+    var textMap: TextMap?
+    var textQuery = ""
+    var isRecognizingText = false
+    var textRecognitionError: String?
+    var textRecognitionID: UUID?
     /// Opacity for new pen strokes (1 = pen, lower = highlighter); edits the
     /// selected pen stroke when one is selected (mirrors `strokeWidth`).
     var penOpacity: CGFloat = 1 {
@@ -95,6 +105,16 @@ final class CanvasController {
     var stampEmoji: String = StampElement.defaultEmoji {
         didSet {
             applyStampEmojiToSelection()
+            persistPreferences()
+        }
+    }
+    /// The zone either side marked out: shown as marching ants, read by
+    /// agents, never exported, not part of the document or its history.
+    var zone: Zone?
+    /// Outline for the next zone; restyles the current one too.
+    var zoneShape: ZoneShape = .rectangle {
+        didSet {
+            if zone != nil, zone?.shape != zoneShape { zone?.shape = zoneShape }
             persistPreferences()
         }
     }
@@ -206,6 +226,7 @@ final class CanvasController {
         textOutlineColor = prefs.textOutlineColor
         stampKind = prefs.stampKind
         stampEmoji = prefs.stampEmoji
+        zoneShape = prefs.zoneShape
         textAlignment = prefs.textAlignment
         calloutShape = prefs.calloutShape
         magnifierShape = prefs.magnifierShape
@@ -213,6 +234,10 @@ final class CanvasController {
         imageMask = prefs.imageMask
         imageBorder = prefs.imageBorder
         imageShadow = prefs.imageShadow
+        shadowEnabled = prefs.shadowEnabled
+        rectangleTreatment = prefs.rectangleTreatment
+        cornerRadius = prefs.cornerRadius
+        highlightOpacity = prefs.highlightOpacity
         pixelateAmount = prefs.referencePixelateAmount
         strokeWidth = groupWidths[prefs.tool.strokeWidthGroup ?? .segment] ?? DefaultStrokeWidth.segmentReferenceWidth
     }
@@ -241,6 +266,7 @@ final class CanvasController {
         prefs.textOutlineColor = textOutlineColor
         prefs.stampKind = stampKind
         prefs.stampEmoji = stampEmoji
+        prefs.zoneShape = zoneShape
         prefs.textAlignment = textAlignment
         prefs.calloutShape = calloutShape
         prefs.magnifierShape = magnifierShape
@@ -248,6 +274,10 @@ final class CanvasController {
         prefs.imageMask = imageMask
         prefs.imageBorder = imageBorder
         prefs.imageShadow = imageShadow
+        prefs.shadowEnabled = shadowEnabled
+        prefs.rectangleTreatment = rectangleTreatment
+        prefs.cornerRadius = cornerRadius
+        prefs.highlightOpacity = highlightOpacity
         return prefs
     }
 

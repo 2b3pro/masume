@@ -15,8 +15,8 @@ IMAGE="${1:-$ROOT/Resources/AppIcon.png}"
 [[ -d "$APP" ]] || { echo "error: build the app first ($APP missing)" >&2; exit 1; }
 
 cd "$ROOT"
-swift build -c release --product masume >/dev/null
-CLI="$(swift build -c release --show-bin-path)/masume"
+swift build -c release --product MasumeTool >/dev/null
+CLI="$(swift build -c release --show-bin-path)/MasumeTool"
 field() { python3 -c "import json,sys; d=json.load(sys.stdin); print($1)"; }
 
 pkill -x Masume 2>/dev/null || true

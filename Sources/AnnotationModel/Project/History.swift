@@ -37,16 +37,20 @@ public struct HistoryEntry: Codable, Equatable, Sendable {
     /// Set when the grid density changed (a document action).
     public var gridBefore: GridDefinition?
     public var gridAfter: GridDefinition?
+    public var textPreferencesBefore: TextPreferences?
+    public var textPreferencesAfter: TextPreferences?
 
     public init(id: UUID = UUID(), actor: HistoryActor, timestamp: Date, revisionBefore: Int, revisionAfter: Int,
                 summary: String, affected: [ElementID], before: [Annotation], after: [Annotation],
                 cropChanged: Bool, cropBefore: CGRect?, cropAfter: CGRect?,
-                gridBefore: GridDefinition? = nil, gridAfter: GridDefinition? = nil, reason: String? = nil) {
+                gridBefore: GridDefinition? = nil, gridAfter: GridDefinition? = nil, reason: String? = nil,
+                textPreferencesBefore: TextPreferences? = nil, textPreferencesAfter: TextPreferences? = nil) {
         self.id = id; self.actor = actor; self.timestamp = Dates.rounded(timestamp)
         self.revisionBefore = revisionBefore; self.revisionAfter = revisionAfter
         self.summary = summary; self.reason = reason; self.affected = affected; self.before = before; self.after = after
         self.cropChanged = cropChanged; self.cropBefore = cropBefore; self.cropAfter = cropAfter
         self.gridBefore = gridBefore; self.gridAfter = gridAfter
+        self.textPreferencesBefore = textPreferencesBefore; self.textPreferencesAfter = textPreferencesAfter
     }
 
     /// The entry for the commit that turned `old` into `new`. An element is
@@ -70,7 +74,7 @@ public struct HistoryEntry: Codable, Equatable, Sendable {
         let delta = HistorySummary.Delta(
             changed: changed, added: added, deleted: deleted,
             crop: cropChanged ? (new.crop == nil ? .cleared : .changed) : nil,
-            grid: gridChanged ? new.grid : nil)
+            grid: gridChanged ? new.grid : nil, textPreferencesChanged: old.textPreferences != new.textPreferences)
         let summary = summaryOverride ?? HistorySummary.sentence(actor: actor, delta: delta)
         return HistoryEntry(
             id: id, actor: actor, timestamp: timestamp,
@@ -85,7 +89,9 @@ public struct HistoryEntry: Codable, Equatable, Sendable {
             cropAfter: cropChanged ? new.crop : nil,
             gridBefore: gridChanged ? old.grid : nil,
             gridAfter: gridChanged ? new.grid : nil,
-            reason: reason)
+            reason: reason,
+            textPreferencesBefore: old.textPreferences != new.textPreferences ? old.textPreferences : nil,
+            textPreferencesAfter: old.textPreferences != new.textPreferences ? new.textPreferences : nil)
     }
 }
 
@@ -102,10 +108,12 @@ public enum HistorySummary {
         public var crop: CropChange?
         /// The new grid when the density changed.
         public var grid: GridDefinition?
+        public var textPreferencesChanged: Bool
 
         public init(changed: [Annotation] = [], added: [Annotation] = [], deleted: [Annotation] = [],
-                    crop: CropChange? = nil, grid: GridDefinition? = nil) {
+                    crop: CropChange? = nil, grid: GridDefinition? = nil, textPreferencesChanged: Bool = false) {
             self.changed = changed; self.added = added; self.deleted = deleted; self.crop = crop; self.grid = grid
+            self.textPreferencesChanged = textPreferencesChanged
         }
     }
 
@@ -120,6 +128,7 @@ public enum HistorySummary {
         case nil: break
         }
         if let grid = delta.grid { parts.append("changed the grid to \(grid.columns)\u{00D7}\(grid.rows)") }
+        if delta.textPreferencesChanged { parts.append("changed transcription preferences") }
         guard !parts.isEmpty else { return "\(actor.name) made no change" }
         return "\(actor.name) \(join(parts))"
     }
@@ -160,7 +169,7 @@ extension Annotation {
         switch self {
         case .arrow: return "arrow"
         case .line: return "line"
-        case .rectangle: return "rectangle"
+        case .rectangle(let e): return e.highlightOpacity != nil ? "highlight" : ((e.cornerRadius ?? 0) > 0 ? "rounded rectangle" : "rectangle")
         case .ellipse: return "ellipse"
         case .pen: return "pen stroke"
         case .text(let t): return t.isCallout ? "callout" : "text"

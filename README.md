@@ -21,8 +21,26 @@ A PDF page is rasterized at 2× on import; a multi-page PDF shows a page picker 
 
 - **Tools:** Select (`V`), Arrow (`A`), Line (`L`), Rectangle (`R`), Ellipse (`O`), Pen (`D`),
   Text (`T`), Callout (`B`), Stamp (`S`), Magnify (`M`), Pixelate (`P`), and Crop (`C`).
+- **Zones:** with the Select tool, drag on empty canvas to mark a region out with marching
+  ants, rectangular or elliptical from the row beside the tool. A zone is a pointer, not an
+  annotation: it never exports, it isn't in the history, and a click on empty canvas or `Esc`
+  clears it. Agents read it as a rect, a shape, and the grid range that covers it, and the
+  address `zone` works wherever an address does, so "look at the zone" and "put a box over the
+  zone" both work. An agent can mark one out for you the same way.
 - **Skitch look:** arrows, lines, rectangles, and ellipses cast a soft drop shadow that scales
-  with the stroke width and stays identical at every export size.
+  with the stroke width and stays identical at every export size. The shadow control edits the
+  selected annotation and remembers the default for new objects.
+- **Rectangle styles:** choose Rectangle (`R`), then outline, rounded rectangle, or translucent
+  highlight in its flyout. Rounded rectangles have an editable corner radius in pixels;
+  highlights have adjustable opacity and start without a border or shadow.
+- **Find Text & Transcribe:** open the bottom-right Find Text control or press `⇧⌘F`.
+  Choose the whole image or a drawn zone and click Read Text. Recognition runs locally on the
+  untouched base image. Languages (such as `en-US, fr-FR`) and custom words (one per line)
+  save with the project and share undo/recovery. Search results highlight source regions on
+  the canvas. Copy Text and Export Text produce UTF-8 transcription, marking lines below
+  80% confidence. Confidence is Vision's estimate; multi-column order is not guaranteed,
+  so read one column at a time. Nothing analyzes on load. Image, grid, zone, or preference
+  changes invalidate old results; ordinary annotations do not.
 - **Text:** three styles, **Shadow** (white or black halo plus drop shadow), **Outline**, and
   **Plain**, chosen from the palette or by clicking the round "a" button above a selected text
   box, which previews the style you will get next. Side handles set the width and the text
@@ -93,7 +111,8 @@ A PDF page is rasterized at 2× on import; a multi-page PDF shows a page picker 
   (`Cmd+Shift+S`) makes a copy with a new identity. Open (`Cmd+O`) or double-click a
   package to keep editing. Every committed action is also shadowed into a recovery package
   under Application Support, so after a crash the app reopens what you had, unsaved and
-  marked with a dot in its tab.
+  marked with a dot in its tab. Finder thumbnails and Quick Look show the saved flattened
+  preview, labeled as an editable project that still contains the original image.
 - **Redaction and sharing:** a project keeps the unredacted original, and the first save of
   each document says so (with a "Don't show this again" option). To share a pixelated
   result use **Create Share-Safe Copy…**, which writes only the flattened pixels, or
@@ -112,7 +131,10 @@ JSON commands and get the same `{ok, result}` or `{ok, error: {code, message}}` 
 
 - **`masume` command line.** Live subcommands send one Apple Event each to the running app:
   `masume doc`, `masume resolve D5:F14`, `masume add arrow from=B3 to=D6 --reason "…"`,
-  `masume view D5:F14 --out crop.png`, `masume undo`, `masume save ~/Shots/Login.masume`,
+  `masume view D5:F14 --out crop.png` (or `view zone`),
+  `masume read-text zone --languages en-US --custom-words Masume,Shen`,
+  `masume zone C3:E6`, `masume undo`,
+  `masume save ~/Shots/Login.masume`,
   `masume export out.png`, and `masume exec '<json>'` for anything by name. Mutations default
   to the active document at its current revision and say so on stderr; pass `--doc` and
   `--revision` to pin them. Offline subcommands need no app: `masume info file.masume`,
@@ -120,7 +142,8 @@ JSON commands and get the same `{ok, result}` or `{ok, error: {code, message}}` 
   `masume new shot.png file.masume [--page n]` for images and PDFs. Exit status mirrors the
   error code (2 conflict, 3 not found, 4 invalid address, 5 invalid argument, 6 unsupported,
   7 io, 10 Masume not running, 64 usage). `masume --help` is the one-screen usage and
-  `masume help add` lists every element key. Install with `bash scripts/install-cli.sh`.
+  `masume help add` lists every element key. Install or reinstall it for all local users from
+  Settings ▸ Command Line; source checkouts can also use `bash scripts/install-cli.sh`.
 - **AppleScript and JXA.** `Application("Masume").activeDocument.revision()` and
   `Application("Masume").execute(json)`; see `Resources/Masume.sdef`.
   `scripts/ae-roundtrip.sh` drives the built app this way.
@@ -133,7 +156,9 @@ JSON commands and get the same `{ok, result}` or `{ok, error: {code, message}}` 
 
 Every mutation carries the document id and expected revision and fails closed on a mismatch,
 and every agent edit lands in the same history and undo stack as yours, attributed and with
-the reason the agent gave.
+the reason the agent gave. `read-text` uses macOS Vision on the untouched base image and
+returns strings, confidence, and geometry without sending pixels through the agent transport;
+`view` deliberately returns pixels when visual inspection is needed.
 
 ### Setting up MCP
 
@@ -178,6 +203,7 @@ history is in [CHANGELOG.md](CHANGELOG.md).
 
 | Version | Highlights |
 |---|---|
+| 0.6.0 | Rounded rectangles, rectangular highlights, per-object shadows; Find Text and transcription with saved OCR preferences, confidence, copy, and text export; Quick Look previews. Includes the untagged 0.5.0 work: zones, local Vision OCR, in-app CLI installation, canvas resize, refined grid labels, and automation fixes. |
 | 0.4.0 | Numbered, lettered, and emoji stamps with `+`/`-`, `Tab`, and Shift-snapped tails; the agent guide (`masume_guide` and server instructions) with MCP setup directions; `masume help <subcommand>` with every element key; the CLI addresses the app by process id. |
 | 0.3.0 | The shared document: `.masume` projects with attributed history and crash recovery, the grid with quadrant addresses, the command service behind MCP, the `masume` CLI, and AppleScript, an in-app MCP server with a menu bar item, image layers, Option-drag duplicates, tab naming and Close All. |
 | 0.2.0 | Callouts (speech and thought) with text alignment, one-shot tools with a lock, the magnifier loupe with a zoom slider, PDF import at 2× with a page picker. |
@@ -187,12 +213,14 @@ history is in [CHANGELOG.md](CHANGELOG.md).
 
 ```sh
 swift test                       # Run unit tests (model, renderer, and app)
-bash scripts/build-app.sh        # Build & assemble an ad-hoc-signed Masume.app
+bash scripts/build-app.sh        # Build, assemble, and sign Masume.app
 open build/Masume.app
 ```
 
 Requirements: macOS 15+, Xcode/Swift toolchain. The build script produces a native arm64,
-ad-hoc-signed bundle (no Apple Developer account required). The repository's lint hook uses
+signed bundle, preferring an available Apple Development or Developer ID identity so macOS
+can retain Automation grants across rebuilds. It falls back to ad-hoc signing when no identity
+is available (no Apple Developer account is required). The repository's lint hook uses
 [SwiftLint](https://github.com/realm/SwiftLint) (`brew install swiftlint`).
 
 ## Project layout

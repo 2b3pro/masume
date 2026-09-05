@@ -178,7 +178,7 @@ final class ProjectSession {
             assets: assetInfos,
             grid: document.grid,
             workingName: workingName,
-            boundProjectPath: url?.path)
+            boundProjectPath: url?.path, textPreferences: document.textPreferences)
     }
 
     // MARK: Recovery autosave

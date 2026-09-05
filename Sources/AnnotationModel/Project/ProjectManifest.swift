@@ -113,6 +113,7 @@ public struct ProjectManifest: Equatable, Sendable {
     /// Stored grid counts; nil in packages written before grids existed, in
     /// which case the default for the canvas size applies.
     public var grid: GridDefinition?
+    public var textPreferences: TextPreferences
     /// The name the user gave an unsaved document (the tab title and the
     /// default file name); nil once saved, when the file name is the name.
     public var workingName: String?
@@ -125,12 +126,14 @@ public struct ProjectManifest: Equatable, Sendable {
     public init(formatVersion: Int = ProjectManifest.currentFormatVersion, id: UUID, revision: Int,
                 canvasSize: CGSize, crop: CGRect?, elements: [Annotation], createdAt: Date, updatedAt: Date,
                 baseImage: BaseImageInfo, assets: [AssetInfo] = [], grid: GridDefinition? = nil,
-                workingName: String? = nil, boundProjectPath: String? = nil, extra: [String: JSONValue] = [:]) {
+                workingName: String? = nil, boundProjectPath: String? = nil, extra: [String: JSONValue] = [:],
+                textPreferences: TextPreferences = TextPreferences()) {
         self.formatVersion = formatVersion; self.id = id; self.revision = revision
         self.canvasSize = canvasSize; self.crop = crop; self.elements = elements
         self.createdAt = Dates.rounded(createdAt); self.updatedAt = Dates.rounded(updatedAt); self.baseImage = baseImage
         self.assets = assets; self.grid = grid; self.workingName = workingName
         self.boundProjectPath = boundProjectPath; self.extra = extra
+        self.textPreferences = textPreferences
     }
 }
 
@@ -163,7 +166,7 @@ private struct RectJSON: Codable {
 extension ProjectManifest: Codable {
     private static let knownKeys: Set<String> = [
         "formatVersion", "id", "revision", "canvasSize", "crop", "elements",
-        "createdAt", "updatedAt", "baseImage", "assets", "grid", "workingName", "boundProjectPath",
+        "createdAt", "updatedAt", "baseImage", "assets", "grid", "workingName", "boundProjectPath", "textPreferences",
     ]
 
     public init(from decoder: Decoder) throws {
@@ -183,6 +186,7 @@ extension ProjectManifest: Codable {
         baseImage = try c.decode(BaseImageInfo.self, forKey: .named("baseImage"))
         assets = try c.decodeIfPresent([AssetInfo].self, forKey: .named("assets")) ?? []
         grid = try c.decodeIfPresent(GridDefinition.self, forKey: .named("grid"))
+        textPreferences = try c.decodeIfPresent(TextPreferences.self, forKey: .named("textPreferences")) ?? TextPreferences()
         workingName = try c.decodeIfPresent(String.self, forKey: .named("workingName"))
         boundProjectPath = try c.decodeIfPresent(String.self, forKey: .named("boundProjectPath"))
         var unknown: [String: JSONValue] = [:]
@@ -205,6 +209,7 @@ extension ProjectManifest: Codable {
         try c.encode(baseImage, forKey: .named("baseImage"))
         if !assets.isEmpty { try c.encode(assets, forKey: .named("assets")) }
         try c.encodeIfPresent(grid, forKey: .named("grid"))
+        try c.encode(textPreferences, forKey: .named("textPreferences"))
         try c.encodeIfPresent(workingName, forKey: .named("workingName"))
         try c.encodeIfPresent(boundProjectPath, forKey: .named("boundProjectPath"))
         for (key, value) in extra where !Self.knownKeys.contains(key) {

@@ -80,6 +80,8 @@ final class CLITests: XCTestCase {
             (["element", "abc"], "get_element", ["id": "abc"]),
             (["resolve", "d5:f7"], "resolve_grid", ["address": "d5:f7"]),
             (["view", "B2:C3", "--margin", "8"], "view_base_image", ["range": "B2:C3", "margin": 8]),
+            (["read-text", "zone", "--languages", "en-US,fr-FR", "--custom-words", "Shen,Masume"], "read_text",
+             ["range": "zone", "languages": ["en-US", "fr-FR"], "customWords": ["Shen", "Masume"]]),
             (["history", "--limit", "5"], "get_history", ["limit": 5]),
             (["add", "arrow", "from=B3", "to=D6", "color=blue", "width=12"], "create_element",
              ["type": "arrow", "from": "B3", "to": "D6", "color": "blue", "width": 12]),
@@ -95,6 +97,9 @@ final class CLITests: XCTestCase {
             (["crop", "B2:E5"], "set_crop", ["crop": "B2:E5"]),
             (["crop", "1,2,3,4"], "set_crop", ["crop": ["x": 1.0, "y": 2.0, "width": 3.0, "height": 4.0]]),
             (["crop", "none"], "set_crop", ["crop": NSNull()]),
+            (["zone", "C3:E6", "--shape", "ellipse"], "set_zone", ["zone": "C3:E6", "shape": "ellipse"]),
+            (["zone", "none"], "set_zone", ["zone": NSNull()]),
+            (["view", "zone", "--out", "/tmp/x.png"], "view_base_image", ["range": "zone"]),
             (["density", "24"], "set_grid_density", ["cellsAcrossLongSide": 24]),
             (["undo"], "undo", [:]),
             (["redo"], "redo", [:]),
@@ -128,6 +133,8 @@ final class CLITests: XCTestCase {
         XCTAssertEqual(MasumeCLI.run([], output: { _ in }, error: { _ in }, transport: { $0 }), 64, "no subcommand is a mistake")
         XCTAssertThrowsError(try MasumeCLI.parse(["doc", "--revision", "x"]))
         XCTAssertThrowsError(try MasumeCLI.parse(["doc", "--bogus", "1"]))
+        XCTAssertThrowsError(try CLIRequest.build("read-text", arguments: ["A1", "B2"], flags: [:], options: .init()))
+        XCTAssertThrowsError(try CLIRequest.build("read-text", arguments: [], flags: ["languages": "en-US,"], options: .init()))
         XCTAssertEqual(MasumeCLI.run(["frobnicate"], output: { _ in }, error: { _ in }, transport: { $0 }), 64)
         XCTAssertEqual(MasumeCLI.run(["add"], output: { _ in }, error: { _ in }, transport: { $0 }), 64)
     }
@@ -244,6 +251,9 @@ final class CLITests: XCTestCase {
         let contents = try ProjectPackage.read(at: project)
         XCTAssertEqual(contents.manifest.canvasSize, CGSize(width: 1200, height: 800))
         XCTAssertEqual(contents.manifest.grid, GridDefinition(columns: 12, rows: 8))
+        let preview = try Data(contentsOf: project.appendingPathComponent(ProjectPackage.previewName))
+        XCTAssertEqual(ProjectPackage.pngPixelSize(preview)?.width, 512)
+        XCTAssertEqual(ProjectPackage.pngPixelSize(preview)?.height, 341)
 
         var out = ""
         XCTAssertEqual(MasumeCLI.run(["info", project.path], output: { out += $0 }, error: { _ in }, transport: { $0 }), 0)

@@ -127,6 +127,21 @@ final class GridTests: XCTestCase {
         XCTAssertThrowsError(try grid.range("M1.3")) { XCTAssertEqual($0 as? GridError, .outOfRange("M1.3", columns: 12, rows: 8)) }
     }
 
+    func testRangeCoveringARectTakesTheCellsUnderItsCorners() {
+        let size = CGSize(width: 1200, height: 800)
+        let grid = GridDefinition(columns: 12, rows: 8)     // 100 px cells
+        XCTAssertEqual(grid.range(covering: CGRect(x: 150, y: 250, width: 300, height: 100), in: size)?.name, "B3:E4")
+        XCTAssertEqual(grid.range(covering: CGRect(x: 100, y: 200, width: 100, height: 100), in: size)?.name, "B3",
+                       "a rect that is exactly one cell covers just that cell")
+        XCTAssertEqual(grid.range(covering: CGRect(x: -50, y: -50, width: 200, height: 200), in: size)?.name, "A1:B2",
+                       "clamped into the grid")
+        XCTAssertEqual(grid.range(covering: CGRect(x: 1150, y: 750, width: 500, height: 500), in: size)?.name, "L8")
+        XCTAssertNil(grid.range(covering: CGRect(x: 2000, y: 2000, width: 10, height: 10), in: size), "misses the canvas")
+        let zone = Zone(rect: CGRect(x: 60, y: 50, width: -50, height: -40))
+        XCTAssertEqual(zone.rect, CGRect(x: 10, y: 10, width: 50, height: 40), "zones are stored normalized")
+        XCTAssertEqual(zone.center, CGPoint(x: 35, y: 30))
+    }
+
     func testRangeParsingRejectsReversedRanges() throws {
         XCTAssertEqual(try GridRange.parse("D5:F14"), GridRange(first: GridCell(column: 3, row: 4),
                                                                 last: GridCell(column: 5, row: 13)))

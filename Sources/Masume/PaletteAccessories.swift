@@ -57,6 +57,8 @@ struct ToolFlyout: View {
 
     var body: some View {
         switch tool {
+        case .rectangle:
+            RectangleStyleControls(controller: controller)
         case .stamp:
             HStack(spacing: 8) {
                 ChoicePanel(choices: StampKind.allCases, selected: controller.stampKind) { controller.stampKind = $0 }
@@ -66,6 +68,8 @@ struct ToolFlyout: View {
             ChoicePanel(choices: CalloutShape.allCases, selected: controller.calloutShape) { controller.calloutShape = $0 }
         case .magnifier:
             ChoicePanel(choices: MagnifierShape.allCases, selected: controller.magnifierShape) { controller.magnifierShape = $0 }
+        case .select:
+            ChoicePanel(choices: ZoneShape.allCases, selected: controller.zoneShape) { controller.zoneShape = $0 }
         default:
             EmptyView()
         }
@@ -90,6 +94,21 @@ extension MagnifierShape: PaletteChoice {
     }
 }
 extension LineAlignment: PaletteChoice {}
+extension ZoneShape: PaletteChoice {
+    var label: String {
+        switch self {
+        case .rectangle: return "Rectangular zone (drag on empty canvas)"
+        case .ellipse: return "Elliptical zone (drag on empty canvas)"
+        }
+    }
+
+    var symbol: String {
+        switch self {
+        case .rectangle: return "rectangle.dashed"
+        case .ellipse: return "circle.dashed"
+        }
+    }
+}
 extension ImageMask: PaletteChoice {
     var label: String {
         switch self {

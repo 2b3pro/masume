@@ -18,7 +18,7 @@ export interface Request {
 }
 
 export const MUTATIONS = new Set([
-  "create_element", "update_element", "delete_elements", "set_crop", "set_grid_density", "batch", "undo", "redo",
+  "create_element", "update_element", "delete_elements", "set_crop", "set_grid_density", "set_text_preferences", "batch", "undo", "redo",
 ]);
 
 /** Common fields of every mutating tool call. */
@@ -58,6 +58,19 @@ export function buildRequest(tool: string, args: Record<string, unknown>, actor:
         ...(a.range !== undefined ? { range: a.range } : {}),
         ...(a.margin !== undefined ? { margin: a.margin } : {}),
       }, a.documentId);
+    case "masume_read_text":
+      return read("read_text", {
+        ...(a.range !== undefined ? { range: a.range } : {}),
+        ...(a.languages !== undefined ? { languages: a.languages } : {}),
+        ...(a.customWords !== undefined ? { customWords: a.customWords } : {}),
+      }, a.documentId);
+    case "masume_set_zone":
+      return read("set_zone", { zone: a.zone ?? null, ...(a.shape !== undefined ? { shape: a.shape } : {}) }, a.documentId);
+    case "masume_set_text_preferences":
+      return mutation("set_text_preferences", {
+        ...(a.languages !== undefined ? { languages: a.languages } : {}),
+        ...(a.customWords !== undefined ? { customWords: a.customWords } : {}),
+      }, m, actor);
     case "masume_get_history":
       return read("get_history", a.limit !== undefined ? { limit: a.limit } : {}, a.documentId);
     case "masume_create_element": return mutation("create_element", a.element, m, actor);

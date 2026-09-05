@@ -14,9 +14,11 @@ import AnnotationRender
 @MainActor
 final class CommandService {
     let controller: CanvasController
+    let textRecognizer: any TextRecognizing
 
-    init(controller: CanvasController) {
+    init(controller: CanvasController, textRecognizer: any TextRecognizing = VisionTextRecognizer()) {
         self.controller = controller
+        self.textRecognizer = textRecognizer
     }
 
     /// Where `view_base_image` crops go. Under Caches: not the project.
@@ -51,18 +53,20 @@ final class CommandService {
 
     /// Commands that change the document through one attributed commit.
     static let mutationCommands: Set<String> = [
-        "create_element", "update_element", "delete_elements", "set_crop", "set_grid_density", "batch",
+        "create_element", "update_element", "delete_elements", "set_crop", "set_grid_density", "set_text_preferences", "batch",
     ]
 
     private func dispatch(_ request: CommandRequest) throws -> JSONValue {
         if Self.mutationCommands.contains(request.command) { return try mutate(request) }
         if request.command == "undo" || request.command == "redo" { return try undoRedo(request) }
+        if request.command == "read_text" { return try readText(request) }
         return try dispatchOther(request)
     }
 
     private func dispatchOther(_ request: CommandRequest) throws -> JSONValue {
         switch request.command {
         case "get_active_document": return try getActiveDocument(request)
+        case "set_zone": return try setZone(request)
         case "list_elements": return try listElements(request)
         case "get_element": return try getElement(request)
         case "resolve_grid": return try resolveGrid(request)
@@ -126,9 +130,11 @@ final class CommandService {
             "grid": gridJSON(doc.grid),
             "crop": .optional(doc.crop.map(JSONValue.rect)),
             "selection": .optional(controller.selection.map { .string($0.uuidString) }),
+            "zone": .optional(controller.zone.map { zoneJSON($0, in: doc) }),
             "elementCount": .int(doc.elements.count),
             "historyCount": .int(project.history.count),
             "containsOriginalImage": .bool(true),
+            "textPreferences": Self.textPreferencesJSON(doc.textPreferences),
         ])
     }
 
@@ -156,6 +162,12 @@ final class CommandService {
         try assertTarget(request, mutation: false)
         let doc = try document
         let address = try request.parameters.string("address")
+        if address.lowercased() == ElementInput.zoneAddress {
+            guard let zone = controller.zone else { throw CommandError.notFound("no zone is drawn") }
+            var fields = zoneFields(zone, in: doc)
+            fields["grid"] = gridJSON(doc.grid)
+            return .object(fields)
+        }
         let range = try doc.grid.range(address)
         let geometry = doc.grid.geometry(of: range, in: doc.canvasSize)
         return .object([
@@ -167,6 +179,57 @@ final class CommandService {
             "normalized": .rect(geometry.normalized),
             "grid": gridJSON(doc.grid),
         ])
+    }
+
+    /// The zone as agents see it: its rect and shape, the grid range that
+    /// covers it (and that range's address), center, corners, and normalized
+    /// coordinates, so it works both as a place to look and as geometry.
+    func zoneJSON(_ zone: Zone, in doc: Document) -> JSONValue { .object(zoneFields(zone, in: doc)) }
+
+    private func zoneFields(_ zone: Zone, in doc: Document) -> [String: JSONValue] {
+        let geometry = GridGeometry(rect: zone.rect, normalized: doc.grid.normalized(zone.rect, in: doc.canvasSize))
+        let range = doc.grid.range(covering: zone.rect, in: doc.canvasSize)
+        return [
+            "address": .string(ElementInput.zoneAddress),
+            "shape": .string(zone.shape.rawValue),
+            "rect": .rect(zone.rect),
+            "center": .point(geometry.center),
+            "corners": .array(geometry.corners.map(JSONValue.point)),
+            "normalized": .rect(geometry.normalized),
+            "range": .optional(range.map { .string($0.name) }),
+            "cells": .optional(range.map { .object(["first": .string($0.first.name), "last": .string($0.last.name)]) }),
+        ]
+    }
+
+    /// `set_zone`: an agent marks out a region for the person to look at, or
+    /// clears it. Not a document change: no revision, no history, no undo.
+    /// `zone` is a rect, a grid range, or null; `shape` rectangle|ellipse.
+    private func setZone(_ request: CommandRequest) throws -> JSONValue {
+        try assertTarget(request, mutation: false)
+        let doc = try document
+        let params = request.parameters
+        let shape = try params.optionalString("shape").map { name -> ZoneShape in
+            guard let shape = ZoneShape(rawValue: name) else {
+                throw CommandError.invalidArgument("shape must be rectangle or ellipse")
+            }
+            return shape
+        }
+        switch params.object["zone"] {
+        case nil, .null?:
+            controller.zone = nil
+            return .object(["zone": .null])
+        case .object?:
+            guard let rect = try params.optionalRect("zone"), rect.width >= Zone.minimumSide, rect.height >= Zone.minimumSide else {
+                throw CommandError.invalidArgument("zone must be at least \(Int(Zone.minimumSide)) pixels each way")
+            }
+            controller.zone = Zone(rect: rect, shape: shape ?? controller.zone?.shape ?? controller.zoneShape)
+        case .string(let address)?:
+            let rect = try ElementInput(params: params, document: doc, zone: controller.zone).resolve(address).rect
+            controller.zone = Zone(rect: rect, shape: shape ?? controller.zone?.shape ?? controller.zoneShape)
+        default:
+            throw CommandError.invalidArgument("zone must be a rect, a grid range, or null")
+        }
+        return .object(["zone": controller.zone.map { zoneJSON($0, in: doc) } ?? .null])
     }
 
     private func getHistory(_ request: CommandRequest) throws -> JSONValue {
@@ -199,7 +262,7 @@ final class CommandService {
         let params = request.parameters
         var requested = canvas
         if let address = try params.optionalString("range") {
-            requested = try doc.grid.resolve(address, in: doc.canvasSize).rect
+            requested = try ElementInput(params: params, document: doc, zone: controller.zone).resolve(address).rect
         }
         let margin = CGFloat(try params.optionalDouble("margin") ?? 0)
         let bounds = requested.insetBy(dx: -margin, dy: -margin).intersection(canvas).integral
@@ -222,6 +285,59 @@ final class CommandService {
         ])
     }
 
+    /// Recognizes text locally in the untouched base image. Only strings and
+    /// geometry cross the command boundary: no image path or image bytes.
+    private func readText(_ request: CommandRequest) throws -> JSONValue {
+        try prepareTextRecognition(request).run(using: textRecognizer).json
+    }
+
+    /// Captures the serialized read boundary before a UI worker leaves the main actor.
+    func prepareTextRecognition(_ request: CommandRequest) throws -> TextRecognitionJob {
+        try assertTarget(request, mutation: false)
+        let project = try project
+        let doc = try document
+        guard let base = controller.baseImage else { throw CommandError.notFound("no base image") }
+        let params = request.parameters
+        let requestedAddress = try params.optionalString("range")
+        let canvas = CGRect(origin: .zero, size: doc.canvasSize)
+        let requested: CGRect
+        if let requestedAddress {
+            requested = try ElementInput(params: params, document: doc, zone: controller.zone).resolve(requestedAddress).rect
+        } else {
+            requested = canvas
+        }
+        let bounds = requested.intersection(canvas).integral
+        guard !bounds.isNull, bounds.width >= 1, bounds.height >= 1,
+              let crop = base.cropping(to: bounds) else {
+            throw CommandError.invalidArgument("the requested region is empty")
+        }
+
+        let languages = params.has("languages") ? try Self.textStringArray(params, key: "languages") : doc.textPreferences.languages
+        let customWords = params.has("customWords") ? try Self.textStringArray(params, key: "customWords") : doc.textPreferences.customWords
+        return TextRecognitionJob(image: crop, documentID: project.id, revision: project.revision,
+                                  checksum: ProjectPackage.sha256Hex(project.baseImagePNG), baseImagePNG: project.baseImagePNG, document: doc,
+                                  requested: requestedAddress, bounds: bounds,
+                                  preferences: TextPreferences(languages: languages, customWords: customWords),
+                                  zone: requestedAddress?.lowercased() == "zone" ? controller.zone : nil)
+    }
+
+    static func textStringArray(_ params: Params, key: String) throws -> [String] {
+        let values = try params.optionalArray(key) ?? []
+        guard values.count <= 1000 else { throw CommandError.invalidArgument("\(key) has too many entries") }
+        return try values.map { value in
+            guard case .string(let string) = value, !string.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+                  string.count <= 256 else {
+                throw CommandError.invalidArgument("\(key) must contain non-empty strings")
+            }
+            return string
+        }
+    }
+
+    static func textPreferencesJSON(_ preferences: TextPreferences) -> JSONValue {
+        .object(["languages": .array(preferences.languages.map(JSONValue.string)),
+                 "customWords": .array(preferences.customWords.map(JSONValue.string))])
+    }
+
     // MARK: Mutations
 
     /// Runs `body` as one attributed commit. The document is only touched
@@ -241,8 +357,9 @@ final class CommandService {
 
     private func mutate(_ request: CommandRequest) throws -> JSONValue {
         let prepared = try registerImageAsset(request)
+        let zone = controller.zone
         return try commit(prepared) { doc in
-            try Self.applyMutation(prepared.command, params: prepared.parameters, to: &doc)
+            try Self.applyMutation(prepared.command, params: prepared.parameters, to: &doc, zone: zone)
         }
     }
 
@@ -266,11 +383,12 @@ final class CommandService {
         return prepared
     }
 
-    /// The mutation vocabulary, shared by single commands and `batch`.
-    static func applyMutation(_ command: String, params: Params, to doc: inout Document) throws -> JSONValue {
+    /// The mutation vocabulary, shared by single commands and `batch`. The
+    /// zone, if drawn, is what the address `zone` resolves to.
+    static func applyMutation(_ command: String, params: Params, to doc: inout Document, zone: Zone? = nil) throws -> JSONValue {
         switch command {
         case "create_element":
-            let element = try ElementFactory.make(ElementInput(params: params, document: doc))
+            let element = try ElementFactory.make(ElementInput(params: params, document: doc, zone: zone))
             doc.add(element)
             return .object(["element": ElementJSON.json(element)])
         case "update_element":
@@ -279,18 +397,20 @@ final class CommandService {
                 throw CommandError.notFound("no element \(id)")
             }
             var element = doc.elements[i]
-            try ElementFactory.apply(ElementInput(params: params, document: doc), to: &element)
+            try ElementFactory.apply(ElementInput(params: params, document: doc, zone: zone), to: &element)
             doc.elements[i] = element
             try applyZOrder(try params.optionalString("zOrder"), of: element.id, in: &doc)
             return .object(["element": ElementJSON.json(element)])
         case "delete_elements":
             return try deleteElements(params, from: &doc)
         case "set_crop":
-            return try setCrop(params, in: &doc)
+            return try setCrop(params, in: &doc, zone: zone)
         case "set_grid_density":
             return try setGridDensity(params, in: &doc)
+        case "set_text_preferences":
+            return try setTextPreferences(params, in: &doc)
         case "batch":
-            return try batch(params, in: &doc)
+            return try batch(params, in: &doc, zone: zone)
         default:
             throw CommandError.unsupported("\(command) is not a mutation")
         }
@@ -306,6 +426,14 @@ final class CommandService {
             doc.elements.insert(element, at: 0)
         default: throw CommandError.invalidArgument("zOrder must be front or back")
         }
+    }
+
+    private static func setTextPreferences(_ params: Params, in doc: inout Document) throws -> JSONValue {
+        var preferences = doc.textPreferences
+        if params.has("languages") { preferences.languages = try textStringArray(params, key: "languages") }
+        if params.has("customWords") { preferences.customWords = try textStringArray(params, key: "customWords") }
+        doc.textPreferences = preferences
+        return .object(["textPreferences": textPreferencesJSON(preferences)])
     }
 
     private static func deleteElements(_ params: Params, from doc: inout Document) throws -> JSONValue {
@@ -325,7 +453,7 @@ final class CommandService {
     }
 
     /// `crop` is a rect, a grid range, or null to clear.
-    private static func setCrop(_ params: Params, in doc: inout Document) throws -> JSONValue {
+    private static func setCrop(_ params: Params, in doc: inout Document, zone: Zone?) throws -> JSONValue {
         guard params.has("crop") else {
             doc.crop = nil
             return .object(["crop": .null])
@@ -333,7 +461,8 @@ final class CommandService {
         let requested: CGRect
         switch params.object["crop"] {
         case .object?: requested = try params.optionalRect("crop") ?? .zero
-        case .string(let address)?: requested = try doc.grid.resolve(address, in: doc.canvasSize).rect
+        case .string(let address)?:
+            requested = try ElementInput(params: params, document: doc, zone: zone).resolve(address).rect
         default: throw CommandError.invalidArgument("crop must be a rect, a grid range, or null")
         }
         guard let clamped = doc.clampedCrop(requested) else {
@@ -356,7 +485,7 @@ final class CommandService {
     /// All-or-nothing: the commands run against a copy, and the copy only
     /// becomes the document when every one succeeded. A failure reports the
     /// index of the command that failed.
-    private static func batch(_ params: Params, in doc: inout Document) throws -> JSONValue {
+    private static func batch(_ params: Params, in doc: inout Document, zone: Zone?) throws -> JSONValue {
         guard let commands = try params.optionalArray("commands"), !commands.isEmpty else {
             throw CommandError.invalidArgument("commands is required")
         }
@@ -368,7 +497,7 @@ final class CommandService {
             }
             let inner = Params(object).optionalObjectOrEmpty("params")
             do {
-                results.append(try applyMutation(name, params: inner, to: &working))
+                results.append(try applyMutation(name, params: inner, to: &working, zone: zone))
             } catch {
                 let wrapped = CommandError.wrap(error)
                 throw CommandError(code: wrapped.code, message: "commands[\(index)] \(name): \(wrapped.message)")

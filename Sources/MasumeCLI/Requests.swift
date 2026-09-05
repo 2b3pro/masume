@@ -8,7 +8,7 @@ import MasumeCommands
 public enum CLIRequest {
     /// Subcommands that change the document and so need documentId and
     /// expectedRevision.
-    public static let mutations: Set<String> = ["add", "update", "delete", "crop", "density", "undo", "redo", "batch"]
+    public static let mutations: Set<String> = ["add", "update", "delete", "crop", "density", "text-preferences", "undo", "redo", "batch"]
 
     public struct Options: Equatable {
         public var documentId: String?
@@ -40,6 +40,14 @@ public enum CLIRequest {
 
     private static func commandAndParams(_ subcommand: String, arguments: [String],
                                          flags: [String: String]) throws -> (String, [String: Any]) {
+        if subcommand == "text-preferences" {
+            guard arguments.isEmpty else { throw CLIError.usage("text-preferences [--languages en-US] [--custom-words Shen]") }
+            var params: [String: Any] = [:]
+            for (flag, key) in [("languages", "languages"), ("custom-words", "customWords")] {
+                if let value = flags[flag] { params[key] = value.isEmpty ? [] : try commaSeparated(value, flag: "--\(flag)") }
+            }
+            return ("set_text_preferences", params)
+        }
         if let read = try readCommand(subcommand, arguments: arguments, flags: flags) { return read }
         if let mutation = try mutationCommand(subcommand, arguments: arguments) { return mutation }
         if let file = try fileCommand(subcommand, arguments: arguments, flags: flags) { return file }
@@ -53,11 +61,9 @@ public enum CLIRequest {
         case "elements": return ("list_elements", [:])
         case "element": return ("get_element", ["id": try one(arguments, "element <id>")])
         case "resolve": return ("resolve_grid", ["address": try one(arguments, "resolve <address>")])
-        case "view":
-            var params: [String: Any] = [:]
-            if let range = arguments.first { params["range"] = range }
-            if let margin = flags["margin"] { params["margin"] = try number(margin, "--margin") }
-            return ("view_base_image", params)
+        case "view": return ("view_base_image", try viewParams(arguments, flags: flags))
+        case "read-text": return ("read_text", try readTextParams(arguments, flags: flags))
+        case "zone": return ("set_zone", try zoneParams(arguments, flags: flags))
         case "history":
             var params: [String: Any] = [:]
             if let limit = flags["limit"] { params["limit"] = try number(limit, "--limit") }
@@ -113,6 +119,41 @@ public enum CLIRequest {
     private static func number(_ text: String, _ what: String) throws -> Any {
         guard let value = Double(text) else { throw CLIError.usage("\(what) must be a number, not \(text)") }
         return value == value.rounded() ? Int(value) : value
+    }
+
+    private static func viewParams(_ arguments: [String], flags: [String: String]) throws -> [String: Any] {
+        var params: [String: Any] = [:]
+        if let range = arguments.first { params["range"] = range }
+        if let margin = flags["margin"] { params["margin"] = try number(margin, "--margin") }
+        return params
+    }
+
+    private static func readTextParams(_ arguments: [String], flags: [String: String]) throws -> [String: Any] {
+        guard arguments.count <= 1 else {
+            throw CLIError.usage("read-text [range] [--languages en-US,fr-FR] [--custom-words Shen,Masume]")
+        }
+        var params: [String: Any] = [:]
+        if let range = arguments.first { params["range"] = range }
+        if let value = flags["languages"] { params["languages"] = try commaSeparated(value, flag: "--languages") }
+        if let value = flags["custom-words"] { params["customWords"] = try commaSeparated(value, flag: "--custom-words") }
+        return params
+    }
+
+    private static func commaSeparated(_ value: String, flag: String) throws -> [String] {
+        let values = value.split(separator: ",", omittingEmptySubsequences: false)
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+        guard !values.isEmpty, values.allSatisfy({ !$0.isEmpty }) else {
+            throw CLIError.usage("\(flag) must be a comma-separated list")
+        }
+        return values
+    }
+
+    private static func zoneParams(_ arguments: [String], flags: [String: String]) throws -> [String: Any] {
+        var params: [String: Any] = [
+            "zone": try cropValue(try one(arguments, "zone <range|x,y,w,h|none> [--shape rectangle|ellipse]")),
+        ]
+        if let shape = flags["shape"] { params["shape"] = shape }
+        return params
     }
 
     static func absolute(_ path: String) -> String {

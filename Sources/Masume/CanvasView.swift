@@ -55,6 +55,8 @@ final class CanvasNSView: NSView {
         case magnifierZoom(track: CGRect)
         /// Spacebar hand tool: drags the zoomed image; `last` is in view points.
         case panning(last: CGPoint)
+        /// Select tool on empty canvas: rubber-bands a zone from `anchor`.
+        case zoning(anchor: CGPoint)
     }
     var drag: Drag = .none
     /// True while the spacebar is held: the next mouse-down pans instead of
@@ -82,7 +84,7 @@ final class CanvasNSView: NSView {
     /// by `draw(_:)` so draw needn't evaluate `displayInfo` (a Document copy
     /// plus an O(n) canvas-rect scan) a second time.
     private var reconciledInfo: DisplayInfo?
-    private var flattened: CGImage?
+    var flattened: CGImage?
     // Cache key for `flattened`: re-render only when the content it shows
     // (document sans crop + base image) actually changes, not on every redraw.
     private var flattenedKey: Document?
@@ -95,7 +97,7 @@ final class CanvasNSView: NSView {
     var textEditor: NSTextView?
     var editingTextID: ElementID?
     private var antsTimer: Timer?
-    private var antsPhase: CGFloat = 0
+    var antsPhase: CGFloat = 0
 
     override var isFlipped: Bool { false }
     override var acceptsFirstResponder: Bool { true }
@@ -157,6 +159,10 @@ final class CanvasNSView: NSView {
             _ = controller.selection
             _ = controller.exportBounds
             _ = controller.showsGrid
+            _ = controller.textMap
+            _ = controller.textQuery
+            _ = controller.showsTranscription
+            _ = controller.zone
             // effectiveZoomScale is deliberately NOT tracked: this view writes
             // it, so reading it here would loop redraws.
             _ = controller.zoomMode
@@ -329,14 +335,16 @@ final class CanvasNSView: NSView {
         } else if controller.tool == .crop {
             drawFrameHandles(info.viewRect(forModelRect: doc.canvasRect), in: ctx)
         }
-        updateAntsTimer(cropVisible: doc.crop != nil)
+        if let zone = controller.zone {
+            drawZone(zone, info: info, in: ctx)
+        }
+        updateAntsTimer(cropVisible: doc.crop != nil || controller.zone != nil)
 
         // The address grid: chrome over the image, under the selection.
-        if controller.showsGrid {
-            drawGrid(doc, info: info, in: ctx)
-        }
+        if controller.showsGrid { drawGrid(doc, info: info, in: ctx) }
 
         // Selection handles.
+        drawTextMatches(info: info, in: ctx)
         if let sel = controller.selection, let element = doc.elements.first(where: { $0.id == sel }) {
             drawSelection(element, info: info, in: ctx)
         }
@@ -354,54 +362,20 @@ final class CanvasNSView: NSView {
         }
     }
 
-    private func drawCropOverlay(_ crop: CGRect, info: DisplayInfo, imageRect: CGRect, in ctx: CGContext) {
-        let viewCrop = info.viewRect(forModelRect: crop)
-        ctx.setFillColor(NSColor.black.withAlphaComponent(0.45).cgColor)
-        ctx.fill(imageRect)
-        ctx.clear(viewCrop)
-        // Frame outside the image: the new canvas that applying would add.
-        ctx.setFillColor(NSColor.white.cgColor)
-        ctx.fill(viewCrop)
-        if let img = flattened {
-            ctx.saveGState()
-            ctx.clip(to: viewCrop)
-            ctx.draw(img, in: imageRect)
-            ctx.restoreGState()
-        }
-        // Marching ants (phase advanced by `antsTimer`); dark underlay keeps
-        // the white dashes visible over light image regions.
-        ctx.setStrokeColor(NSColor.black.withAlphaComponent(0.55).cgColor)
-        ctx.setLineWidth(1)
-        ctx.stroke(viewCrop)
-        ctx.setStrokeColor(NSColor.white.cgColor)
-        ctx.setLineDash(phase: antsPhase, lengths: [5, 4])
-        ctx.stroke(viewCrop)
-        ctx.setLineDash(phase: 0, lengths: [])
-
-        drawFrameHandles(viewCrop, in: ctx)
-    }
-
-    /// Corner and edge handles so a frame is re-editable with the crop tool.
-    private func drawFrameHandles(_ viewRect: CGRect, in ctx: CGContext) {
-        for handle in viewRect.frameHandles() {
-            drawHandle(at: handle.position, stroke: NSColor.miroBlue, lineWidth: 1, in: ctx)
-        }
-    }
-
     private func updateAntsTimer(cropVisible: Bool) {
         if cropVisible, antsTimer == nil {
             let timer = Timer(timeInterval: 1.0 / 12, repeats: true) { [weak self] _ in
                 MainActor.assumeIsolated {
                     guard let self else { return }
                     self.antsPhase += 1
-                    // Only the crop outline animates; keep the invalidated
-                    // region there (-8 covers the 9pt corner handles).
-                    if let crop = self.controller?.document?.crop {
-                        let info = self.dragDisplayInfo ?? self.displayInfo
-                        self.setNeedsDisplay(info.viewRect(forModelRect: crop)
-                            .insetBy(dx: -8, dy: -8))
-                    } else {
-                        self.needsDisplay = true
+                    // Only the crop outline and the zone animate; keep the
+                    // invalidated regions there (-8 covers the 9pt handles).
+                    let info = self.dragDisplayInfo ?? self.displayInfo
+                    let crop = self.controller?.document?.crop
+                    let zone = self.controller?.zone?.rect
+                    guard crop != nil || zone != nil else { self.needsDisplay = true; return }
+                    for rect in [crop, zone].compactMap({ $0 }) {
+                        self.setNeedsDisplay(info.viewRect(forModelRect: rect).insetBy(dx: -8, dy: -8))
                     }
                 }
             }
@@ -488,8 +462,11 @@ final class CanvasNSView: NSView {
             drag = event.modifierFlags.contains(.option) ? .cloning(id, last: p) : .moving(id, last: p)
         case .empty:
             guard let tool = creationTool else {
+                // Select on empty canvas: clear, then rubber-band a zone
+                // (a mere click leaves none; see finishDrag).
                 controller.selection = nil
-                drag = .none
+                controller.zone = nil
+                drag = .zoning(anchor: p)
                 return
             }
             switch tool {
@@ -663,6 +640,7 @@ final class CanvasNSView: NSView {
             penLineAnchor = nil
         } else {
             controller.selection = nil
+            controller.zone = nil
         }
         refresh()
     }

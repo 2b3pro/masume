@@ -11,11 +11,14 @@ extension MasumeCLI {
 
           Geometry by grid address     from=B3 to=D6 (arrow, line) | over=D5:F14 (rectangle, ellipse,
                                        pixelate, magnifier) | at=C3 (text origin, stamp center) |
-                                       tail=E7 (callout tail). Cells D5, quadrants D5.3, ranges D5:F14.
+                                       tail=E7 (callout tail). Cells D5, quadrants D5.3, ranges D5:F14, or
+                                       zone (the region marked out on the canvas).
           Geometry by pixels           start=x,y end=x,y | rect=x,y,w,h | center=x,y | tailTip=x,y |
                                        points=x,y;x,y;... (pen)
-          Style (most types)           color=red|#RRGGBB width=6 fill=#RRGGBB opacity=0.5 (pen: below 1
-                                       is a highlighter)
+          Style (most types)           color=red|#RRGGBB width=6 fill=#RRGGBB shadow=true|false
+          rounded_rectangle            cornerRadius=16 (pixels; also accepted on rectangle)
+          highlight                    opacity=0.3 (borderless rectangle, no shadow by default)
+          pen                          opacity=0.5 (below 1 is a highlighter)
           text, callout                text=... fontSize=24 bold=true alignment=left|center|right
                                        style=shadow|outline|plain outlineColor=white|black
                                        callout: shape=speech|thought
@@ -26,7 +29,7 @@ extension MasumeCLI {
           magnifier                    zoom=2.5 (1.5 to 8) shape=circle|square
           update only                  zOrder=front|back
 
-        Types: arrow line rectangle ellipse pen text callout stamp pixelate magnifier
+        Types: arrow line rectangle rounded_rectangle highlight ellipse pen text callout stamp pixelate magnifier
         """
 
     static let topics: [String: String] = [
@@ -63,6 +66,7 @@ extension MasumeCLI {
                         quadrants nest (D5.3.1), four levels deep
               D5:F14    a range, from D5's upper-left edge to F14's lower-right edge; either end
                         may be a quadrant (D5.3:F14)
+              zone      the region marked out on the canvas (see masume help zone)
             Case-insensitive. Nothing is clamped: a cell off the grid or a reversed range is an error.
             """,
         "view": """
@@ -70,11 +74,33 @@ extension MasumeCLI {
             Writes a crop of the untouched base image (annotations never appear in it) to --out;
             no range means the whole image. --margin adds context around the range.
             """,
+        "read-text": """
+            masume read-text [range] [--languages en-US,fr-FR] [--custom-words Shen,Masume]
+            Recognizes text locally in the untouched base image. A range may be a grid address or
+            "zone"; no range means the whole image. Returns text, confidence, source pixel bounds,
+            normalized bounds, and covering grid ranges. No image data leaves Masume.
+            Uses saved document languages/custom words unless overridden. The transcription field
+            marks low-confidence lines; text preserves raw recognition. Read one column at a time.
+            """,
+        "text-preferences": """
+            masume text-preferences [--languages en-US,fr-FR] [--custom-words Shen,Masume]
+            Save document OCR defaults as one undoable action. Omitted flags keep existing values;
+            pass an empty string to clear a list. No analysis runs until read-text or Read Text is invoked.
+            """,
         "history": "masume history [--limit n]\nCommitted actions, oldest first, with actor, revisions, summary, reason, and affected ids.",
         "crop": """
             masume crop <range|x,y,w,h|none>
             Sets the non-destructive crop to a grid range or a pixel rect, or clears it with none.
             Export honors it; the base image is untouched.
+            """,
+        "zone": """
+            masume zone <range|x,y,w,h|none> [--shape rectangle|ellipse]
+            Marks a region out for the person as marching ants (or clears it with none). Not an
+            annotation: it is never exported and changes no revision. The person draws one the same way
+            with the Select tool, and "zone" then works as an address anywhere one is taken:
+              masume view zone --out look.png
+              masume add rectangle over=zone
+              masume resolve zone
             """,
         "density": "masume density <n>\nGrid preset: 8, 12, 16, 24, or 32 cells across the long side. Every address changes; resolve again.",
         "undo": "masume undo\nUndo the latest committed action, whoever made it.",
@@ -104,9 +130,9 @@ extension MasumeCLI {
             Any command by name, as the JSON the app's command service takes:
               {"command": "create_element", "params": {"type": "arrow", "from": "B3", "to": "D6"}}
             --doc, --revision, --actor, --actor-name, and --reason are merged in.
-            Commands: get_active_document list_elements get_element resolve_grid view_base_image get_history
-            create_element update_element delete_elements set_crop set_grid_density undo redo save_project
-            export batch.
+            Commands: get_active_document list_elements get_element resolve_grid view_base_image read_text get_history
+            set_zone create_element update_element delete_elements set_crop set_grid_density undo redo
+            save_project export batch.
             """,
         "options": """
             Global options, accepted after any live subcommand:

@@ -20,8 +20,13 @@ struct MasumeApp: App {
         Window("Masume", id: "main") {
             ContentView(workspace: appDelegate.workspace)
                 .frame(minWidth: 720, minHeight: 520)
+                .background {
+                    MainWindowReader { window in
+                        appDelegate.registerMainWindow(window)
+                    }
+                }
         }
-        .commands { AppCommands(workspace: appDelegate.workspace) }
+        .commands { AppCommands(workspace: appDelegate.workspace, appDelegate: appDelegate) }
         // The MCP server's menu bar item: control, status, connection details.
         MenuBarExtra(isInserted: Binding(get: { appDelegate.mcp.showsMenuBarItem },
                                          set: { appDelegate.mcp.showsMenuBarItem = $0 })) {
@@ -31,7 +36,7 @@ struct MasumeApp: App {
         }
         .menuBarExtraStyle(.menu)
         Settings {
-            MCPSettingsView(server: appDelegate.mcp)
+            MCPSettingsView(server: appDelegate.mcp, cliInstaller: appDelegate.cliInstaller)
         }
     }
 }
@@ -44,14 +49,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     let workspace = WorkspaceController()
     let mcp = MCPServerController()
+    let cliInstaller = CLIInstallationController()
     private var pasteKeyMonitor: Any?
     private var copyKeyMonitor: Any?
     private var toolKeyMonitor: Any?
     private var editMenuDelegate: EditMenuFilter?
     private var windowDelegateProxy: TerminationRoutingWindowDelegate?
     private var windowHookObserver: NSObjectProtocol?
+    private weak var mainWindow: NSWindow?
 
-    func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { true }
+    func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { false }
 
     /// Finder double-click, drag onto the Dock icon, `open -a Masume`.
     func application(_ application: NSApplication, open urls: [URL]) {
@@ -143,23 +150,34 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
         }
 
-        // SwiftUI creates the main window (and installs its own delegate) on
-        // its own schedule around didFinishLaunching — possibly before this
-        // method runs — and may replace the delegate later. Sweep now, again
-        // after the current turn, and on every didBecomeMain; the installer
-        // is idempotent, so re-wrapping is a no-op.
-        NSApp.windows.forEach { installTerminationRouting(on: $0) }
-        DispatchQueue.main.async {
-            NSApp.windows.forEach { self.installTerminationRouting(on: $0) }
-        }
+        // SwiftUI may replace the main window's delegate after installing its
+        // content. Reinstall the proxy whenever that one window becomes main;
+        // Settings and other auxiliary windows must keep their normal close.
         windowHookObserver = NotificationCenter.default.addObserver(
             forName: NSWindow.didBecomeMainNotification, object: nil, queue: .main
         ) { [weak self] note in
             let window = note.object as? NSWindow
             MainActor.assumeIsolated {
-                guard let self, let window else { return }
+                guard let self, let window, self.isMainWindow(window) else { return }
                 self.installTerminationRouting(on: window)
             }
+        }
+    }
+
+    func registerMainWindow(_ window: NSWindow) {
+        mainWindow = window
+        installTerminationRouting(on: window)
+    }
+
+    func isMainWindow(_ window: NSWindow) -> Bool {
+        window === mainWindow
+    }
+
+    func closeKeyWindowOrActiveTab(keyWindow: NSWindow? = NSApp.keyWindow) {
+        if let keyWindow, !isMainWindow(keyWindow) {
+            keyWindow.performClose(nil)
+        } else {
+            workspace.closeActiveTab()
         }
     }
 
@@ -172,6 +190,46 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let proxy = TerminationRoutingWindowDelegate(wrapping: window.delegate)
         windowDelegateProxy = proxy
         window.delegate = proxy
+    }
+}
+
+/// Resolves only the window containing the main editor content. Keeping this
+/// reader out of the Settings scene prevents its close button from being
+/// routed through application termination.
+private struct MainWindowReader: NSViewRepresentable {
+    let resolve: @MainActor (NSWindow) -> Void
+
+    func makeNSView(context: Context) -> MainWindowReaderView {
+        MainWindowReaderView(resolve: resolve)
+    }
+
+    func updateNSView(_ nsView: MainWindowReaderView, context: Context) {
+        nsView.resolve = resolve
+        nsView.resolveWindow()
+    }
+}
+
+private final class MainWindowReaderView: NSView {
+    var resolve: @MainActor (NSWindow) -> Void
+
+    init(resolve: @escaping @MainActor (NSWindow) -> Void) {
+        self.resolve = resolve
+        super.init(frame: .zero)
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        resolveWindow()
+    }
+
+    func resolveWindow() {
+        guard let window else { return }
+        resolve(window)
     }
 }
 
@@ -235,6 +293,7 @@ private class EditMenuFilter: NSObject, NSMenuDelegate {
 
 struct AppCommands: Commands {
     var workspace: WorkspaceController
+    var appDelegate: AppDelegate
 
     var body: some Commands {
         // Actions and disabled(...) states both read `workspace.active` in
@@ -257,7 +316,7 @@ struct AppCommands: Commands {
             // Replacing .saveItem removes the system Close item with it, so
             // provide our own. Closing the last tab routes to NSApp.terminate
             // and the quit confirmation, like the red close button.
-            Button("Close Tab") { workspace.closeActiveTab() }
+            Button("Close Tab") { appDelegate.closeKeyWindowOrActiveTab() }
                 .keyboardShortcut("w", modifiers: .command)
             Button("Close All Tabs") { workspace.closeAll() }
                 .keyboardShortcut("w", modifiers: [.command, .option])
@@ -298,6 +357,9 @@ struct AppCommands: Commands {
         // Lands in the system View menu. ⌘0 doesn't collide with the legacy
         // digit tool shortcuts — AppDelegate's key monitor skips ⌘-modified keys.
         CommandGroup(after: .sidebar) {
+            Button("Find Text & Transcribe…") { workspace.active.showsTranscription = true }
+                .keyboardShortcut("f", modifiers: [.command, .shift])
+                .disabled(!workspace.active.hasDocument)
             Divider()
             Button("Zoom In") { workspace.active.zoomIn() }
                 .keyboardShortcut("+", modifiers: .command)

@@ -3,11 +3,32 @@ import CoreGraphics
 import AnnotationModel
 @testable import Masume
 
+private struct TextRecognizerCall: Equatable {
+    let size: CGSize
+    let languages: [String]
+    let customWords: [String]
+}
+
 /// The command service through its JSON surface: every command, every
 /// error code, attribution, batch atomicity, and the crop that carries no
 /// annotations.
 @MainActor
 final class CommandServiceTests: XCTestCase {
+
+    private final class StubTextRecognizer: TextRecognizing, @unchecked Sendable {
+        var lines: [TextRecognitionLine]
+        private(set) var calls: [TextRecognizerCall] = []
+
+        init(lines: [TextRecognitionLine]) {
+            self.lines = lines
+        }
+
+        func recognize(in image: CGImage, languages: [String], customWords: [String]) throws -> [TextRecognitionLine] {
+            calls.append(TextRecognizerCall(size: CGSize(width: image.width, height: image.height),
+                                            languages: languages, customWords: customWords))
+            return lines
+        }
+    }
 
     private var scratch: URL!
     private var controller: CanvasController!
@@ -70,6 +91,94 @@ final class CommandServiceTests: XCTestCase {
         XCTAssertEqual((updated["element"] as? [String: Any])?["emoji"] as? String, "\u{1F1EF}\u{1F1F5}", "a flag is one character")
         XCTAssertEqual(errorCode(run("update_element", params: ["id": id, "emoji": "ab"])), "invalid_argument")
         XCTAssertEqual(errorCode(run("update_element", params: ["id": id, "emoji": ""])), "invalid_argument")
+    }
+
+    // MARK: Zones
+
+    func testTheZoneIsReportedResolvedAndUsableAsAnAddress() {
+        XCTAssertNil(result(run("get_active_document", mutation: false))["zone"] as? [String: Any])
+        controller.zone = Zone(rect: CGRect(x: 150, y: 250, width: 300, height: 100), shape: .ellipse)
+        let zone = result(run("get_active_document", mutation: false))["zone"] as? [String: Any]
+        XCTAssertEqual(zone?["shape"] as? String, "ellipse")
+        XCTAssertEqual(zone?["range"] as? String, "B3:E4", "the grid range covering it")
+        XCTAssertEqual((zone?["rect"] as? [String: Any])?["width"] as? Double, 300)
+        let resolved = result(run("resolve_grid", params: ["address": "zone"], mutation: false))
+        XCTAssertEqual((resolved["center"] as? [String: Any])?["x"] as? Double, 300)
+        XCTAssertEqual(resolved["address"] as? String, "zone")
+        let box = result(run("create_element", params: ["type": "rectangle", "over": "zone"]))
+        let boxRect = (box["element"] as? [String: Any])?["rect"] as? [String: Any]
+        XCTAssertEqual(boxRect?["x"] as? Double, 150, "a box over the zone")
+        XCTAssertEqual(boxRect?["width"] as? Double, 300)
+        let stamp = result(run("create_element", params: ["type": "stamp", "at": "ZONE"]))
+        XCTAssertEqual(((stamp["element"] as? [String: Any])?["center"] as? [String: Any])?["y"] as? Double, 300)
+        let crop = result(run("set_crop", params: ["crop": "zone"]))
+        XCTAssertEqual((crop["crop"] as? [String: Any])?["height"] as? Double, 100)
+        controller.zone = nil
+        XCTAssertEqual(errorCode(run("resolve_grid", params: ["address": "zone"], mutation: false)), "not_found")
+        XCTAssertEqual(errorCode(run("create_element", params: ["type": "rectangle", "over": "zone"])), "invalid_address")
+    }
+
+    func testAnAgentCanMarkAZoneOutWithoutTouchingTheRevision() {
+        let before = revision
+        let byRange = result(run("set_zone", params: ["zone": "C3:D4", "shape": "ellipse"], mutation: false))
+        XCTAssertEqual(controller.zone, Zone(rect: CGRect(x: 200, y: 200, width: 200, height: 200), shape: .ellipse))
+        XCTAssertEqual((byRange["zone"] as? [String: Any])?["range"] as? String, "C3:D4")
+        result(run("set_zone", params: ["zone": ["x": 10, "y": 20, "width": 30, "height": 40]], mutation: false))
+        XCTAssertEqual(controller.zone?.rect, CGRect(x: 10, y: 20, width: 30, height: 40))
+        XCTAssertEqual(controller.zone?.shape, .ellipse, "the shape carries over when not given")
+        XCTAssertEqual(revision, before, "no revision, no history")
+        XCTAssertEqual(errorCode(run("set_zone", params: ["zone": ["x": 0, "y": 0, "width": 2, "height": 2]], mutation: false)), "invalid_argument")
+        XCTAssertEqual(errorCode(run("set_zone", params: ["zone": "A1", "shape": "star"], mutation: false)), "invalid_argument")
+        result(run("set_zone", params: ["zone": NSNull()], mutation: false))
+        XCTAssertNil(controller.zone)
+    }
+
+    func testReadTextUsesTheZoneAndReturnsOnlyTextAndGeometry() throws {
+        let recognizer = StubTextRecognizer(lines: [
+            TextRecognitionLine(text: "Masume", confidence: 0.875,
+                                bounds: CGRect(x: 10, y: 20, width: 100, height: 30)),
+        ])
+        service = CommandService(controller: controller, textRecognizer: recognizer)
+        controller.zone = Zone(rect: CGRect(x: 200, y: 200, width: 300, height: 200))
+        let beforeRevision = revision
+        let beforeHistory = controller.project?.history.count
+
+        let response = run("read_text", params: [
+            "range": "zone",
+            "languages": ["en-US"],
+            "customWords": ["Masume"],
+        ], mutation: false)
+        let output = result(response)
+        let observations = try XCTUnwrap(output["observations"] as? [[String: Any]])
+        let first = try XCTUnwrap(observations.first)
+
+        XCTAssertEqual(recognizer.calls, [TextRecognizerCall(
+            size: CGSize(width: 300, height: 200), languages: ["en-US"], customWords: ["Masume"]
+        )])
+        XCTAssertEqual(output["requested"] as? String, "zone")
+        XCTAssertNotNil(output["baseImageChecksum"] as? String)
+        XCTAssertEqual(output["text"] as? String, "Masume")
+        XCTAssertEqual(first["text"] as? String, "Masume")
+        XCTAssertEqual(try XCTUnwrap(first["confidence"] as? Double), 0.875, accuracy: 0.0001)
+        XCTAssertEqual((first["bounds"] as? [String: Any])?["x"] as? Double, 210)
+        XCTAssertEqual((first["bounds"] as? [String: Any])?["y"] as? Double, 220)
+        XCTAssertEqual(try XCTUnwrap((first["normalized"] as? [String: Any])?["x"] as? Double), 0.175, accuracy: 0.0001)
+        XCTAssertNotNil(first["range"] as? String)
+        XCTAssertEqual(revision, beforeRevision, "recognition is an observation, not a document action")
+        XCTAssertEqual(controller.project?.history.count, beforeHistory)
+
+        let encoded = String(data: encode(response), encoding: .utf8) ?? ""
+        XCTAssertFalse(encoded.contains("\"path\""))
+        XCTAssertFalse(encoded.contains("base64"))
+        XCTAssertFalse(encoded.contains("imageData"))
+    }
+
+    func testReadTextRejectsMissingZoneAndMalformedWordLists() {
+        let recognizer = StubTextRecognizer(lines: [])
+        service = CommandService(controller: controller, textRecognizer: recognizer)
+        XCTAssertEqual(errorCode(run("read_text", params: ["range": "zone"], mutation: false)), "invalid_address")
+        XCTAssertEqual(errorCode(run("read_text", params: ["languages": "en-US"], mutation: false)), "invalid_argument")
+        XCTAssertTrue(recognizer.calls.isEmpty)
     }
 
     // MARK: Helpers

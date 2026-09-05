@@ -1,14 +1,22 @@
 # Masume Agent Collaboration v1
 
-**Status:** Draft  
-**Date:** 2026-09-02  
+**Status:** 0.6.0 release; Phase 4 and human OCR complete; remaining v1 gaps tracked below
+**Date:** 2026-09-04
 **Scope:** Extend the existing native macOS annotation app; do not rebuild Masume inside LiveDoc.
+
+### Current checkpoint
+
+- **Installed build:** `/Applications/Masume.app`, version **0.6.0**, copied from `build/Masume.app` with a verified signature.
+- **Release state:** **0.6.0**, merged from `feat/zones` into `main` and tagged `v0.6.0`. Includes the untagged 0.5.0 work. This records the local Git release; publishing the branch/tag remotely is a separate action.
+- **Completed:** Phases 1–4, zones, Finder Quick Look previews/thumbnails, and the Phase 5 text-map/transcription slice (the earlier roadmap's **#3**).
+- **Next:** the optional local pre-export redaction scan, followed by single-page PDF export and the visible attributed-history panel. See the ordered checkpoint in section 11.
+- **Not yet complete:** all of Phase 5 or the full v1 scope. macOS 26-related work remains a separate product/deployment decision.
 
 ## 1. Product definition
 
 Masume v1 is a native, single-image, non-destructive annotation workspace shared by one human and one agent. The human can work directly in the existing Skitch-like interface. The agent operates on the same document through MCP when working interactively and through the `masume` command-line tool when automating; both are thin clients of one in-app command service, which AppleScript and JXA reach directly. Both participants use a visible spreadsheet-style grid as a compact, deterministic spatial language.
 
-The editable Masume project is the source of truth. PNG, JPEG, WebP, and single-page PDF are flattened exports.
+The editable Masume project is the source of truth. PNG, JPEG, and WebP are flattened exports. Single-page PDF export remains a tracked v1 gap.
 
 ## 2. Existing foundation
 
@@ -35,8 +43,8 @@ The implementation should extend these seams rather than introduce a second canv
 - Immediate autosave after each committed action; drag previews remain transient until pointer-up.
 - Crash recovery restoring the last committed canvas state.
 - Grid addressing, inspection and mutation through MCP, the `masume` CLI, and AppleScript, and on-demand base-image viewing.
-- Current-session memory for the last-used tool, color, width, fill, font, and shadow setting.
-- Flattened PNG, JPEG, WebP, and single-page PDF export.
+- Remembered last-used tool, color, width, fill, font, and shadow setting.
+- Flattened PNG, JPEG, and WebP export. Single-page PDF remains planned.
 
 ### Excluded
 
@@ -166,14 +174,14 @@ Why Apple Events rather than an in-app HTTP endpoint or a socket:
 
 ### The `masume` command-line tool
 
-- Live subcommands mirror the command service one-to-one and take the same arguments the MCP tools take: `masume doc`, `masume elements`, `masume element <id>`, `masume resolve D5:F14`, `masume view D5:F14 --out crop.png`, `masume history`, `masume add arrow B3 D6 --reason "..."`, `masume update <id> ...`, `masume delete <id>...`, `masume crop ...`, `masume undo`, `masume redo`, `masume save`, `masume export out.png`, and the escape hatch `masume exec '<json>'` for any command by name. Mutations take `--doc <id>` and `--revision <n>` (or read both from `masume doc` when omitted, printing the values used) and carry `--actor` and `--reason`.
+- Live subcommands mirror the command service one-to-one and take the same arguments the MCP tools take: `masume doc`, `masume elements`, `masume element <id>`, `masume resolve D5:F14`, `masume view D5:F14 --out crop.png`, `masume read-text [range]`, `masume history`, `masume add arrow B3 D6 --reason "..."`, `masume update <id> ...`, `masume delete <id>...`, `masume crop ...`, `masume undo`, `masume redo`, `masume save`, `masume export out.png`, and the escape hatch `masume exec '<json>'` for any command by name. Mutations take `--doc <id>` and `--revision <n>` (or read both from `masume doc` when omitted, printing the values used) and carry `--actor` and `--reason`.
 - Output is the JSON envelope on stdout, one object per invocation; `--pretty` indents it. The exit status is 0 on `ok: true` and a distinct non-zero code per error code (`conflict`, `not_found`, `invalid_address`, `invalid_argument`, `unsupported`, `io`), plus a code for "Masume is not running", so shell scripts can branch without parsing.
 - Offline subcommands need no running app: `masume info <file.masume>`, `masume export <file.masume> <out.png>`, `masume resolve --file <file.masume> D5`, and `masume new <image-or-pdf> <file.masume> [--page N]`. They read and write packages through the same codec as the app. Offline mutation of a package is out of scope for v1; if the app has the same file open, an offline write would race the app's autosave, so the CLI refuses with `conflict` rather than guessing.
-- The CLI is signed and installed at a stable path (`/usr/local/bin/masume` or a Homebrew prefix) and is the binary the Automation grant attaches to.
+- The CLI is installed at a stable path (`/usr/local/bin/masume`). macOS attributes its Apple Events to the responsible terminal or editor process, so each host needs its own Automation grant for a development- or distribution-signed Masume app.
 
 Operational notes:
 
-- Automation grants are keyed to the calling binary path. Version-pathed runtimes such as `bun` or `node` lose the grant on every upgrade, which is why the MCP server spawns the signed `masume` binary rather than `osascript` itself. If the CLI is ever run from a build directory, the grant must be renewed when that path changes.
+- Automation grants follow the responsible host's code-signing requirement and the target app's designated requirement. A stable development- or distribution-signed Masume build lets iTerm, VS Code, and other hosts retain their individual grants across Masume rebuilds; ad-hoc target builds can be rejected because TCC cannot establish that target identity.
 - Each live call is one Apple Event plus process start, budget roughly 100 to 300 ms. Batch commands exist partly for this reason.
 - A Unix-domain socket transport over the same command service is the designated future seam if latency or crop payloads become a problem. It must not introduce a second service, and the CLI and MCP server would move to it together.
 
@@ -188,6 +196,7 @@ Every mutation requires `documentId` and `expectedRevision`. The operation fails
 - `masume_get_element` returns one complete editable object.
 - `masume_resolve_grid` converts a cell or range to image-pixel and normalized geometry.
 - `masume_view_base_image` returns the untouched full image or a grid-addressed crop suitable for model vision.
+- `masume_read_text` recognizes text locally in the untouched full image or a grid-addressed crop and returns strings, confidence, and geometry without image data.
 - `masume_get_history` returns committed actions with actor, timestamp, operation, and affected IDs.
 
 ### Mutation tools
@@ -196,11 +205,16 @@ Every mutation requires `documentId` and `expectedRevision`. The operation fails
 - `masume_update_element` changes geometry, text, color, fill, width, font, shadow, corner radius, pixelation strength, or z-order.
 - `masume_delete_elements` deletes explicit IDs.
 - `masume_set_crop` sets, updates, or clears the non-destructive crop.
+- `masume_set_grid_density` changes the stored grid preset as one undoable document action.
+- `masume_set_text_preferences` saves per-document OCR languages and custom words as one undoable document action.
+- `masume_batch` commits a group of supported document mutations atomically.
 - `masume_undo` and `masume_redo` move through the single shared history.
 - `masume_save_project` saves the editable source document.
-- `masume_export` writes a flattened PNG, JPEG, WebP, or single-page PDF.
+- `masume_export` writes a flattened PNG, JPEG, or WebP. Single-page PDF remains planned.
 
 Each mutating call carries `actorId` and a short human-readable `reason` for the history panel. Batch creation or updates must commit atomically as one undoable action.
+
+`masume_set_zone` changes the transient observation region, not the annotation list or document revision. It is available now and is not a pending annotation tool.
 
 ### Safety and validation
 
@@ -226,6 +240,14 @@ Example.masume/
 `manifest.json` contains a format version, document UUID, revision, canvas size, grid definition, ordered annotation objects, crop, creation/update timestamps, and the base-image checksum. The package embeds a lossless source image so reopening never depends on an external path. Unknown future annotation fields should be preserved where feasible, and unsupported newer format versions must fail clearly rather than partially load.
 
 Saving uses atomic package replacement. Normal Save overwrites the bound project; Save As creates a new document identity. Opening verifies the manifest, image checksum, dimensions, and element IDs before replacing the active canvas.
+
+### Quick Look package preview
+
+- The app bundle ships sandboxed, read-only Quick Look thumbnail and preview extensions for `.masume` packages. They display the package's existing `preview.png` without opening Masume.
+- Both extensions read only `preview.png`. They never fall back to `base-image.png` or another embedded source image when the preview is missing, invalid, symlinked, or unreasonably large.
+- The app regenerates `preview.png` whenever a project is saved, and `masume new` creates the same bounded preview for an offline-created package.
+- The preview carries a visible editable-project disclosure, the Quick Look title says that the package contains the original image, and the thumbnail carries the `MASUME` extension badge. A visible flattened preview does not imply that the package itself is share-safe.
+- Focused tests cover valid, missing, corrupt, symlinked, and oversized previews, thumbnail sizing, and the guarantee that Quick Look never exposes the embedded original.
 
 ### Redaction disclosure
 
@@ -262,19 +284,22 @@ Preserve all existing tools and add only the agreed v1 gaps:
 - Speech-bubble and thought-cloud text callouts with a free tail tip, filled with the palette color and inked (border and text) in white or black, plus left/center/right line alignment on all text. Shipped ahead of the phases below; the tail-first gesture is described in the README.
 - Numbered callout marker with editable integer and automatic next-number default.
 - Optional shadow for arrows, lines, shapes, text, and callouts.
-- Shadow is a global current-session default with a per-object override.
+- Shadow is a remembered default with explicit per-object overrides. Missing overrides in old projects preserve their prior appearance.
 
-Current-session style memory resets when the application quits. It applies to newly created objects and does not retroactively alter existing annotations.
+Rectangle styles share the existing rectangle geometry and undo/resize path. `rounded_rectangle` accepts `cornerRadius` in pixels;
+`highlight` is a borderless color fill with `opacity` (default 0.3) and no shadow by default. Both are exposed in the Rectangle tool flyout,
+CLI, and MCP. `shadow` is a boolean on arrows, lines, shapes, text, callouts, stamps, and image layers.
+
+Tool and style memory currently persists across launches. It applies to newly created objects and does not retroactively alter existing annotations.
 
 ## 10. UI changes
 
-- Add a toolbar grid toggle and a compact grid-density control offering the five presets from section 4, with the tier default marked.
-- Draw column labels across the top and row labels down the left, inside the image overlay but outside exports.
-- Add a history panel showing shared actions and actor attribution.
-- Add Save, Save As, Export Flattened Image, and Create Share-Safe Copy commands with conventional shortcuts.
-- Add agent connection status without exposing crop transport or model internals.
-- Keep selection handles and annotations visually above the grid; the grid must not intercept pointer events.
-- Never include the grid in flattened export unless a future explicit **Export With Grid** option is added.
+- **Implemented:** grid visibility and density controls, with column/row labels outside the canvas when space permits and riding the visible edge when zoomed in. The grid stays out of exports and does not intercept pointer events.
+- **Implemented:** Save, Save As, flattened export, and Create Share-Safe Copy commands; in-app CLI installation and MCP server status/settings.
+- **Implemented:** rectangle style flyout, corner-radius/opacity controls, and per-object shadow control with remembered defaults.
+- **Implemented:** Find Text & Transcribe (`⇧⌘F`), document recognition preferences, whole-image/zone reading, matching source bounds, confidence, copy, and text export.
+- **Planned:** a visible attributed-history panel. Durable history, actor attribution, command inspection, and shared undo/redo already work; this is a missing human-facing view, not a missing history engine.
+- **Future only:** an explicit Export With Grid option; ordinary exports must continue to omit the grid.
 
 ## 11. Delivery sequence
 
@@ -296,7 +321,7 @@ Implementation notes are in `phase-1-durable-document-plan.md`. The base image i
 
 ### Phase 3: Agent surfaces (shipped 2026-09-02)
 
-Implementation notes are in `phase-3-agent-surfaces-plan.md`. `scripts/ae-roundtrip.sh` (JXA) and `scripts/roundtrip.sh` (the `masume` CLI, including a kill-and-recover step and a byte-identical offline export) are the integration tests; both pass against the built app.
+Implementation notes are in `phase-3-agent-surfaces-plan.md`. `scripts/ae-roundtrip.sh` (JXA) and `scripts/roundtrip.sh` (the `masume` CLI, including a kill-and-recover step and a byte-identical offline export) passed during Phase 3 delivery. The latest candidate's verification is recorded below; this historical result is not a claim that both full scripts were rerun for 0.6.0.
 
 1. Extract document commands from `CanvasController` into a reusable command service with JSON-codable commands and results.
 2. Add the scripting definition, the read-only document properties, and the `execute` verb over that service, with document/revision assertions inside the handler.
@@ -304,13 +329,53 @@ Implementation notes are in `phase-3-agent-surfaces-plan.md`. `scripts/ae-roundt
 4. Add the TypeScript MCP server that spawns the CLI. Implement read tools first, then mutations, batch commits, history, save, and export.
 5. Prove the round trip twice: from MCP, and from a shell with the CLI. Agent reads revision, resolves cells, adds an arrow, human moves it, agent reads the updated object, either participant undoes it, and the state survives restart.
 
-### Phase 4: Remaining annotation vocabulary
+### Phase 4: Remaining annotation vocabulary (implemented 2026-09-04)
 
-Add rounded rectangles, highlights, freehand strokes, numbered callouts, shadows, and session style memory after the grid/MCP round trip is reliable.
+Freehand pen/highlighter strokes, numbered callouts, rounded rectangles with editable radii, rectangular highlights, per-object shadows,
+and remembered defaults are implemented. New styles share the document codec, renderer, selection/resize behavior, shared undo, CLI, and MCP.
 
-### Phase 5: On-device intelligence (optional)
+### Phase 5: On-device intelligence (in progress 2026-09-04)
 
-Vision text mapping first, since it needs no target change. The Foundation Models command bar and App Intents follow once the macOS 26 deployment-target decision is made. Details in section 15.
+Vision text mapping and the human transcription workflow are implemented in 0.6.0: persistent per-document
+languages/custom words, Find Text, confidence display, copy, and UTF-8 text export. The redaction scan remains. The Foundation Models
+command bar and related system integrations are deliberately sequenced after the platform decision; do not silently raise the macOS 15 minimum.
+Details are in section 15.
+
+### Ordered roadmap checkpoint — 2026-09-04
+
+These item numbers preserve the earlier roadmap; they are not phase numbers. In particular, roadmap **#3** means the human OCR workflow, not Phase 3.
+
+| Roadmap item | Current state | Remaining work / completion boundary |
+| --- | --- | --- |
+| 1. Quick Look package previews | Complete in 0.6.0 | Preview and thumbnail extensions use only the saved flattened preview and preserve the editable-project warning. |
+| 2. Complete Phase 4 | Complete in 0.6.0 | Rounded rectangles, rectangular highlights, and per-object shadows work through UI, persistence, rendering, undo, CLI, and MCP. |
+| 3. Human OCR/transcription | Complete in 0.6.0 | Saved languages/custom words, Find Text, confidence, copy, UTF-8 export, and stale-result protection are implemented. |
+| 4. Pre-export redaction scan | **Next; not implemented** | Opt-in, on-device detection of uncovered text and faces; highlight/report potential omissions without changing annotations or blocking export. Off by default; never on load. |
+| 5. Remaining v1 gaps | Planned after #4 | Single-page flattened PDF export and a visible, attributed shared-history panel. |
+| 6. Later system integrations | Deferred pending product/platform decision | Foundation Models command bar, App Intents/Shortcuts, and Writing Tools validation. Preserve the macOS 15 baseline until a decision is made. |
+
+Recommended next implementation slice: **#4, the pre-export redaction scan**. Reuse local OCR and the existing pixelate geometry; add face detection,
+coverage reporting, and temporary overlays. Test partial coverage, fully covered regions, no findings, and failure paths. Treat the scan as a review aid,
+not a guarantee of safety; cancelling it or finding possible omissions must not change the document or prevent an ordinary export.
+
+For **#5**, PDF export must use the same flattened renderer and crop/export bounds as image export, with one page and no embedded original,
+editable layers, grid, or history. Expose it consistently through the app, live/offline CLI, and MCP. The history panel must read the existing
+attributed history and follow active-tab changes and undo/redo without introducing a second history store.
+
+Release housekeeping for 0.6.0: the changelog is finalized, `feat/zones` is merged to `main`, and the release is tagged `v0.6.0` locally.
+Remote publication remains separate. A documentation-only checkpoint does not require another version bump.
+
+Planning provenance (local history): Codex session `76e11d04`, event `cfd0b9bc`, provider session `01a06d37-0d6d-7990-870b-8754f8407861`.
+This checkpoint preserves that roadmap's order while updating completion status from the current source and verification below.
+
+### Verification checkpoint
+
+- Feature commit: `e594e40`; CLI/GUI product-name fix: `8e95a45`; version synchronization: `0aa239a`.
+- Latest feature validation: **506 Swift tests executed, 1 skipped, 0 failures**; strict SwiftLint passed; **6 MCP tests passed**. These are the recorded 2026-09-04 results, not a new full-suite run for this documentation update.
+- Installed-app smoke test used a disposable fixture: rounded outline and translucent highlight rendered correctly; CLI create/undo/redo/save/export worked; zone OCR returned only the intended column; Find Text matched the expected line; native text export wrote that column successfully.
+- The 0.6.0 version-only rebuild passed signature verification; the app, both Quick Look extensions, and bundled MCP metadata agree on 0.6.0. MCP tests were rerun after the bump.
+- Relevant regressions live in `AnnotationStyleTests`, `AnnotationStyleRenderTests`, `PhaseFourWorkflowTests`, `AnnotationVocabularyTests`, and `TranscriptionWorkflowTests`; live Vision coverage is in `TextRecognitionTests`.
+- Synthetic OCR and workflow tests establish mechanics, not archival recognition accuracy. Skewed/low-contrast historical scans and proper-name accuracy still need representative evaluation; a confidence value is not independent verification.
 
 ## 12. Acceptance criteria
 
@@ -328,6 +393,8 @@ Version one is complete when all of the following are demonstrably true:
 9. Export produces a flattened artifact without grid lines, edit metadata, history, or recoverable base pixels outside the exported result.
 10. The complete agent-human round trip passes both automated tests and a manual UI smoke test.
 11. The same round trip driven from a shell with the `masume` CLI passes, and `masume export` of a saved project from a shell with the app closed is pixel-identical to the app's export.
+12. A single-page flattened PDF export honors crop/export bounds and contains no editable source image, annotation objects, grid, or history. **Still pending.**
+13. A human can inspect attributed actions in a visible history panel that follows the active document and shared undo/redo. **Still pending; the backing history already exists.**
 
 ## 13. Required tests
 
@@ -355,15 +422,44 @@ The project model may later add multi-party collaboration or generated image-pat
 
 None of this is on the v1 critical path. Each item is an additional client of the command service from Phase 3, and none of them changes the rules already set: observation stays separate from annotation, nothing analyzes an image on load, and the base image never leaves the machine through these paths.
 
+That last rule deserves a sharper statement, because the shipped path does not honor it. `view_base_image` answers a question about the image by transmitting pixels to the agent, which for a hosted model means off this machine. Every framework below answers the same class of question by transmitting a result instead. That difference is the point of this section rather than a side benefit of it.
+
 ### Vision framework: on-demand text map
 
 Available on macOS 15, so it needs no deployment-target change.
 
-- Add `masume_read_text`, taking an optional grid range. It runs `RecognizeTextRequest` on the untouched base image, or on the crop for the range, and returns each recognized string with pixel bounds, normalized bounds, the covering cell range, and confidence.
+- `masume_read_text` is implemented through the command service, CLI, and MCP. It takes an optional grid range, runs `RecognizeTextRequest` on the untouched base image or the crop for that range, and returns each recognized string with pixel bounds, normalized bounds, the covering cell range, and confidence.
+- The range accepts `zone`, as every address-taking tool does. A region the person marked out is the most likely thing either side wants read, so the tool that reads text must not be the one place the shared address does not reach.
 - Results are a semantic map in the sense of section 5: ephemeral, keyed to the base-image checksum plus grid version, and discarded when either changes.
 - This lets the agent locate a labeled control by text and address it by cell without pulling a crop image through MCP.
+- Without it, reading text means `view_base_image` followed by the agent reading the pixels itself. That reading carries no confidence value and no independent check. A second look at the same crop only confirms the agent to itself, so a misreading is indistinguishable from a correct one at the point where it matters. `RecognizeTextRequest` returns a per-string confidence, which makes it a second instrument rather than a second opinion from the first.
+- It also keeps the pixels on the machine. The crop path sends image data to the agent's provider; the text path sends strings. For an image a person chose Masume over a chat window to work on, that is the difference the choice was about.
 - The same request backs an optional **Find Text** field in the UI that highlights the matching cells. It runs only when invoked.
 - Rectangle and document-structure requests are deferred; text is the only v1 candidate.
+
+### Archival transcription
+
+The primary human use of the text map is not locating a labeled control. It is lifting text off a scanned newspaper clipping or a photographed document, which is the recurring case in the operator's family-history work. That use sets the accuracy bar and several defaults.
+
+- Recognition runs at the accurate level with language correction on. Speed is irrelevant when the person invoked it deliberately on one region.
+- `recognitionLanguages` is configurable per call and persisted per document. Archive material is frequently not English, and a run in the wrong language yields fluent nonsense rather than an obvious failure.
+- A persisted per-document `customWords` list supplements the language model, with per-call overrides. Proper nouns are what language correction destroys: a surname it does not know becomes a common word it does, silently and confidently.
+- The result must be copyable and exportable as text, not only readable by an agent. Transcription is a deliverable here, not navigation state.
+- Reading order across multiple columns is not guaranteed. This is a real limitation, and the zone is the mitigation: one column at a time is both more accurate and correctly ordered. Say so in the UI rather than reordering observations by heuristic.
+- Low-confidence strings are marked in the output rather than quietly included. For this use a wrong transcription is worse than a gap, because it looks checkable.
+- Value here comes from Vision being a *different* engine, not a better one. A second run of the same recognizer reproduces its own systematic misreadings; an independent engine disagrees where it is unsure, and disagreement is the signal worth having.
+
+### Pre-export redaction scan
+
+**Status: next roadmap item; not implemented in 0.6.0.**
+
+Section 7 makes the project-file disclosure boundary unmistakable. It does not address the other failure, which is more common and equally silent: exporting a flattened image in which something was never redacted at all. Flattening is safe by construction. Forgetting is not.
+
+- Before **Export Flattened Image** or **Create Share-Safe Copy**, an optional scan runs `RecognizeTextRequest` and `DetectFaceRectanglesRequest` over the base image and reports how many text regions and faces fall outside the bounds of any `pixelate` element.
+- It reports and highlights. It never adds, moves, or resizes a redaction on its own, and it never blocks an export.
+- It must be on-device and cannot be delegated. The premise of the scan is that the unredacted image should not be transmitted anywhere to ask whether it is safe to transmit.
+- It is a detector, not a judgment. It cannot know that a visible name is fine and a visible account number is not. The claim it makes is coverage, not safety, and the UI must not imply otherwise.
+- Off by default, remembered per preference, and never run on load.
 
 ### Foundation Models: natural-language command bar
 
@@ -385,12 +481,38 @@ Requires macOS 26 for the framework and Apple Intelligence enabled on the Mac. T
 
 Text annotation editing on macOS 26 gets Writing Tools from the system text view with no work required. Nothing in the document model changes.
 
+### Deliberately omitted
+
+Considered and refused, with the reason, so that each is not proposed again from scratch:
+
+- **Generated descriptions of the image or of a zone.** The agent that would consume one can already see the pixels. Inserting a smaller model's prose between the image and a reader that reads images is a lossy narrator whose errors arrive stripped of their provenance. Where a caption is genuinely wanted, the agent writes a better one.
+- **Descriptions as zone metadata.** Same objection, plus a staleness problem: a description keyed to a zone survives the zone being nudged and then describes the neighborhood next door.
+- **Saliency or rectangle detection to snap a zone to a detected element.** Real, and pleasant when it works, but it fights the person when it misfires. Revisit only after the manual zone has been in daily use.
+- **Image feature prints for near-duplicate search.** Only earns its place alongside a library view of many projects, which does not exist.
+- **Generated alt text on export.** Belongs to whoever is writing the surrounding document, not to the annotation tool.
+
+The common thread: on-device intelligence belongs here when the answer must be exhaustive, coordinate-precise, free, local, or available with no agent present. Anything else is the agent in a costume.
+
 ### Delivery
 
-Vision text mapping can follow Phase 4 immediately. The command bar and App Intents wait on the deployment-target decision and ship as Phase 5.
+Vision text mapping and its human UI/persistence workflow are in 0.6.0. **Find Text & Transcribe** (`⇧⌘F`) reads the whole
+image or zone only when invoked. Search highlights source text bounds; each line shows confidence and a grid range. Copy/export mark
+confidence below 0.8 without rewriting recognized words. Results become stale when the base image, grid, relevant zone, or saved
+preferences change, including while a background recognition is in progress. The redaction scan, command bar, and App Intents remain
+future work, sequenced as described in section 11. App Intents is a separate client of the command service; its place in the later phase
+is a product-priority decision, not a claim that all Shortcuts integration requires a macOS 26 target.
+
+`set_text_preferences` / `masume text-preferences` / `masume_set_text_preferences` update `languages` and `customWords` as one attributed,
+revision-checked, undoable commit; omitted fields stay unchanged and empty arrays clear them. `read_text` inherits these fields when omitted.
+The JSON `text` field remains raw; `transcription` adds low-confidence markers. Preference changes persist in project and recovery manifests.
 
 ### Tests
 
 - Text map: a synthetic image with strings at known pixel positions yields the correct cell ranges at two grid densities, and the map is invalidated when density changes.
+- Text map zone: reading with the range `zone` returns the same strings and bounds as reading the explicit range covering it, and errors rather than falling back to the whole image when no zone is set.
+- Text map confidence: a deliberately degraded string comes back carrying its low confidence rather than being dropped, corrected, or reported as certain. The tool says what the recognizer saw, including that it was unsure.
+- Text map transport: a `masume_read_text` response carries no image data in any field, so the tool cannot quietly become a crop path.
+- Archival transcription: a skewed, low-contrast scan of multi-column text yields the correct strings for a single-column zone, and a name in `customWords` survives language correction that mangles it when the list is empty.
+- Redaction scan: an image with a face and a text block half covered by a `pixelate` element reports exactly the uncovered regions, reports zero when coverage is complete, and never mutates the document or the export.
 - Command bar: a fixture set of phrases produces commands identical to hand-written JSON; an ambiguous phrase produces an error, not a guess.
 - App Intents: each intent produces the same history entry as the equivalent MCP call, with the `shortcuts` actor.

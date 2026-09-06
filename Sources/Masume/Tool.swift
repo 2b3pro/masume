@@ -34,7 +34,7 @@ enum Tool: String, CaseIterable, Identifiable, Codable {
         }
     }
 
-    /// Miro-style single-letter shortcut for the tool.
+    /// Single-letter shortcut for the tool.
     var shortcutKey: Character {
         switch self {
         case .select: return "v"
@@ -93,7 +93,7 @@ enum Tool: String, CaseIterable, Identifiable, Codable {
     }
 }
 
-/// Tools remember their stroke width per group (Miro-style): arrows/lines
+/// Tools remember their stroke width per group: arrows/lines
 /// share one width, shape outlines another, text its own. The kind→group
 /// taxonomy is defined here, in `Tool.strokeWidthGroup` and
 /// `Annotation.strokeWidthGroup` below — keep the two switches in step.

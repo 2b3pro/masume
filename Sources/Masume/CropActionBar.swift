@@ -15,7 +15,7 @@ struct CropActionBar: View {
                     .frame(width: 60)
                     .multilineTextAlignment(.trailing)
                 Text("×")
-                    .foregroundStyle(MiroTheme.textSecondary(scheme))
+                    .foregroundStyle(Theme.textSecondary(scheme))
                 TextField("H", value: $controller.pendingFrameHeight, format: .number)
                     .textFieldStyle(.roundedBorder)
                     .frame(width: 60)
@@ -23,14 +23,14 @@ struct CropActionBar: View {
             }
             .font(.miroControl)
             .help("The new image size in pixels; a size keeps the frame's top-left corner")
-            MiroPrimaryButton(title: controller.pendingFrameExpands ? "Apply Resize" : "Apply Crop") {
+            PrimaryButton(title: controller.pendingFrameExpands ? "Apply Resize" : "Apply Crop") {
                 controller.applyCrop()
             }
                 .help("Apply the frame (Return): inside the image it crops, outside it grows the canvas")
             Button("Cancel") { controller.cancelCrop() }
                 .buttonStyle(.plain)
                 .font(.miroControl)
-                .foregroundStyle(MiroTheme.textSecondary(scheme))
+                .foregroundStyle(Theme.textSecondary(scheme))
                 .padding(.vertical, 10)
                 .padding(.horizontal, 12)
                 .help("Cancel the crop (Esc)")
@@ -60,7 +60,7 @@ struct ZoomMenuButton: View {
                     .font(.system(size: 8, weight: .semibold))
             }
             .font(.miroCaption)
-            .foregroundStyle(MiroTheme.textSecondary(scheme))
+            .foregroundStyle(Theme.textSecondary(scheme))
         }
         .menuStyle(.button)
         .buttonStyle(.plain)
@@ -89,7 +89,7 @@ struct GridToggleButton: View {
                         .monospacedDigit()
                 }
             }
-            .foregroundStyle(controller.showsGrid ? Color.miroInk : MiroTheme.textSecondary(scheme))
+            .foregroundStyle(controller.showsGrid ? Color.miroInk : Theme.textSecondary(scheme))
             .padding(.horizontal, 2)
             .background(
                 RoundedRectangle(cornerRadius: 6)
@@ -114,7 +114,7 @@ struct ImageSizeBadge: View {
     var body: some View {
         Text(label)
             .font(.miroCaption)
-            .foregroundStyle(MiroTheme.textSecondary(scheme))
+            .foregroundStyle(Theme.textSecondary(scheme))
             .miroFloatingPanel()
     }
 

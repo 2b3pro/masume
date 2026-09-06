@@ -36,7 +36,7 @@ struct ChoicePanel<Choice: PaletteChoice>: View {
                     select(choice)
                 } label: {
                     tileIcon(choice.symbol,
-                             tint: selected == choice ? Color.miroInk : MiroTheme.textSecondary(scheme),
+                             tint: selected == choice ? Color.miroInk : Theme.textSecondary(scheme),
                              iconSize: iconSize)
                         .background(
                             RoundedRectangle(cornerRadius: 11)
@@ -136,7 +136,7 @@ struct ImageLayerPanel: View {
         VStack(alignment: .leading, spacing: 10) {
             Text("Mask")
                 .font(.miroCaption)
-                .foregroundStyle(MiroTheme.textSecondary(scheme))
+                .foregroundStyle(Theme.textSecondary(scheme))
             ChoicePanel(choices: ImageMask.allCases, selected: controller.imageMask, iconSize: 18) {
                 controller.imageMask = $0
             }
@@ -275,13 +275,13 @@ struct BubbleRow: View {
         HStack(spacing: 8) {
             Text("Bubble")
                 .font(.miroCaption)
-                .foregroundStyle(MiroTheme.textSecondary(scheme))
+                .foregroundStyle(Theme.textSecondary(scheme))
             ForEach(choices, id: \.name) { choice in
                 Button {
                     controller.setSelectedBubble(choice.shape)
                 } label: {
                     tileIcon(choice.symbol,
-                             tint: controller.selectedBubble == choice.shape ? Color.miroInk : MiroTheme.textSecondary(scheme),
+                             tint: controller.selectedBubble == choice.shape ? Color.miroInk : Theme.textSecondary(scheme),
                              iconSize: 18)
                         .background(
                             RoundedRectangle(cornerRadius: 11)
@@ -308,7 +308,7 @@ struct TextOutlineColorRow: View {
         HStack(spacing: 8) {
             Text(label ?? (controller.textStyle == .outline ? "Outline" : "Halo"))
                 .font(.miroCaption)
-                .foregroundStyle(MiroTheme.textSecondary(scheme))
+                .foregroundStyle(Theme.textSecondary(scheme))
             ForEach(Self.choices, id: \.name) { choice in
                 Button {
                     controller.textOutlineColor = choice.color
@@ -353,7 +353,7 @@ extension TextStyle {
 /// Pure-SwiftUI slider. The native `Slider` wraps an NSSlider whose knob
 /// renders in the inactive (dark) style inside a non-key popover window until
 /// clicked; drawing our own knob keeps it white regardless of window key state.
-struct MiroSlider: View {
+struct PanelSlider: View {
     @Binding var value: CGFloat
     let range: ClosedRange<CGFloat>
     let onEditingChanged: (Bool) -> Void

@@ -84,7 +84,7 @@ extension CanvasNSView {
         return track.minX + magnifierSliderHeight / 2 + fraction * (track.width - magnifierSliderHeight)
     }
 
-    /// Miro-style slider: gray track, blue fill up to a white knob, and the
+    /// Slider: gray track, blue fill up to a white knob, and the
     /// zoom factor as a small label beneath.
     private func drawMagnifierSlider(in track: CGRect, zoom: CGFloat, in ctx: CGContext) {
         let knobX = Self.magnifierKnobX(forZoom: zoom, in: track)

@@ -130,7 +130,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         // Legacy digit shortcuts (0-7, the Tool.allCases order) kept alongside
-        // the Miro-style letters shown in the Tools menu.
+        // the single-letter shortcuts shown in the Tools menu.
         toolKeyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
             guard let self,
                   event.modifierFlags.isDisjoint(with: [.command, .shift, .option, .control]),

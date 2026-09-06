@@ -8,7 +8,7 @@ Masume is a Swift Package Manager project for a native macOS 15+ app. Keep code 
 - `Sources/AnnotationRender/` handles Core Graphics rendering and WebP encoding.
 - `Sources/Masume/` contains the SwiftUI application, AppKit canvas bridge, controllers, and export services.
 - `Tests/<Target>Tests/` mirrors the three source targets.
-- `Resources/` holds the app plist and icons; `scripts/` assembles the app and regenerates icons; `docs/` records design and investigation notes.
+- `Resources/` holds the app plist and icons; `scripts/` assembles the app and regenerates icons; `docs/` holds the public agent-collaboration spec.
 
 Do not commit generated `.build/` or `build/` content.
 

@@ -309,7 +309,7 @@ Tool and style memory currently persists across launches. It applies to newly cr
 2. Add dirty tracking, Save/Save As/Open, atomic writes, and recovery autosave.
 3. Restore projects across launch and add the redaction disclosure and share-safe export path.
 
-Implementation notes are in `phase-1-durable-document-plan.md`. The base image is stored as PNG; history entries carry the affected elements' before and after objects; recovery packages reopen automatically; the disclosure shows once per document with a global opt-out.
+The base image is stored as PNG; history entries carry the affected elements' before and after objects; recovery packages reopen automatically; the disclosure shows once per document with a global opt-out.
 
 ### Phase 2: Shared spatial language (shipped 2026-09-02)
 
@@ -321,7 +321,7 @@ Implementation notes are in `phase-1-durable-document-plan.md`. The base image i
 
 ### Phase 3: Agent surfaces (shipped 2026-09-02)
 
-Implementation notes are in `phase-3-agent-surfaces-plan.md`. `scripts/ae-roundtrip.sh` (JXA) and `scripts/roundtrip.sh` (the `masume` CLI, including a kill-and-recover step and a byte-identical offline export) passed during Phase 3 delivery. The latest candidate's verification is recorded below; this historical result is not a claim that both full scripts were rerun for 0.6.0.
+`scripts/ae-roundtrip.sh` (JXA) and `scripts/roundtrip.sh` (the `masume` CLI, including a kill-and-recover step and a byte-identical offline export) passed during Phase 3 delivery. The latest candidate's verification is recorded below; this historical result is not a claim that both full scripts were rerun for 0.6.0.
 
 1. Extract document commands from `CanvasController` into a reusable command service with JSON-codable commands and results.
 2. Add the scripting definition, the read-only document properties, and the `execute` verb over that service, with document/revision assertions inside the handler.

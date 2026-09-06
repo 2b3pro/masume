@@ -60,7 +60,7 @@ struct PDFPagePicker: View {
                 .font(.headline)
             Text("\(source.pageCount) pages. The page is imported as an image at 2×.")
                 .font(.miroCaption)
-                .foregroundStyle(MiroTheme.textSecondary(scheme))
+                .foregroundStyle(Theme.textSecondary(scheme))
             ScrollView {
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: Self.thumbnailWidth), spacing: 16)], spacing: 16) {
                     ForEach(1...source.pageCount, id: \.self) { number in
@@ -71,7 +71,7 @@ struct PDFPagePicker: View {
                                 PDFPageThumbnail(source: source, number: number, width: Self.thumbnailWidth)
                                 Text("\(number)")
                                     .font(.miroCaption)
-                                    .foregroundStyle(MiroTheme.textSecondary(scheme))
+                                    .foregroundStyle(Theme.textSecondary(scheme))
                             }
                         }
                         .buttonStyle(.plain)

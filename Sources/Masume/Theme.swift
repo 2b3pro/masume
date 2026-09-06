@@ -1,7 +1,7 @@
 import SwiftUI
 import AppKit
 
-// MARK: - Miro color tokens (docs/DESIGN.md §1)
+// MARK: - Color tokens
 
 extension Color {
     // Board & Chrome (Light)
@@ -30,14 +30,14 @@ extension Color {
 }
 
 extension NSColor {
-    /// Selection chrome; identical across light and dark themes (DESIGN.md §7).
+    /// Selection chrome; identical across light and dark themes.
     static let miroBlue = NSColor(srgbRed: 0.259, green: 0.384, blue: 1.000, alpha: 1)
     static let miroDivider = NSColor(srgbRed: 0.890, green: 0.890, blue: 0.910, alpha: 1)
 }
 
 // MARK: - Scheme-resolving helpers
 
-enum MiroTheme {
+enum Theme {
     static func board(_ scheme: ColorScheme) -> Color {
         scheme == .dark ? .miroDarkBoard : .miroBoard
     }
@@ -56,7 +56,7 @@ enum MiroTheme {
     }
 }
 
-// MARK: - Typography (DESIGN.md §2, mapped to system fonts)
+// MARK: - Typography (mapped to system fonts)
 
 extension Font {
     static let miroBody    = Font.system(size: 16)
@@ -65,9 +65,9 @@ extension Font {
     static let miroCaption = Font.system(size: 12, weight: .semibold)
 }
 
-// MARK: - Dot grid (DESIGN.md §3, fixed spacing — no pan/zoom)
+// MARK: - Dot grid (fixed spacing, no pan/zoom)
 
-struct MiroGrid: View {
+struct DotGrid: View {
     let color: Color
     var spacing: CGFloat = 28
 
@@ -96,9 +96,9 @@ struct MiroGrid: View {
     }
 }
 
-// MARK: - Button styles (DESIGN.md §3, §5)
+// MARK: - Button styles
 
-struct MiroPressStyle: ButtonStyle {
+struct PressStyle: ButtonStyle {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     func makeBody(configuration: Configuration) -> some View {
@@ -109,7 +109,7 @@ struct MiroPressStyle: ButtonStyle {
     }
 }
 
-struct MiroPrimaryButton: View {
+struct PrimaryButton: View {
     let title: String
     let action: () -> Void
 
@@ -122,11 +122,11 @@ struct MiroPrimaryButton: View {
                 .background(Color.miroYellow)
                 .clipShape(.rect(cornerRadius: 10))
         }
-        .buttonStyle(MiroPressStyle())
+        .buttonStyle(PressStyle())
     }
 }
 
-struct MiroSecondaryButton: View {
+struct SecondaryButton: View {
     let title: String
     let action: () -> Void
     @Environment(\.colorScheme) private var scheme
@@ -135,18 +135,18 @@ struct MiroSecondaryButton: View {
         Button(action: action) {
             Text(title)
                 .font(.miroControl)
-                .foregroundStyle(MiroTheme.textPrimary(scheme))
+                .foregroundStyle(Theme.textPrimary(scheme))
                 .padding(.vertical, 10).padding(.horizontal, 20)
-                .background(MiroTheme.surface(scheme))
+                .background(Theme.surface(scheme))
                 .clipShape(.rect(cornerRadius: 10))
         }
-        .buttonStyle(MiroPressStyle())
+        .buttonStyle(PressStyle())
     }
 }
 
 /// Icon-tile button chrome: hover and pressed background fills so clicks are
 /// clearly acknowledged even for actions with no visible result.
-struct MiroTileButtonStyle: ButtonStyle {
+struct TileButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         TileBody(configuration: configuration)
     }
@@ -178,9 +178,9 @@ struct MiroTileButtonStyle: ButtonStyle {
     }
 }
 
-// MARK: - Floating panel chrome (DESIGN.md §3 toolbar, §7 dark elevation)
+// MARK: - Floating panel chrome (toolbar, dark elevation)
 
-private struct MiroFloatingPanel<PanelShape: InsettableShape>: ViewModifier {
+private struct FloatingPanel<PanelShape: InsettableShape>: ViewModifier {
     let shape: PanelShape
 
     func body(content: Content) -> some View {
@@ -199,12 +199,12 @@ private struct MiroFloatingPanel<PanelShape: InsettableShape>: ViewModifier {
 
 extension View {
     func miroFloatingPanel() -> some View {
-        padding(8).modifier(MiroFloatingPanel(shape: RoundedRectangle(cornerRadius: 16)))
+        padding(8).modifier(FloatingPanel(shape: RoundedRectangle(cornerRadius: 16)))
     }
 
     /// The same elevation chrome on a custom shape; the caller supplies its
     /// own content padding.
     func miroFloatingPanel(shape: some InsettableShape) -> some View {
-        modifier(MiroFloatingPanel(shape: shape))
+        modifier(FloatingPanel(shape: shape))
     }
 }

@@ -59,15 +59,15 @@ struct TabBarView: View {
             Button { workspace.newTab() } label: {
                 Image(systemName: "plus")
                     .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(MiroTheme.textSecondary(scheme))
+                    .foregroundStyle(Theme.textSecondary(scheme))
                     .frame(width: 34, height: Self.barHeight)
                     .contentShape(.rect)
             }
-            .buttonStyle(MiroTileButtonStyle())
+            .buttonStyle(TileButtonStyle())
             .help("New Tab (⌘T)")
         }
         .frame(height: Self.barHeight)
-        .background(MiroTheme.surface(scheme))
+        .background(Theme.surface(scheme))
         .overlay(alignment: .bottom) {
             Rectangle().fill(Color.miroDivider).frame(height: 1)
         }
@@ -95,7 +95,7 @@ private struct TabItem: View {
 
     private var backgroundColor: Color {
         if isActive {
-            MiroTheme.board(scheme)
+            Theme.board(scheme)
         } else if hovering {
             Color.miroSurfacePressed.opacity(scheme == .dark ? 0.3 : 1)
         } else {
@@ -116,7 +116,7 @@ private struct TabItem: View {
                 .truncationMode(.tail)
         }
         .font(.miroCaption)
-        .foregroundStyle(isActive ? MiroTheme.textPrimary(scheme) : MiroTheme.textSecondary(scheme))
+        .foregroundStyle(isActive ? Theme.textPrimary(scheme) : Theme.textSecondary(scheme))
     }
 
     private var editor: some View {
@@ -159,11 +159,11 @@ private struct TabItem: View {
                     } label: {
                         Image(systemName: "xmark")
                             .font(.system(size: 9, weight: .bold))
-                            .foregroundStyle(MiroTheme.textSecondary(scheme))
+                            .foregroundStyle(Theme.textSecondary(scheme))
                             .frame(width: 18, height: 18)
                             .contentShape(.rect(cornerRadius: 5))
                     }
-                    .buttonStyle(MiroTileButtonStyle())
+                    .buttonStyle(TileButtonStyle())
                     .padding(.leading, 6)
                     .help("Close Tab (\u{2318}W). \u{2325}-click closes all tabs.")
                 }
@@ -195,8 +195,8 @@ private struct CanvasPane: View {
         // swiftlint:disable:next redundant_discardable_let
         let _ = controller.baseImage
         ZStack {
-            MiroTheme.board(scheme)
-            MiroGrid(color: MiroTheme.grid(scheme))
+            Theme.board(scheme)
+            DotGrid(color: Theme.grid(scheme))
             if controller.hasDocument {
                 CanvasView(controller: controller)
                     .padding(.leading, 76)
@@ -281,7 +281,7 @@ struct ToastView: View {
                 .foregroundStyle(Color.miroSuccess)
             Text(message)
                 .font(.miroControl)
-                .foregroundStyle(MiroTheme.textPrimary(scheme))
+                .foregroundStyle(Theme.textPrimary(scheme))
         }
         .padding(.vertical, 10).padding(.horizontal, 16)
         .miroFloatingPanel(shape: Capsule())
@@ -297,13 +297,13 @@ struct EmptyState: View {
         VStack(spacing: 16) {
             Image(systemName: "photo.on.rectangle.angled")
                 .font(.system(size: 56))
-                .foregroundStyle(MiroTheme.textSecondary(scheme))
+                .foregroundStyle(Theme.textSecondary(scheme))
             Text("Open or drop an image to start annotating")
                 .font(.miroBody)
-                .foregroundStyle(MiroTheme.textSecondary(scheme))
+                .foregroundStyle(Theme.textSecondary(scheme))
             HStack(spacing: 12) {
-                MiroPrimaryButton(title: "Open Image…") { SaveService.openPanel(into: controller) }
-                MiroSecondaryButton(title: "Paste from Clipboard") { ExportService.confirmAndPasteImage(controller) }
+                PrimaryButton(title: "Open Image…") { SaveService.openPanel(into: controller) }
+                SecondaryButton(title: "Paste from Clipboard") { ExportService.confirmAndPasteImage(controller) }
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -313,7 +313,7 @@ struct EmptyState: View {
 // MARK: - Icon tiles
 
 /// Shared icon-in-tile label used by the palette and action-bar buttons; the
-/// content shape matches `MiroTileButtonStyle`'s 11pt hover/pressed fill.
+/// content shape matches `TileButtonStyle`'s 11pt hover/pressed fill.
 func tileIcon(_ symbol: String, tint: Color,
               iconSize: CGFloat = 20, tile: CGFloat = 40) -> some View {
     Image(systemName: symbol)
@@ -370,7 +370,7 @@ struct ToolPalette: View {
             }
         } label: {
             tileIcon(tool.symbol,
-                     tint: controller.tool == tool ? Color.miroInk : MiroTheme.textSecondary(scheme))
+                     tint: controller.tool == tool ? Color.miroInk : Theme.textSecondary(scheme))
                 .background(
                     RoundedRectangle(cornerRadius: 11)
                         .fill(controller.tool == tool ? Color.miroYellow : .clear)
@@ -413,9 +413,9 @@ struct ToolPalette: View {
             paletteDivider(width: 28, verticalPadding: 4)
 
             Button { controller.setShadow(!controller.displayedShadow) } label: {
-                tileIcon("shadow", tint: controller.displayedShadow ? Color.miroInk : MiroTheme.textSecondary(scheme))
+                tileIcon("shadow", tint: controller.displayedShadow ? Color.miroInk : Theme.textSecondary(scheme))
             }
-            .buttonStyle(MiroTileButtonStyle())
+            .buttonStyle(TileButtonStyle())
             .help("Shadow: selected object and default for new annotations")
             .accessibilityLabel("Toggle annotation shadow")
 
@@ -429,21 +429,21 @@ struct ToolPalette: View {
                     .frame(width: 40, height: 40)
                     .contentShape(.rect(cornerRadius: 11))
             }
-            .buttonStyle(MiroTileButtonStyle())
+            .buttonStyle(TileButtonStyle())
             .help("Stroke color")
 
             Button {
                 showsStrokeWidth.toggle()
             } label: {
-                tileIcon(sliderSymbol, tint: MiroTheme.textSecondary(scheme))
+                tileIcon(sliderSymbol, tint: Theme.textSecondary(scheme))
             }
-            .buttonStyle(MiroTileButtonStyle())
+            .buttonStyle(TileButtonStyle())
             .help(sliderHelp)
             .popover(isPresented: $showsStrokeWidth, arrowEdge: .trailing) {
                 HStack(spacing: 8) {
                     Image(systemName: sliderSymbol)
-                        .foregroundStyle(MiroTheme.textSecondary(scheme))
-                    MiroSlider(
+                        .foregroundStyle(Theme.textSecondary(scheme))
+                    PanelSlider(
                         value: editsPixelate ? $controller.pixelateAmount : $controller.strokeWidth,
                         range: editsPixelate ? RedactionElement.amountRange : DefaultStrokeWidth.range,
                         onEditingChanged: { editing in
@@ -459,15 +459,15 @@ struct ToolPalette: View {
                 Button {
                     showsPenOpacity.toggle()
                 } label: {
-                    tileIcon("circle.lefthalf.filled", tint: MiroTheme.textSecondary(scheme))
+                    tileIcon("circle.lefthalf.filled", tint: Theme.textSecondary(scheme))
                 }
-                .buttonStyle(MiroTileButtonStyle())
+                .buttonStyle(TileButtonStyle())
                 .help("Opacity (lower for highlighting)")
                 .popover(isPresented: $showsPenOpacity, arrowEdge: .trailing) {
                     HStack(spacing: 8) {
                         Image(systemName: "circle.lefthalf.filled")
-                            .foregroundStyle(MiroTheme.textSecondary(scheme))
-                        MiroSlider(
+                            .foregroundStyle(Theme.textSecondary(scheme))
+                        PanelSlider(
                             value: $controller.penOpacity,
                             range: PenElement.opacityRange,
                             onEditingChanged: { editing in
@@ -478,7 +478,7 @@ struct ToolPalette: View {
                         Text("\(Int((controller.penOpacity * 100).rounded()))%")
                             .font(.miroCaption)
                             .monospacedDigit()
-                            .foregroundStyle(MiroTheme.textSecondary(scheme))
+                            .foregroundStyle(Theme.textSecondary(scheme))
                             .frame(width: 36, alignment: .trailing)
                     }
                     .padding(12)
@@ -489,9 +489,9 @@ struct ToolPalette: View {
                 Button {
                     showsTextStyle.toggle()
                 } label: {
-                    tileIcon(controller.textStyle.symbol, tint: MiroTheme.textSecondary(scheme))
+                    tileIcon(controller.textStyle.symbol, tint: Theme.textSecondary(scheme))
                 }
-                .buttonStyle(MiroTileButtonStyle())
+                .buttonStyle(TileButtonStyle())
                 .help("Text style")
                 .popover(isPresented: $showsTextStyle, arrowEdge: .trailing) {
                     VStack(alignment: .leading, spacing: 10) {
@@ -514,9 +514,9 @@ struct ToolPalette: View {
                 Button {
                     showsImageLayer.toggle()
                 } label: {
-                    tileIcon("photo", tint: MiroTheme.textSecondary(scheme))
+                    tileIcon("photo", tint: Theme.textSecondary(scheme))
                 }
-                .buttonStyle(MiroTileButtonStyle())
+                .buttonStyle(TileButtonStyle())
                 .help("Image layer: mask, border, shadow")
                 .popover(isPresented: $showsImageLayer, arrowEdge: .trailing) {
                     ImageLayerPanel(controller: controller)
@@ -528,9 +528,9 @@ struct ToolPalette: View {
                 Button {
                     showsTextLayout.toggle()
                 } label: {
-                    tileIcon(controller.textAlignment.symbol, tint: MiroTheme.textSecondary(scheme))
+                    tileIcon(controller.textAlignment.symbol, tint: Theme.textSecondary(scheme))
                 }
-                .buttonStyle(MiroTileButtonStyle())
+                .buttonStyle(TileButtonStyle())
                 .help("Text alignment")
                 .popover(isPresented: $showsTextLayout, arrowEdge: .trailing) {
                     VStack(alignment: .leading, spacing: 10) {
@@ -596,9 +596,9 @@ struct ActionBar: View {
     private func actionTile(_ symbol: String, help: String,
                             action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            tileIcon(symbol, tint: MiroTheme.textSecondary(scheme), iconSize: 16, tile: 36)
+            tileIcon(symbol, tint: Theme.textSecondary(scheme), iconSize: 16, tile: 36)
         }
-        .buttonStyle(MiroTileButtonStyle())
+        .buttonStyle(TileButtonStyle())
         .help(help)
         .disabled(!controller.hasDocument)
     }

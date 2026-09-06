@@ -57,6 +57,7 @@ public enum CLIRequest {
     private static func readCommand(_ subcommand: String, arguments: [String],
                                     flags: [String: String]) throws -> (String, [String: Any])? {
         switch subcommand {
+        case "guide": return ("guide", [:])
         case "doc": return ("get_active_document", [:])
         case "elements": return ("list_elements", [:])
         case "element": return ("get_element", ["id": try one(arguments, "element <id>")])

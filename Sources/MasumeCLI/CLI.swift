@@ -29,6 +29,7 @@ public enum MasumeCLI {
           save [path]                 write the project (path required the first time)
           export <path> [--format png|jpeg|webp] [--bounds expandToFit|clipToImage]
           exec '<json>'               any command by name
+          guide                       the full command vocabulary for agents
 
         Offline (no app needed):
           info <file.masume>

@@ -59,6 +59,7 @@ final class CommandService {
     private func dispatch(_ request: CommandRequest) throws -> JSONValue {
         if Self.mutationCommands.contains(request.command) { return try mutate(request) }
         if request.command == "undo" || request.command == "redo" { return try undoRedo(request) }
+        if request.command == "guide" { return .object(["guide": .string(MasumeGuide.text)]) }
         if request.command == "read_text" { return try readText(request) }
         return try dispatchOther(request)
     }

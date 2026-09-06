@@ -3,6 +3,11 @@
 // gets the essentials for free; GUIDE is the masume_guide tool's answer,
 // meant to be read once per session. Both are written to be cheap: no
 // prose the agent does not act on.
+//
+// Sources/MasumeCommands/Guide.swift carries the parallel text the app's
+// `guide` command returns to AppleScript and CLI callers. The two are not
+// duplicates: MCP tools are named masume_*, that surface takes bare command
+// names. When the command surface changes, update both.
 
 export const INSTRUCTIONS = `Masume: annotate the image a person has open, on the same canvas, undo stack, and history they see.
 Call masume_guide once per session for the workflow, grid grammar, element fields, and errors.

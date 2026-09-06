@@ -50,6 +50,12 @@ extension MasumeCLI {
 
             """ + "\n" + elementKeys,
         "delete": "masume delete <id> ...\nRemove annotations. An unknown id fails the whole call and nothing changes.",
+        "guide": """
+            masume guide
+            The full command vocabulary for agents: session shape, grid address grammar,
+            element types and fields, error codes, and the habits that save tokens.
+            The same text the MCP server's masume_guide tool returns, in CLI command names.
+            """,
         "doc": """
             masume doc
             The active document: id, revision, canvas size, grid, crop, selection, dirty state, and counts.

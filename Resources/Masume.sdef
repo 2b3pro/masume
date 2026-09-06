@@ -4,7 +4,8 @@
   Masume's scripting surface: read-only document properties and one verb,
   execute, which takes a JSON command and returns a JSON envelope. Script
   Editor, JXA, the masume CLI, and (through the CLI) the MCP server all use
-  this same surface. See docs/agent-collaborative-annotation-spec.md, section 6.
+  this same surface. Send {"command": "guide"} for the full command list.
+  See docs/agent-collaborative-annotation-spec.md, section 6.
 -->
 <dictionary title="Masume Terminology">
   <suite name="Standard Suite" code="????" description="Common commands.">
@@ -38,10 +39,10 @@
       <property name="canvas height" code="MsCH" type="integer" access="r" description="Base image height in pixels.">
         <cocoa key="canvasHeight"/>
       </property>
-      <property name="grid columns" code="MsGC" type="integer" access="r">
+      <property name="grid columns" code="MsGC" type="integer" access="r" description="Grid columns; the letter axis of a grid address.">
         <cocoa key="gridColumns"/>
       </property>
-      <property name="grid rows" code="MsGR" type="integer" access="r">
+      <property name="grid rows" code="MsGR" type="integer" access="r" description="Grid rows; the number axis of a grid address.">
         <cocoa key="gridRows"/>
       </property>
       <property name="grid version" code="MsGV" type="integer" access="r"
@@ -59,6 +60,25 @@
     <command name="execute" code="MsumExec"
              description="Runs one JSON command against the active document and returns the JSON envelope. Malformed JSON is the only error; everything else comes back inside the envelope.">
       <cocoa class="ExecuteScriptCommand"/>
+      <documentation>
+        <html><![CDATA[
+<p>Every command is one JSON object with a <code>command</code> key. Reads need nothing else;
+mutations carry <code>documentId</code> and <code>expectedRevision</code>, and return the
+revision to carry into the next call.</p>
+<p>Send <code>{"command": "guide"}</code> for the full vocabulary: every command name, the grid
+address grammar, element types and fields, and the error codes. That is the list to read first;
+it is generated from the running app, so it never goes stale.</p>
+<pre>tell application "Masume"
+    set doc to execute "{\"command\": \"get_active_document\"}"
+    -- doc is {"ok":true,"result":{"id":"…","revision":7,…}}
+    execute "{\"command\": \"create_element\", \"documentId\": \"…\", \
+\"expectedRevision\": 7, \"reason\": \"point at Save\", \
+\"element\": {\"type\": \"arrow\", \"from\": \"B2\", \"to\": \"D5\"}}"
+end tell</pre>
+<p>Grid addresses (<code>D5</code> a cell, <code>D5.3</code> a quadrant, <code>D5:F14</code> a
+range, <code>zone</code> the region the person marked out) are usually clearer than pixels.</p>
+        ]]></html>
+      </documentation>
       <direct-parameter type="text" description="The command as a JSON object."/>
       <result type="text" description="{&quot;ok&quot;: true, &quot;result&quot;: …} or {&quot;ok&quot;: false, &quot;error&quot;: {&quot;code&quot;, &quot;message&quot;}}."/>
     </command>

@@ -236,6 +236,29 @@ final class CommandServiceTests: XCTestCase {
         XCTAssertTrue(r["projectPath"] is NSNull)
     }
 
+    func testGuideNeedsNoDocumentTargeting() {
+        let r = result(run("guide", mutation: false))
+        let text = r["guide"] as? String ?? ""
+        XCTAssertTrue(text.hasPrefix("# Masume for agents"), "unexpected guide: \(text.prefix(40))")
+        XCTAssertGreaterThan(text.count, 1000)
+    }
+
+    /// The guide is the only discovery surface AppleScript and the CLI have, so
+    /// a command that is dispatchable but unnamed there is invisible. Adding a
+    /// command without documenting it should fail here.
+    func testGuideNamesEveryDispatchableCommand() {
+        let text = result(run("guide", mutation: false))["guide"] as? String ?? ""
+        let commands = [
+            "get_active_document", "list_elements", "get_element", "resolve_grid", "view_base_image",
+            "get_history", "read_text", "save_project", "export", "create_element", "update_element",
+            "delete_elements", "set_crop", "set_zone", "set_grid_density", "set_text_preferences",
+            "batch", "undo", "redo", "front", "back", "guide",
+        ]
+        for command in commands {
+            XCTAssertTrue(text.contains(command), "the guide never names \(command)")
+        }
+    }
+
     func testResolveGridReturnsRectCenterCornersAndNormalized() {
         let r = result(run("resolve_grid", params: ["address": "d5:f7"], mutation: false))
         XCTAssertEqual(r["address"] as? String, "D5:F7")

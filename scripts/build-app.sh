@@ -103,6 +103,11 @@ else
     echo "note: mcp/dist not found; the in-app MCP server will be unavailable (run npm install && npm run build in mcp/)" >&2
 fi
 
+# Ship the pre-generated .icns rather than compiling MasumeAppIcon.icon here.
+# The .icon (Icon Composer) package needs actool from the Xcode toolchain, so a
+# plain SwiftPM build cannot produce it, and pre-generating keeps the icon
+# deterministic across machines. MasumeAppIcon.icon stays as the editable
+# master; regenerate with scripts/generate-icon.sh after exporting a new PNG.
 ICON_SRC="$ROOT/Resources/AppIcon.icns"
 if [[ -f "$ICON_SRC" ]]; then
     echo "==> copying AppIcon.icns"

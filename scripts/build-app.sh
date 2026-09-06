@@ -104,10 +104,17 @@ else
 fi
 
 # Ship the pre-generated .icns rather than compiling MasumeAppIcon.icon here.
-# The .icon (Icon Composer) package needs actool from the Xcode toolchain, so a
-# plain SwiftPM build cannot produce it, and pre-generating keeps the icon
-# deterministic across machines. MasumeAppIcon.icon stays as the editable
-# master; regenerate with scripts/generate-icon.sh after exporting a new PNG.
+# actool can compile the .icon (it emits Assets.car plus a small .icns), but it
+# needs a full Xcode install, and this script is meant to run against the plain
+# SwiftPM toolchain. The committed .icns is the complete traditional icon, every
+# size from 16 to 1024, so it works everywhere without that dependency.
+#
+# Trade-off: the traditional .icns carries no macOS 26 appearance variants, so
+# the glass, gradient, and shadow described in MasumeAppIcon.icon/icon.json are
+# not what ships. Those live in the Assets.car that only actool produces.
+#
+# MasumeAppIcon.icon stays the editable master; regenerate the .icns with
+# scripts/generate-icon.sh after exporting a new 1024px PNG.
 ICON_SRC="$ROOT/Resources/AppIcon.icns"
 if [[ -f "$ICON_SRC" ]]; then
     echo "==> copying AppIcon.icns"

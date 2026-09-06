@@ -243,11 +243,38 @@ is available (no Apple Developer account is required). The repository's lint hoo
   for gestures such as the callout and loupe drags, Option-drag duplication, Shift-click
   lines, space-drag panning, and `Cmd`+scroll.
 
+---
+
+## Support
+
+Masume is free and always will be. If it saves you time annotating screenshots, or
+if the agent surfaces are useful in your own tooling, consider buying me a coffee and croissant!
+It helps keep the updates coming.
+
+<a href="https://paypal.me/2b3/5">
+  <img src="https://img.shields.io/badge/Donate-PayPal-blue.svg" alt="Donate with PayPal" />
+</a>
+
+**[https://paypal.me/2b3/5](https://paypal.me/2b3/10)**
+
+---
+
 ## License
 
-Masume's own contributions (everything added on top of
-[tk3fftk/kakico](https://github.com/tk3fftk/kakico)) are released under the
-MIT License; see [LICENSE](LICENSE). The original Kakico code is Copyright
-Hiroki Takatsuka and has no license file at the time of writing, so it
-remains all rights reserved until one is added upstream. Redistribution of
-Masume builds should wait for that.
+Masume is a combined work under two licenses:
+
+- **Masume's own contributions** (everything added on top of
+  [tk3fftk/kakico](https://github.com/tk3fftk/kakico)) are released under the
+  MIT License; see [LICENSE](LICENSE).
+- **The original Kakico code** is Copyright Hiroki Takatsuka and is licensed
+  under the [PolyForm Noncommercial License 1.0.0](LICENSE-kakico), added
+  upstream on 2026-09-06. Masume's model, renderer, and canvas still carry it.
+
+**Masume as a whole may therefore be used, modified, and distributed for
+noncommercial purposes only.** If you redistribute it in any form, ship
+[LICENSE-kakico](LICENSE-kakico) or the URL for those terms,
+<https://polyformproject.org/licenses/noncommercial/1.0.0>, along with it.
+
+The MCP server in [`mcp/`](mcp/) is an independent program that runs in its own
+process and talks to Masume over Apple Events. It contains no Kakico code and is
+offered under the MIT License alone.

@@ -1,11 +1,36 @@
+Masume is a combined work covered by two licenses.
+
+    Ian Shen's contributions .... MIT License (below)
+    The original Kakico code .... PolyForm Noncommercial License 1.0.0
+                                  (see LICENSE-kakico)
+
+Masume is derived from Kakico (github.com/tk3fftk/kakico), Copyright (c)
+Hiroki Takatsuka, which is licensed under the PolyForm Noncommercial License
+1.0.0. Masume's model, renderer, and canvas still carry that code.
+
+Because of this, THE WORK AS A WHOLE MAY BE USED, MODIFIED, AND DISTRIBUTED
+FOR NONCOMMERCIAL PURPOSES ONLY. The MIT grant below applies to Ian Shen's
+contributions considered separately; it does not and cannot grant commercial
+rights over the Kakico code those contributions are built on.
+
+Anyone who receives a copy of any part of Masume, in source or binary form,
+must also receive LICENSE-kakico or the URL for those terms,
+<https://polyformproject.org/licenses/noncommercial/1.0.0>.
+
+The MCP server in mcp/ is an independent program by Ian Shen. It runs in its
+own process and communicates with Masume only over Apple Events, contains no
+Kakico code, and is offered under the MIT License alone.
+
+--------------------------------------------------------------------------
+
 MIT License
 
 Copyright (c) 2026 Ian Shen
 
-This license covers the contributions made in this repository (github.com/2b3pro/masume)
-and in its predecessor fork (github.com/2b3pro/kakico).
-The original Kakico code is Copyright (c) Hiroki Takatsuka (github.com/tk3fftk/kakico)
-and is not licensed by this file; see the README's License section.
+This license covers the contributions made in this repository
+(github.com/2b3pro/masume) and in its predecessor fork
+(github.com/2b3pro/kakico). It does not cover the original Kakico code; see
+the notice above and LICENSE-kakico.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal

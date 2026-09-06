@@ -17,7 +17,7 @@ Do not commit generated `.build/` or `build/` content.
 - `swift build` compiles all package targets for local development.
 - `swift test` runs the complete XCTest suite.
 - `swift test --filter ZoomMathTests` runs a focused test class while iterating.
-- `swiftlint --strict` applies the repository's `.swiftlint.yml` checks. `aqua install` installs the pinned SwiftLint version when Aqua is available.
+- `swiftlint --strict` applies the repository's `.swiftlint.yml` checks. CI pins the version in `.github/workflows/swiftlint.yml`.
 - `./scripts/build-app.sh release` creates and ad-hoc-signs `build/Masume.app`; use `open build/Masume.app` for a manual smoke test.
 - `./scripts/generate-icon.sh` regenerates `Resources/AppIcon.icns` from the PNG source.
 
